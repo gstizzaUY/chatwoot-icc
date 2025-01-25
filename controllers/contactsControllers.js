@@ -518,6 +518,7 @@ const filterContacts = async (req, res) => {
 
 const updateContact = async (req, res) => {
     const contact = req.body.eventData;
+    console.log('Actualizar Contacto', contact.id);
     const updateContactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "email": contact.email,
@@ -674,6 +675,8 @@ const updateContact = async (req, res) => {
                 'api_access_token': api_access_token,
             },
         });
+
+        console.log('Contacto encontrado:', response.data.payload[0]);
 
         if (response.data.meta.count > 0) {
             const contactId = response.data.payload[0].id;
