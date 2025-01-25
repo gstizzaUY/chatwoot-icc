@@ -321,6 +321,19 @@ const importContacts = async (req, res) => {
                 "attribute_key": "identifier",
                 "filter_operator": "equal_to",
                 "values": [contact.id],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "email",
+                "filter_operator": "equal_to",
+                "values": [contact.email],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "phone_number",
+                "filter_operator": "equal_to",
+                "values": [contact.phone],
+                "query_operator": null
             }
         ]
     }
@@ -664,6 +677,19 @@ const updateContact = async (req, res) => {
                 "attribute_key": "identifier",
                 "filter_operator": "equal_to",
                 "values": [contact.id],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "email",
+                "filter_operator": "equal_to",
+                "values": [contact.email],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "phone_number",
+                "filter_operator": "equal_to",
+                "values": [contact.phone],
+                "query_operator": null
             }
         ]
     }
@@ -720,6 +746,19 @@ const deleteContact = async (req, res) => {
                 "attribute_key": "identifier",
                 "filter_operator": "equal_to",
                 "values": [contact.id],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "email",
+                "filter_operator": "equal_to",
+                "values": [contact.email],
+                "query_operator": "OR"
+            },
+            {
+                "attribute_key": "phone_number",
+                "filter_operator": "equal_to",
+                "values": [contact.phone],
+                "query_operator": null
             }
         ]
     }
