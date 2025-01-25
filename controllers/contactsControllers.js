@@ -676,7 +676,7 @@ const updateContact = async (req, res) => {
             },
         });
 
-        console.log('Contacto encontrado:', response.data.payload[0]);
+        console.log('Contacto encontrado:', response.data);
 
         if (response.data.meta.count > 0) {
             const contactId = response.data.payload[0].id;
