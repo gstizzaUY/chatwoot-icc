@@ -315,28 +315,29 @@ const importContacts = async (req, res) => {
     };
 
     // Buscar el contacto en Chatwoot
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+    
     const payload = {
-        "payload": [
-            {
-                "attribute_key": "identifier",
-                "filter_operator": "equal_to",
-                "values": [contact.id],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "email",
-                "filter_operator": "equal_to",
-                "values": [contact.email],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "phone_number",
-                "filter_operator": "equal_to",
-                "values": [contact.phone],
-                "query_operator": null
-            }
+        payload: [
+            {id: contact.id, key: 'identifier'},
+            {id: contact.email, key: 'email'},
+            {id: contact.phone, key: 'phone_number'}
         ]
-    }
+        .map(item => buildPayloadItem(item.key, item.id))
+        .filter(Boolean)
+        .map((item, index, array) => ({
+            ...item,
+            query_operator: index === array.length - 1 ? null : "OR"
+        }))
+    };
 
     try {
         const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, payload, {
@@ -671,28 +672,29 @@ const updateContact = async (req, res) => {
 
     
     // Busar el contacto en Chatwoot
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+    
     const payload = {
-        "payload": [
-            {
-                "attribute_key": "identifier",
-                "filter_operator": "equal_to",
-                "values": [contact.id],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "email",
-                "filter_operator": "equal_to",
-                "values": [contact.email],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "phone_number",
-                "filter_operator": "equal_to",
-                "values": [contact.phone],
-                "query_operator": null
-            }
+        payload: [
+            {id: contact.id, key: 'identifier'},
+            {id: contact.email, key: 'email'},
+            {id: contact.phone, key: 'phone_number'}
         ]
-    }
+        .map(item => buildPayloadItem(item.key, item.id))
+        .filter(Boolean)
+        .map((item, index, array) => ({
+            ...item,
+            query_operator: index === array.length - 1 ? null : "OR"
+        }))
+    };
 
     try {
         const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, payload, {
@@ -740,28 +742,29 @@ const deleteContact = async (req, res) => {
 
     // Busar el contacto en Chatwoot
 
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+    
     const payload = {
-        "payload": [
-            {
-                "attribute_key": "identifier",
-                "filter_operator": "equal_to",
-                "values": [contact.id],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "email",
-                "filter_operator": "equal_to",
-                "values": [contact.email],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "phone_number",
-                "filter_operator": "equal_to",
-                "values": [contact.phone],
-                "query_operator": null
-            }
+        payload: [
+            {id: contact.id, key: 'identifier'},
+            {id: contact.email, key: 'email'},
+            {id: contact.phone, key: 'phone_number'}
         ]
-    }
+        .map(item => buildPayloadItem(item.key, item.id))
+        .filter(Boolean)
+        .map((item, index, array) => ({
+            ...item,
+            query_operator: index === array.length - 1 ? null : "OR"
+        }))
+    };
 
 
     try {
