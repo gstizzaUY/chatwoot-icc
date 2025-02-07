@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import contactsRoutes from './routes/contactsRoutes.js';
 import customAtributesRoutes from './routes/customAtributesRoutes.js';
+import dealsRoutes from './routes/dealsRoutes.js';
 
 
 dotenv.config();
@@ -23,6 +24,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/custom_atributes', customAtributesRoutes);
+app.use('/api/deals', dealsRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
