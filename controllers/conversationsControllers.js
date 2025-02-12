@@ -137,6 +137,21 @@ async function AddBotLabel(conversationId) {
 	}
 }
 
+async function RemoveLabels(conversationId) {
+	try {
+		const response = await chatwoot.post(
+			`/conversations/${conversationId}/labels`,
+			{
+				labels: []
+			}
+		);
+		return response.data;
+	} catch (error) {
+		console.error("Error al quitar etiquetas", error.message);
+		return null;
+	}
+}
+
 async function ProcessOutgoingMessage(message) {
 	const phoneNumberId = message.phone_number_id;
 	const inboxId = await GetWppInboxId(phoneNumberId);
@@ -147,7 +162,10 @@ async function ProcessOutgoingMessage(message) {
 
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (conversationId) {
-		if (message.agent === "bot") AddBotLabel(conversationId);
+		if (message.in_bot)
+			AddBotLabel(conversationId);
+		else
+			RemoveLabels(conversationId);
 
 		const messageContent = `${message.attachment_url}\n${message.body}`;
 		await SendMessage(conversationId, messageContent);
