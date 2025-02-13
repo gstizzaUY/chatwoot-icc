@@ -167,7 +167,9 @@ async function ProcessOutgoingMessage(message) {
 		else
 			RemoveLabels(conversationId);
 
-		const messageContent = `${message.attachment_url}\n${message.body}`;
+		let messageContent = message.body;
+		if (message.attachment_url)
+			messageContent = `${message.attachment_url}\n${messageContent}`;
 		await SendMessage(conversationId, messageContent);
 	}
 }
