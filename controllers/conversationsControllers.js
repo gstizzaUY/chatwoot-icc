@@ -122,32 +122,29 @@ async function SendMessage(conversationId, content) {
 	}
 }
 
-async function AddBotLabel(conversationId) {
+async function Getlabels(conversationId) {
 	try {
-		const response = await chatwoot.post(
-			`/conversations/${conversationId}/labels`,
-			{
-				labels: ["bot_activo"]
-			}
+		const response = await chatwoot.get(
+			`/conversations/${conversationId}/labels`
 		);
-		return response.data;
+		return response.data.payload;
 	} catch (error) {
-		console.error("Error al agregar etiqueta", error.message);
+		console.error("Error al obtener etiquetas", error.message);
 		return null;
 	}
 }
 
-async function RemoveLabels(conversationId) {
+async function SetLabels(conversationId, labels) {
 	try {
 		const response = await chatwoot.post(
 			`/conversations/${conversationId}/labels`,
 			{
-				labels: []
+				labels
 			}
 		);
 		return response.data;
 	} catch (error) {
-		console.error("Error al quitar etiquetas", error.message);
+		console.error("Error al agregar etiquetas", error.message);
 		return null;
 	}
 }
@@ -162,14 +159,18 @@ async function ProcessOutgoingMessage(message) {
 
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (conversationId) {
-		if (message.in_bot)
-			AddBotLabel(conversationId);
-		else
-			RemoveLabels(conversationId);
+		const LABEL_NAME = "bot_activo";
+		const labels = await Getlabels(conversationId);
+		if (message.in_bot) {
+			if (!labels.some(label => label.name === LABEL_NAME))
+				labels.push(LABEL_NAME);
+		} else
+			labels = labels.filter(label => label !== LABEL_NAME);
+		await SetLabels(conversationId, labels);
 
-		let messageContent = message.body;
-		if (message.attachment_url)
-			messageContent = `${message.attachment_url}\n${messageContent}`;
+		const messageContent = message.attachment_url
+			? `${message.attachment_url}\n${message.body}`
+			: message.body;
 		await SendMessage(conversationId, messageContent);
 	}
 }
