@@ -160,7 +160,7 @@ async function ProcessOutgoingMessage(message) {
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (conversationId) {
 		const LABEL_NAME = "bot_activo";
-		const labels = await Getlabels(conversationId);
+		var labels = await Getlabels(conversationId);
 		if (message.in_bot) {
 			if (!labels.some(label => label.name === LABEL_NAME))
 				labels.push(LABEL_NAME);
