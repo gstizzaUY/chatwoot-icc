@@ -122,6 +122,21 @@ async function SendMessage(conversationId, content) {
 	}
 }
 
+async function ChangeConversationStatus(conversationId, status) {
+	try {
+		const response = await chatwoot.post(
+			`/conversations/${conversationId}/toggle_status`,
+			{
+				status
+			}
+		);
+		return response.data;
+	} catch (error) {
+		console.error("Error al abrir conversacion", error.message);
+		return null;
+	}
+}
+
 async function Getlabels(conversationId) {
 	try {
 		const response = await chatwoot.get(
@@ -149,6 +164,14 @@ async function SetLabels(conversationId, labels) {
 	}
 }
 
+const TAGS_MAPPING = {
+	Comercial: "comercial",
+	Demo: "demo",
+	"Portal de Recetas": "portal_recetas",
+	"Soporte Técnico": "soporte_tecnico"
+};
+
+// Agregar mensajes enviados por el bot
 async function ProcessOutgoingMessage(message) {
 	const phoneNumberId = message.phone_number_id;
 	const inboxId = await GetWppInboxId(phoneNumberId);
@@ -159,17 +182,25 @@ async function ProcessOutgoingMessage(message) {
 
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (conversationId) {
-		const LABEL_NAME = "bot_activo";
-		var labels = await Getlabels(conversationId);
+		const BOT_ACTIVE = "bot_activo";
+		let labels = await Getlabels(conversationId);
 		if (message.in_bot) {
-			if (!labels.some(label => label.name === LABEL_NAME))
-				labels.push(LABEL_NAME);
-		} else
-			labels = labels.filter(label => label !== LABEL_NAME);
+			ChangeConversationStatus(conversationId, "open");
+			if (!labels.some(label => label.name === BOT_ACTIVE))
+				labels.push(BOT_ACTIVE);
+		} else labels = labels.filter(label => label !== BOT_ACTIVE);
+
+		const tags = message.tags || [];
+		for (const tag of tags) {
+			const label = TAGS_MAPPING[tag];
+			if (label && !labels.some(label => label.name === label))
+				labels.push(label);
+		}
+
 		await SetLabels(conversationId, labels);
 
 		const messageContent = message.attachment_url
-			? `${message.attachment_url}\n${message.body}`
+			? `${message.attachment_url}\n${message.body || ""}`
 			: message.body;
 		await SendMessage(conversationId, messageContent);
 	}
@@ -182,7 +213,8 @@ async function ProcessOutgoingMessage(message) {
 	body: string,
 	attachment_url: string,
 	agent: string,
-	in_bot: boolean
+	in_bot: boolean,
+	tags: [string]
 }
 */
 async function NotifyOutgoingMessage(req, res) {
