@@ -7,7 +7,26 @@ const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;
 
 const importContacts = async (req, res) => {
-    const contact = req.body.contact;   
+    const contact = req.body.contact;
+
+    // Actualizar campo tiene_ichef extraido de customData
+    const contactCustomData = contact.customData;
+    const jsonCustomData = JSON.parse(contactCustomData);
+    const tiene_ichef = jsonCustomData.tiene_ichef;
+
+    // Extraer la etapa del contacto
+    let contactStage = contact.stage;
+    if (contactStage === 'lead') {
+        contactStage = 'lead';
+    } else if (contactStage === 'marketingQualifiedLead') {
+        contactStage = 'mql';
+    } else if (contactStage === 'salesQualifiedLead') {
+        contactStage = 'sql';
+    } else if (contactStage === 'opportunity') {
+        contactStage = 'oportunidad';
+    } else if (contactStage === 'customer') {
+        contactStage = 'cliente';
+    }
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
@@ -143,13 +162,12 @@ const importContacts = async (req, res) => {
             "createdByClickAdGroup": contact.createdByClickAdGroup,
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
-            "blocked": contact.blocked
+            "blocked": contact.blocked,
+            "tiene_ichef": tiene_ichef
         }
     };
 
-
     const createNewContactImport = async () => {
-
         try {
             const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
                 headers: {
@@ -157,7 +175,7 @@ const importContacts = async (req, res) => {
                     'api_access_token': api_access_token,
                 },
             });
-            console.log(`Contacto creado con id ${response.data.id}`);
+            console.log(`Contacto creado con id ${response.data.payload.id}`);
         } catch (error) {
             console.error(` Error al crear contacto:`, error.message);
         }
@@ -298,9 +316,12 @@ const importContacts = async (req, res) => {
                 "createdByClickAdGroup": contact.createdByClickAdGroup,
                 "createdByClickKeyword": contact.createdByClickKeyword,
                 "createdByClickAdPosition": contact.createdByClickAdPosition,
-                "blocked": contact.blocked
+                "blocked": contact.blocked,
+                "tiene_ichef": tiene_ichef
+
             }
         };
+
         try {
             const response = await axios.put(`${chatwoot_url}/api/v1/accounts/2/contacts/${contactId}`, updateContactData, {
                 headers: {
@@ -308,10 +329,77 @@ const importContacts = async (req, res) => {
                     'api_access_token': api_access_token,
                 },
             });
-            console.log(`Contacto actualizado con id ${response.data.id}`);
+            console.log(`Contacto importado con id ${response.data.payload.id}`);
         } catch (error) {
             console.error(` Error al actualizar contacto:`, error.message);
+        };
+
+        // Buscar las conversaciones del contacto
+        try {
+            const response = await axios.get(`${chatwoot_url}/api/v1/accounts/2/contacts/${contactId}/conversations`, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api_access_token': api_access_token,
+                }
+            });
+
+            const conversations = response.data.payload.map(conversation => ({
+                id: conversation.id,
+                status: conversation.status,
+                tags: conversation.labels || []
+            }));
+
+            console.log(`Conversaciones del contacto:`, conversations);
+
+            conversations.forEach(async conversation => {
+                try {
+                    // Filtrar las etiquetas existentes
+                    const currentLabels = conversation.tags;
+                    console.log(`Etiquetas actuales:`, currentLabels);
+
+                    // Remover etiquetas de oportunidad anteriores
+                    const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
+                    const filteredLabels = currentLabels.filter(label => !opportunityLabels.includes(label));
+
+                    // Remover etiqueta tiene_ichef si existe
+                    const finalLabels = filteredLabels.filter(label => label !== 'tiene_ichef');
+
+                    // Preparar las etiquetas actualizadas con la etapa actual
+                    let updatedLabels = [...finalLabels, contactStage];
+
+                    // Agregar etiqueta tiene_ichef solo si es "Sí"
+                    if (tiene_ichef === "Sí") {
+                        updatedLabels = [...updatedLabels, 'tiene_ichef'];
+                    }
+
+                    console.log(`Etiquetas actualizadas:`, updatedLabels);
+
+                    const updateConversationData = {
+                        "labels": updatedLabels
+                    };
+
+                    const response = await axios.post(
+                        `${chatwoot_url}/api/v1/accounts/2/conversations/${conversation.id}/labels`,
+                        updateConversationData,
+                        {
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'api_access_token': api_access_token,
+                            },
+                        }
+                    );
+                    console.log(`Conversación ${conversation.id} actualizada con etiquetas:`, updatedLabels);
+                }
+                catch (error) {
+                    console.error(`Error al actualizar etiquetas de la conversación:`, error.message);
+                }
+            });
+
+        } catch (error) {
+            console.error(`Error al buscar conversaciones del contacto:`, error.message);
+            res.status(500).json({ error: error.message });
         }
+
     };
 
     // Buscar el contacto en Chatwoot
@@ -324,19 +412,19 @@ const importContacts = async (req, res) => {
             query_operator: "OR"
         };
     };
-    
+
     const payload = {
         payload: [
-            {id: contact.id, key: 'identifier'},
-            {id: contact.email, key: 'email'},
-            {id: contact.phone, key: 'phone_number'}
+            { id: contact.id, key: 'identifier' },
+            { id: contact.email, key: 'email' },
+            { id: contact.phone, key: 'phone_number' }
         ]
-        .map(item => buildPayloadItem(item.key, item.id))
-        .filter(Boolean)
-        .map((item, index, array) => ({
-            ...item,
-            query_operator: index === array.length - 1 ? null : "OR"
-        }))
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
     };
 
     try {
@@ -348,29 +436,30 @@ const importContacts = async (req, res) => {
         });
 
         if (response.data.meta.count > 0) {
-            console.log('Contacto encontrado:', response.data);
+            console.log('Contacto encontrado en chatwoot:', response.data.payload.id);
             await updateContactImport(response.data.payload[0].id);
             res.status(200).json(response.data);
 
         } else {
-            console.log('Contacto no encontrado');
+            console.log('Contacto no creado en chatwoot');
             await createNewContactImport();
-            res.status(404).json({ message: 'Contacto no encontrado' });
+            res.status(200).json({ message: 'Contacto creado en chatwoot' });
         }
 
     } catch (error) {
         console.error(` Error:`, error);
         res.status(500).json({ error: error.message, detalles: error });
     }
-
-    
-
 };
-
-
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
+
+    // Actualizar campo tiene_ichef extraido de customData
+    const contactCustomData = contact.customData;
+    const jsonCustomData = JSON.parse(contactCustomData);
+    const tiene_ichef = jsonCustomData.tiene_ichef;
+
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "inbox_id": contact.phone !== undefined ? 4 : 1,
@@ -505,7 +594,8 @@ const createContact = async (req, res) => {
             "createdByClickAdGroup": contact.createdByClickAdGroup,
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
-            "blocked": contact.blocked
+            "blocked": contact.blocked,
+            "tiene_ichef": tiene_ichef
         }
     };
 
@@ -524,15 +614,32 @@ const createContact = async (req, res) => {
     }
 };
 
-
-
 const filterContacts = async (req, res) => {
-
 };
 
 const updateContact = async (req, res) => {
     const contact = req.body.eventData;
     console.log('Actualizar Contacto', contact.id);
+
+    // Extraer campo tiene_ichef de customData
+    const contactCustomData = contact.customData;
+    const jsonCustomData = JSON.parse(contactCustomData);
+    const tiene_ichef = jsonCustomData.tiene_ichef;
+
+    // Extraer la etapa del contacto
+    let contactStage = contact.stage;
+    if (contactStage === 'lead') {
+        contactStage = 'lead';
+    } else if (contactStage === 'marketingQualifiedLead') {
+        contactStage = 'mql';
+    } else if (contactStage === 'salesQualifiedLead') {
+        contactStage = 'sql';
+    } else if (contactStage === 'opportunity') {
+        contactStage = 'oportunidad';
+    } else if (contactStage === 'customer') {
+        contactStage = 'cliente';
+    }
+
     const updateContactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "email": contact.email,
@@ -666,11 +773,11 @@ const updateContact = async (req, res) => {
             "createdByClickAdGroup": contact.createdByClickAdGroup,
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
-            "blocked": contact.blocked
+            "blocked": contact.blocked,
+            "tiene_ichef": tiene_ichef
         }
     };
 
-    
     // Busar el contacto en Chatwoot
     const buildPayloadItem = (key, value) => {
         if (!value) return null;
@@ -681,19 +788,19 @@ const updateContact = async (req, res) => {
             query_operator: "OR"
         };
     };
-    
+
     const payload = {
         payload: [
-            {id: contact.id, key: 'identifier'},
-            {id: contact.email, key: 'email'},
-            {id: contact.phone, key: 'phone_number'}
+            { id: contact.id, key: 'identifier' },
+            { id: contact.email, key: 'email' },
+            { id: contact.phone, key: 'phone_number' }
         ]
-        .map(item => buildPayloadItem(item.key, item.id))
-        .filter(Boolean)
-        .map((item, index, array) => ({
-            ...item,
-            query_operator: index === array.length - 1 ? null : "OR"
-        }))
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
     };
 
     try {
@@ -704,10 +811,10 @@ const updateContact = async (req, res) => {
             },
         });
 
-        console.log('Contacto encontrado:', response.data);
-
         if (response.data.meta.count > 0) {
             const contactId = response.data.payload[0].id;
+
+            // Actualiza datos del contacto
             try {
                 const response = await axios.put(`${chatwoot_url}/api/v1/accounts/2/contacts/${contactId}`, updateContactData, {
                     headers: {
@@ -716,11 +823,79 @@ const updateContact = async (req, res) => {
                     },
                 });
                 console.log(`Contacto actualizado con id ${response.data.payload.identifier}`);
-                res.status(200).json(response.data);
+                //  res.status(200).json(response.data);
             } catch (error) {
                 console.error(` Error al actualizar contacto:`, error.message);
                 res.status(500).json({ error: error.message, detalles: error });
             }
+
+            // Buscar las conversaciones del contacto
+            try {
+                const response = await axios.get(`${chatwoot_url}/api/v1/accounts/2/contacts/${contactId}/conversations`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api_access_token': api_access_token,
+                    }
+                });
+
+                const conversations = response.data.payload.map(conversation => ({
+                    id: conversation.id,
+                    status: conversation.status,
+                    tags: conversation.labels || []
+                }));
+
+                console.log(`Conversaciones del contacto:`, conversations);
+
+                conversations.forEach(async conversation => {
+                    try {
+                        // Filtrar las etiquetas existentes
+                        const currentLabels = conversation.tags;
+                        console.log(`Etiquetas actuales:`, currentLabels);
+
+                        // Remover etiquetas de oportunidad anteriores
+                        const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
+                        const filteredLabels = currentLabels.filter(label => !opportunityLabels.includes(label));
+
+                        // Remover etiqueta tiene_ichef si existe
+                        const finalLabels = filteredLabels.filter(label => label !== 'tiene_ichef');
+
+                        // Preparar las etiquetas actualizadas con la etapa actual
+                        let updatedLabels = [...finalLabels, contactStage];
+
+                        // Agregar etiqueta tiene_ichef solo si es "Sí"
+                        if (tiene_ichef === "Sí") {
+                            updatedLabels = [...updatedLabels, 'tiene_ichef'];
+                        }
+
+                        console.log(`Etiquetas actualizadas:`, updatedLabels);
+
+                        const updateConversationData = {
+                            "labels": updatedLabels
+                        };
+
+                        const response = await axios.post(
+                            `${chatwoot_url}/api/v1/accounts/2/conversations/${conversation.id}/labels`,
+                            updateConversationData,
+                            {
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'api_access_token': api_access_token,
+                                },
+                            }
+                        );
+                        console.log(`Conversación ${conversation.id} actualizada con etiquetas:`, updatedLabels);
+                    }
+                    catch (error) {
+                        console.error(`Error al actualizar etiquetas de la conversación:`, error.message);
+                    }
+                });
+
+            } catch (error) {
+                console.error(`Error al buscar conversaciones del contacto:`, error.message);
+                res.status(500).json({ error: error.message });
+            }
+
+
         } else {
             console.log('Contacto no encontrado');
             res.status(404).json({ message: 'Contacto no encontrado' });
@@ -730,11 +905,7 @@ const updateContact = async (req, res) => {
         console.error(` Error:`, error);
         res.status(500).json({ error: error.message, detalles: error });
     }
-
 };
-
-
-
 
 const deleteContact = async (req, res) => {
     const contact = req.body.eventData;
@@ -751,19 +922,19 @@ const deleteContact = async (req, res) => {
             query_operator: "OR"
         };
     };
-    
+
     const payload = {
         payload: [
-            {id: contact.id, key: 'identifier'},
-            {id: contact.email, key: 'email'},
-            {id: contact.phone, key: 'phone_number'}
+            { id: contact.id, key: 'identifier' },
+            { id: contact.email, key: 'email' },
+            { id: contact.phone, key: 'phone_number' }
         ]
-        .map(item => buildPayloadItem(item.key, item.id))
-        .filter(Boolean)
-        .map((item, index, array) => ({
-            ...item,
-            query_operator: index === array.length - 1 ? null : "OR"
-        }))
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
     };
 
 
