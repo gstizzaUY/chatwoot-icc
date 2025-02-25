@@ -100,12 +100,9 @@ async function HandleOutgoingWppMessage(message) {
 	if (
 		message.event === "automation_event.message_created" &&
 		message.labels.some(label => label === "bot_activo") &&
-		message.messages.length > 0 &&
-		!message.messages[0].private
+		//message.messages.length > 0 && !message.messages[0].private
+		!message.messages[0].sender.phone_number // sent by agent
 	) {
-		const msg = message.messages[0];
-		console.log("Mensaje saliente", msg.private ? "privado" : "publico", msg.content);
-
 		const inboxId = message.contact_inbox.inbox_id;
 		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);
@@ -123,8 +120,6 @@ async function HandleOutgoingWppMessage(message) {
 // Cuando la conversacion se resuelve, cerrar la sesion del bot
 async function HandleSolvedWppConversation(message) {
 	if (message.event === "automation_event.conversation_updated" && message.status === "resolved") {
-		console.log("Conversación resuelta", message.id, message.status);
-
 		const inboxId = message.contact_inbox.inbox_id;
 		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);
