@@ -89,7 +89,7 @@ async function DisableBot(idConversation, idSession, idUser) {
 
 async function CloseConversation(idConversation, idSession) {
 	try {
-		await sailbot.put(`conversations/${idConversation}/sessions/${idSession}/mark-resolved`);
+		await sailbot.put(`conversations/${idConversation}/sessions/${idSession}/mark-resolved?typification=0`); // TODO: fix api
 	} catch (error) {
 		console.error("Error al cerrar la conversación", error.message);
 	}
@@ -103,6 +103,9 @@ async function HandleOutgoingWppMessage(message) {
 		message.messages.length > 0 &&
 		!message.messages[0].private
 	) {
+		const msg = message.messages[0];
+		console.log("Mensaje saliente", msg.private ? "privado" : "publico", msg.content);
+
 		const inboxId = message.contact_inbox.inbox_id;
 		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);
@@ -120,6 +123,8 @@ async function HandleOutgoingWppMessage(message) {
 // Cuando la conversacion se resuelve, cerrar la sesion del bot
 async function HandleSolvedWppConversation(message) {
 	if (message.event === "automation_event.conversation_updated" && message.status === "resolved") {
+		console.log("Conversación resuelta", message.id, message.status);
+
 		const inboxId = message.contact_inbox.inbox_id;
 		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);

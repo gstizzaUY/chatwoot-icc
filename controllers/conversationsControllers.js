@@ -81,25 +81,16 @@ async function GetContactId(contact) {
 
 async function GetLastConversationId(contactId, inboxId) {
 	try {
-		const response = await chatwoot.get(
-			`/contacts/${contactId}/conversations`
-		);
+		const response = await chatwoot.get(`/contacts/${contactId}/conversations`);
 		const conversations = response.data.payload;
 		const conversation = conversations.find(
-			conversation =>
-				conversation.meta.channel === "Channel::Whatsapp" &&
-				conversation.inbox_id === inboxId
+			conversation => conversation.meta.channel === "Channel::Whatsapp" && conversation.inbox_id === inboxId
 		);
 		if (conversation) return conversation.id;
 		console.warn("No se encontro la conversacion", contactId, inboxId);
 		return null;
 	} catch (error) {
-		console.error(
-			"Error al obtener conversaciones",
-			contactId,
-			inboxId,
-			error.message
-		);
+		console.error("Error al obtener conversaciones", contactId, inboxId, error.message);
 		return null;
 	}
 }
@@ -111,10 +102,7 @@ async function SendMessage(conversationId, content) {
 		content
 	};
 	try {
-		const response = await chatwoot.post(
-			`/conversations/${conversationId}/messages`,
-			privateMessage
-		);
+		const response = await chatwoot.post(`/conversations/${conversationId}/messages`, privateMessage);
 		return response.data;
 	} catch (error) {
 		console.error("Error al enviar mensaje", privateMessage, error.message);
@@ -124,12 +112,9 @@ async function SendMessage(conversationId, content) {
 
 async function ChangeConversationStatus(conversationId, status) {
 	try {
-		const response = await chatwoot.post(
-			`/conversations/${conversationId}/toggle_status`,
-			{
-				status
-			}
-		);
+		const response = await chatwoot.post(`/conversations/${conversationId}/toggle_status`, {
+			status
+		});
 		return response.data;
 	} catch (error) {
 		console.error("Error al abrir conversacion", error.message);
@@ -139,9 +124,7 @@ async function ChangeConversationStatus(conversationId, status) {
 
 async function Getlabels(conversationId) {
 	try {
-		const response = await chatwoot.get(
-			`/conversations/${conversationId}/labels`
-		);
+		const response = await chatwoot.get(`/conversations/${conversationId}/labels`);
 		return response.data.payload;
 	} catch (error) {
 		console.error("Error al obtener etiquetas", error.message);
@@ -151,12 +134,9 @@ async function Getlabels(conversationId) {
 
 async function SetLabels(conversationId, labels) {
 	try {
-		const response = await chatwoot.post(
-			`/conversations/${conversationId}/labels`,
-			{
-				labels
-			}
-		);
+		const response = await chatwoot.post(`/conversations/${conversationId}/labels`, {
+			labels
+		});
 		return response.data;
 	} catch (error) {
 		console.error("Error al agregar etiquetas", error.message);
@@ -185,24 +165,22 @@ async function ProcessOutgoingMessage(message) {
 		const BOT_ACTIVE = "bot_activo";
 		let labels = await Getlabels(conversationId);
 		if (message.in_bot) {
-			ChangeConversationStatus(conversationId, "open");
-			if (!labels.some(label => label.name === BOT_ACTIVE))
-				labels.push(BOT_ACTIVE);
+			if (!labels.some(label => label.name === BOT_ACTIVE)) labels.push(BOT_ACTIVE);
 		} else labels = labels.filter(label => label !== BOT_ACTIVE);
 
 		const tags = message.tags || [];
 		for (const tag of tags) {
 			const label = TAGS_MAPPING[tag];
-			if (label && !labels.some(label => label.name === label))
-				labels.push(label);
+			if (label && !labels.some(label => label.name === label)) labels.push(label);
 		}
-
 		await SetLabels(conversationId, labels);
 
 		const messageContent = message.attachment_url
 			? `${message.attachment_url}\n${message.body || ""}`
 			: message.body;
 		await SendMessage(conversationId, messageContent);
+
+		if (!message.in_bot) await ChangeConversationStatus(conversationId, "open");
 	}
 }
 
