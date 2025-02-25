@@ -74,19 +74,14 @@ async function GetContactOpenConversation(phoneNumberId, contactPhone) {
 		);
 		return response.data;
 	} catch (error) {
-		console.error(
-			"Error al obtener las conversaciones abiertas",
-			error.message
-		);
+		console.error("Error al obtener las conversaciones abiertas", error.message);
 		return null;
 	}
 }
 
 async function DisableBot(idConversation, idSession, idUser) {
 	try {
-		await sailbot.put(
-			`conversations/${idConversation}/sessions/${idSession}/assign-from-bot/${idUser}`
-		);
+		await sailbot.put(`conversations/${idConversation}/sessions/${idSession}/assign-from-bot/${idUser}`);
 	} catch (error) {
 		console.error("Error al desactivar el bot", error.message);
 	}
@@ -94,9 +89,7 @@ async function DisableBot(idConversation, idSession, idUser) {
 
 async function CloseConversation(idConversation, idSession) {
 	try {
-		await sailbot.put(
-			`conversations/${idConversation}/sessions/${idSession}/mark-resolved`
-		);
+		await sailbot.put(`conversations/${idConversation}/sessions/${idSession}/mark-resolved?typification=0`); // TODO: fix api
 	} catch (error) {
 		console.error("Error al cerrar la conversación", error.message);
 	}
@@ -107,43 +100,36 @@ async function HandleOutgoingWppMessage(message) {
 	if (
 		message.event === "automation_event.message_created" &&
 		message.labels.some(label => label === "bot_activo") &&
-		message.messages.length > 0 &&
-		!message.messages[0].private
+		//message.messages.length > 0 && !message.messages[0].private
+		!message.messages[0].sender.phone_number // sent by agent
 	) {
 		const inboxId = message.contact_inbox.inbox_id;
 		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);
 		const userId = await GetUserId();
-		const conversation = await GetContactOpenConversation(
-			phoneNumberId,
-			contactPhone
-		);
+		const conversation = await GetContactOpenConversation(phoneNumberId, contactPhone);
 		if (conversation) {
 			const { idConversation, session } = conversation;
 			const { idSession } = session;
 			await DisableBot(idConversation, idSession, userId);
-		}
+			console.log("Bot desactivado", idConversation, idSession);
+		} else console.warn("No se encontró la conversación", phoneNumberId, contactPhone);
 	}
 }
 
 // Cuando la conversacion se resuelve, cerrar la sesion del bot
-async function HandleSolvedWppConversation(conversation) {
-	if (
-		conversation.event === "automation_event.conversation_updated" &&
-		conversation.status === "resolved"
-	) {
-		const inboxId = conversation.contact_inbox.inbox_id;
-		const contactPhone = conversation.contact_inbox.source_id;
+async function HandleSolvedWppConversation(message) {
+	if (message.event === "automation_event.conversation_updated" && message.status === "resolved") {
+		const inboxId = message.contact_inbox.inbox_id;
+		const contactPhone = message.contact_inbox.source_id;
 		const phoneNumberId = await GetWppInboxPhoneNumberId(inboxId);
-		const conversation = await GetContactOpenConversation(
-			phoneNumberId,
-			contactPhone
-		);
+		const conversation = await GetContactOpenConversation(phoneNumberId, contactPhone);
 		if (conversation) {
 			const { idConversation, session } = conversation;
 			const { idSession } = session;
 			await CloseConversation(idConversation, idSession);
-		}
+			console.log("Conversación cerrada", idConversation, idSession);
+		} else console.warn("No se encontró la conversación", phoneNumberId, contactPhone);
 	}
 }
 
@@ -154,8 +140,8 @@ async function OnOutgoingWppMessage(req, res) {
 }
 
 async function OnSolvedWppConversation(req, res) {
-	const conversation = req.body;
-	HandleSolvedWppConversation(conversation); // do not await
+	const message = req.body;
+	HandleSolvedWppConversation(message); // do not await
 	return res.status(200).send("Event received");
 }
 
