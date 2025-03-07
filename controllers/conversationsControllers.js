@@ -115,7 +115,7 @@ async function ChangeConversationStatus(conversationId, status) {
 		const response = await chatwoot.post(`/conversations/${conversationId}/toggle_status`, {
 			status
 		});
-		return response.data;
+		return response.data.payload;
 	} catch (error) {
 		console.error("Error al abrir conversacion", error.message);
 		return null;
@@ -144,6 +144,25 @@ async function SetLabels(conversationId, labels) {
 	}
 }
 
+async function CreateConversation(contactId, inboxId, contactPhone, messageContent) {
+	const conversation = {
+		inbox_id: inboxId,
+		source_id: contactPhone,
+		contact_id: contactId,
+		status: "pending",
+		message: {
+			content: messageContent
+		}
+	};
+	try {
+		const response = await chatwoot.post("/conversations", conversation);
+		return response.data.id;
+	} catch (error) {
+		console.error("Error al crear conversación", error.message);
+		return null;
+	}
+}
+
 const TAGS_MAPPING = {
 	Comercial: "comercial",
 	Demo: "demo",
@@ -160,27 +179,33 @@ async function ProcessOutgoingMessage(message) {
 	const contact = { phone: contactPhone };
 	const contactId = await GetContactId(contact);
 
+	const messageContent = message.attachment_url ? `${message.attachment_url}\n${message.body || ""}` : message.body;
+
 	const conversationId = await GetLastConversationId(contactId, inboxId);
-	if (conversationId) {
-		const BOT_ACTIVE = "bot_activo";
-		let labels = await Getlabels(conversationId);
-		if (message.in_bot) {
-			if (!labels.some(label => label.name === BOT_ACTIVE)) labels.push(BOT_ACTIVE);
-		} else labels = labels.filter(label => label !== BOT_ACTIVE);
+	if (!conversationId) {
+		const newConversationId = await CreateConversation(contactId, inboxId, contactPhone, messageContent);
+		console.log(`Nueva conversación ${newConversationId} creada.`);
+		return;
+	}
 
-		const tags = message.tags || [];
-		for (const tag of tags) {
-			const label = TAGS_MAPPING[tag];
-			if (label && !labels.some(label => label.name === label)) labels.push(label);
-		}
-		await SetLabels(conversationId, labels);
+	const BOT_ACTIVE = "bot_activo";
+	let labels = await Getlabels(conversationId);
+	if (message.in_bot) {
+		if (!labels.some(label => label.name === BOT_ACTIVE)) labels.push(BOT_ACTIVE);
+	} else labels = labels.filter(label => label !== BOT_ACTIVE);
 
-		const messageContent = message.attachment_url
-			? `${message.attachment_url}\n${message.body || ""}`
-			: message.body;
-		await SendMessage(conversationId, messageContent);
+	const tags = message.tags || [];
+	for (const tag of tags) {
+		const label = TAGS_MAPPING[tag];
+		if (label && !labels.some(label => label.name === label)) labels.push(label);
+	}
+	await SetLabels(conversationId, labels);
 
-		if (!message.in_bot) await ChangeConversationStatus(conversationId, "open");
+	await SendMessage(conversationId, messageContent);
+
+	if (!message.in_bot) {
+		await ChangeConversationStatus(conversationId, "open");
+		console.log(`Conversación ${conversationId} abierta.`);
 	}
 }
 
