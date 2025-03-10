@@ -192,7 +192,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
             };
 
             try {
-                const response = await axios.post(`${chatwoot_url}/api/v1/conversations`, conversationData, {
+                const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/conversations`, conversationData, {
                     headers: {
                         'Content-Type': 'application/json',
                         'api_access_token': api_access_token,
