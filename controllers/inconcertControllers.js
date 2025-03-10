@@ -178,12 +178,38 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
 
         if (response.data.meta.count > 0) {
             console.log('Contacto encontrado en chatwoot:', response.data.payload[0].id);
-            res.status(200).json(response.data);
+            console.log('Datos del contacto', response.data.payload[0]);
 
-            console.log('Datos de contacto:', response.data.payload);
+            const conversationData = {
+                inbox_id: "20",
+                source_id: response.data.payload[0].identifier,
+                contact_id: response.data.payload[0].id,
+                status: 'open',
+                team_id: 1,
+                message: {
+                    content: 'Campaña creada por SDR',
+                }
+            };
 
+            try {
+                const response = await axios.post(`${chatwoot_url}/api/v1/conversations`, conversationData, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api_access_token': api_access_token,
+                    },
+                });
+                console.log('Conversación creada en Chatwoot:', response.data.id);
+                console.log('Datos de la conversación:', response.data);
+                res.status(200).json(response.data);
+            }
+            catch (error) {
+                console.error('Error al crear la conversación en Chatwoot:', error);
+                res.status(500).json({ error: error.message, detalles: error });
+            }
         } else {
 
+            console.log('Contacto no encontrado en Chatwoot');
+            res.status(404).json({ message: 'Contacto no encontrado en Chatwoot' });
         }
 
     } catch (error) {
