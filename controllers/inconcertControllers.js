@@ -3,11 +3,12 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const inconcert_url = process.env.INCONCERT_URL;
+const serviceToken = process.env.INCONCERT_CREATE_CONTACT_TOKEN
+const chatwoot_url = process.env.CHATWOOT_URL;
+const api_access_token = process.env.API_ACCESS_TOKEN;
+
 const chatwootWebhook = async (req, res) => {
-
-    const inconcert_url = process.env.INCONCERT_URL;
-    const serviceToken = process.env.INCONCERT_CREATE_CONTACT_TOKEN
-
 
     if (webhook.event === 'contact_created'){
         const dataContact = {
@@ -131,4 +132,68 @@ const chatwootWebhookConversationCreated = async (req, res) => {
 };
 
 
-export { chatwootWebhook , chatwootWebhookConversationCreated };
+const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
+    // Datos de contacto recibidos
+    // id del contacto
+    // teléfono del contacto
+    // email del contacto
+    // Responsable del contacto
+
+
+    const contactData = req.body;
+    console.log('Datos de contacto recibidos:', contactData);
+
+    // Buscar el contacto en Chatwoot
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+
+    const payload = {
+        payload: [
+            { id: contactData.id, key: 'identifier' },
+            { id: contactData.email, key: 'email' },
+            { id: contactData.phone, key: 'phone_number' }
+        ]
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
+    };
+
+    try {
+        const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'api_access_token': api_access_token,
+            },
+        });
+
+        if (response.data.meta.count > 0) {
+            console.log('Contacto encontrado en chatwoot:', response.data.payload[0].id);
+            res.status(200).json(response.data);
+
+            console.log('Datos de contacto:', response.data.payload);
+
+        } else {
+
+        }
+
+    } catch (error) {
+        console.error(` Error:`, error);
+        res.status(500).json({ error: error.message, detalles: error });
+    }
+
+
+
+};
+
+
+export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba };

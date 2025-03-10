@@ -13,6 +13,8 @@ const importContacts = async (req, res) => {
     const contactCustomData = contact.customData;
     const jsonCustomData = JSON.parse(contactCustomData);
     const tiene_ichef = jsonCustomData.tiene_ichef;
+    const participo_SDR = jsonCustomData.participo_SDR;
+    const estado_sdr = jsonCustomData.estado_sdr;
 
     // Extraer la etapa del contacto
     let contactStage = contact.stage;
@@ -163,7 +165,9 @@ const importContacts = async (req, res) => {
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
             "blocked": contact.blocked,
-            "tiene_ichef": tiene_ichef
+            "tiene_ichef": tiene_ichef,
+            "participo_SDR": participo_SDR,
+            "estado_sdr": estado_sdr
         }
     };
 
@@ -317,7 +321,9 @@ const importContacts = async (req, res) => {
                 "createdByClickKeyword": contact.createdByClickKeyword,
                 "createdByClickAdPosition": contact.createdByClickAdPosition,
                 "blocked": contact.blocked,
-                "tiene_ichef": tiene_ichef
+                "tiene_ichef": tiene_ichef,
+                "participo_SDR": participo_SDR,
+                "estado_sdr": estado_sdr
 
             }
         };
@@ -459,6 +465,9 @@ const createContact = async (req, res) => {
     const contactCustomData = contact.customData;
     const jsonCustomData = JSON.parse(contactCustomData);
     const tiene_ichef = jsonCustomData.tiene_ichef;
+    const participo_SDR = jsonCustomData.participo_SDR;
+    const estado_sdr = jsonCustomData.estado_sdr;
+
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
@@ -595,7 +604,9 @@ const createContact = async (req, res) => {
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
             "blocked": contact.blocked,
-            "tiene_ichef": tiene_ichef
+            "tiene_ichef": tiene_ichef,
+            "participo_SDR": participo_SDR,
+            "estado_sdr": estado_sdr
         }
     };
 
@@ -625,6 +636,8 @@ const updateContact = async (req, res) => {
     const contactCustomData = contact.customData;
     const jsonCustomData = JSON.parse(contactCustomData);
     const tiene_ichef = jsonCustomData.tiene_ichef;
+    const participo_SDR = jsonCustomData.participo_SDR;
+    const estado_sdr = jsonCustomData.estado_sdr;
 
     // Extraer la etapa del contacto
     let contactStage = contact.stage;
@@ -774,11 +787,13 @@ const updateContact = async (req, res) => {
             "createdByClickKeyword": contact.createdByClickKeyword,
             "createdByClickAdPosition": contact.createdByClickAdPosition,
             "blocked": contact.blocked,
-            "tiene_ichef": tiene_ichef
+            "tiene_ichef": tiene_ichef,
+            "participo_SDR": participo_SDR,
+            "estado_sdr": estado_sdr
         }
     };
 
-    // Busar el contacto en Chatwoot
+    // Buscar el contacto en Chatwoot
     const buildPayloadItem = (key, value) => {
         if (!value) return null;
         return {
