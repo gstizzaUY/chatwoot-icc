@@ -187,7 +187,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
                 status: 'open',
                 team_id: 1,
                 message: {
-                    content: 'Campaña creada por SDR',
+                    content: 'Campaña creada para SDR',
                 }
             };
 
