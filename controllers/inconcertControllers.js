@@ -184,7 +184,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
                 inbox_id: "20",
                 source_id: response.data.payload[0].identifier,
                 contact_id: response.data.payload[0].id,
-                status: 'open',
+                status: 'pending',
                 team_id: 1,
                 message: {
                     content: 'Campaña creada para SDR',
