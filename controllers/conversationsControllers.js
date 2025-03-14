@@ -87,7 +87,7 @@ async function GetLastConversationId(contactId, inboxId) {
 			conversation => conversation.meta.channel === "Channel::Whatsapp" && conversation.inbox_id === inboxId
 		);
 		if (conversation) return conversation.id;
-		console.warn("No se encontro la conversacion", contactId, inboxId);
+		//console.warn("No se encontro la conversacion", contactId, inboxId);
 		return null;
 	} catch (error) {
 		console.error("Error al obtener conversaciones", contactId, inboxId, error.message);
@@ -203,7 +203,7 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	if (!message.in_bot) {
+	if (!message.in_bot && !message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
 	}
@@ -217,6 +217,7 @@ async function ProcessOutgoingMessage(message) {
 	attachment_url: string,
 	agent: string,
 	in_bot: boolean,
+	is_hsm: boolean,
 	tags: [string]
 }
 */
