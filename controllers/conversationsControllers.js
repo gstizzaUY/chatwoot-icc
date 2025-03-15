@@ -203,7 +203,8 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	if (!message.in_bot && !message.is_hsm) {
+	// El mensaje fue enviado por el bot, y la sesion fue derivada
+	if (!message.in_bot && !message.is_hsm && message.agent === "Chatbot") {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
 	}
