@@ -214,7 +214,7 @@ async function ProcessOutgoingMessage(message) {
 		if (message.agent === "Chatbot") {
 			await ChangeConversationStatus(conversationId, "open");
 			console.log(`Conversación ${conversationId} abierta, derivada por Chatbot.`);
-		}
+		} else console.warn(`Conversación ${conversationId} cerrada, atendida por ${message.agent}.`);
 	}
 }
 
