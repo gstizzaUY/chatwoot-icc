@@ -179,7 +179,10 @@ async function ProcessOutgoingMessage(message) {
 	const contact = { phone: contactPhone };
 	const contactId = await GetContactId(contact);
 
-	const messageContent = message.attachment_url ? `${message.attachment_url}\n${message.body || ""}` : message.body;
+	//const messageContent = message.attachment_url ? `${message.attachment_url}\n${message.body || ""}` : message.body;
+	let messageContent = message.attachment_url || "";
+	if (message.body) messageContent += messageContent ? `\n${message.body}` : message.body;
+	if (message.agent !== "Chatbot") messageContent += `\n\n[${message.agent}]`;
 
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (!conversationId) {
@@ -204,9 +207,14 @@ async function ProcessOutgoingMessage(message) {
 	await SendMessage(conversationId, messageContent);
 
 	// El mensaje fue enviado por el bot, y la sesion fue derivada
-	if (!message.in_bot && !message.is_hsm && message.agent === "Chatbot") {
-		await ChangeConversationStatus(conversationId, "open");
-		console.log(`Conversación ${conversationId} abierta.`);
+	if (message.is_hsm) {
+		await ChangeConversationStatus(conversationId, "pending");
+		console.log(`Conversación ${conversationId} por HSM, pendiente.`);
+	} else if (!message.in_bot) {
+		if (message.agent === "Chatbot") {
+			await ChangeConversationStatus(conversationId, "open");
+			console.log(`Conversación ${conversationId} abierta, derivada por Chatbot.`);
+		}
 	}
 }
 
