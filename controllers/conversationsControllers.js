@@ -179,6 +179,12 @@ async function ProcessOutgoingMessage(message) {
 	const contact = { phone: contactPhone };
 	const contactId = await GetContactId(contact);
 
+	if (!contactId) {
+		console.warn("No se encontro el contacto con telefono:", contactPhone);
+		console.info(message);
+		return;
+	}
+
 	//const messageContent = message.attachment_url ? `${message.attachment_url}\n${message.body || ""}` : message.body;
 	let messageContent = message.attachment_url || "";
 	if (message.body) messageContent += messageContent ? `\n${message.body}` : message.body;
