@@ -460,7 +460,7 @@ const importContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.loh('Crear Contacto', req.body);
+    console.log('Crear Contacto', req.body);
 
     // Actualizar campo tiene_ichef extraido de customData
     const contactCustomData = contact.customData;
