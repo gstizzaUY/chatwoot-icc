@@ -494,7 +494,7 @@ try {
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "inbox_id": contact.phone !== undefined ? 3 : 13,
-        "email": contact.email,
+        "email": contact.email !== undefined ? contact.email : '',
         "phone_number": contact.phone,
         "identifier": contact.id,
         "custom_attributes": {
