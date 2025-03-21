@@ -475,16 +475,17 @@ try {
         participo_SDR = jsonCustomData?.participo_SDR || '';
         estado_sdr = jsonCustomData?.estado_sdr || '';
     }
-} catch (error) {
-    console.error('Error al parsear customData:', error);
-    
-}
-
     console.log('contactCustomData', contactCustomData);
     console.log('jsonCustomData', jsonCustomData);
     console.log('tiene_ichef', tiene_ichef);
     console.log('participo_SDR', participo_SDR);
     console.log('estado_sdr', estado_sdr);
+} catch (error) {
+    console.error('Error al parsear customData:', error);
+    
+}
+
+
 
 
 
