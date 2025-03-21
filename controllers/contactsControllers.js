@@ -469,6 +469,13 @@ const createContact = async (req, res) => {
     const participo_SDR = jsonCustomData.participo_SDR;
     const estado_sdr = jsonCustomData.estado_sdr;
 
+    console.log('contactCustomData', contactCustomData);
+    console.log('jsonCustomData', jsonCustomData);
+    console.log('tiene_ichef', tiene_ichef);
+    console.log('participo_SDR', participo_SDR);
+    console.log('estado_sdr', estado_sdr);
+
+
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
@@ -610,6 +617,8 @@ const createContact = async (req, res) => {
             "estado_sdr": estado_sdr
         }
     };
+
+    console.log('contactData', contactData);
 
     try {
         const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
