@@ -460,27 +460,26 @@ const importContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log('Crear Contacto', req.body);
 
-// Actualizar campo tiene_ichef extraido de customData
-let tiene_ichef = '';
-let participo_SDR = '';
-let estado_sdr = '';
+    // Actualizar campo tiene_ichef extraido de customData
+    let tiene_ichef = '';
+    let participo_SDR = '';
+    let estado_sdr = '';
 
-try {
-    if (contact && contact.customData) {
-        const contactCustomData = contact.customData;
-        const jsonCustomData = JSON.parse(contactCustomData);
-        tiene_ichef = jsonCustomData?.tiene_ichef || '';
-        participo_SDR = jsonCustomData?.participo_SDR || '';
-        estado_sdr = jsonCustomData?.estado_sdr || '';
+    try {
+        if (contact && contact.customData) {
+            const contactCustomData = contact.customData;
+            const jsonCustomData = JSON.parse(contactCustomData);
+            tiene_ichef = jsonCustomData?.tiene_ichef || '';
+            participo_SDR = jsonCustomData?.participo_SDR || '';
+            estado_sdr = jsonCustomData?.estado_sdr || '';
+        }
+    } catch (error) {
+        console.error('Error al parsear customData:', error);
+        tiene_ichef = '';
+        participo_SDR = '';
+        estado_sdr = '';
     }
-} catch (error) {
-    console.error('Error al parsear customData:', error);
-    tiene_ichef = '';
-    participo_SDR = '';
-    estado_sdr = '';
-}
 
 
     // Extraer la etapa del contacto
@@ -637,8 +636,6 @@ try {
         }
     };
 
-    console.log('contactData', contactData);
-
     try {
         const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
             headers: {
@@ -646,7 +643,7 @@ try {
                 'api_access_token': api_access_token,
             },
         });
-        console.log(`Contacto creado con id ${response.data.payload.identifier}`);
+        console.log(`Contacto creado: ${response.data.payload}`);
         res.status(200).json(response.data.payload);
     } catch (error) {
         console.error(` Error al crear contacto:`, error.message);
