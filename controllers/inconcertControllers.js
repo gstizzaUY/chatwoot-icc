@@ -30,8 +30,6 @@ const chatwootWebhook = async (req, res) => {
                 'Content-Type': 'application/json'
             }
         });
-
-        console.log(response.data);
         return res.status(200);
     }
 };
@@ -83,7 +81,6 @@ const createContactData = (webhook) => {
 const chatwootWebhookConversationCreated = async (req, res) => {
     try {
         const webhook = req.body;
-        console.log('Webhook recibido:', webhook);
 
         // Validar que el canal sea soportado
         if (!Object.values(CHANNELS).includes(webhook.channel)) {
@@ -117,7 +114,6 @@ const chatwootWebhookConversationCreated = async (req, res) => {
             }
         });
 
-        console.log('Respuesta Inconcert:', response.data);
         return res.status(200).json({
             success: true,
             message: 'Conversación procesada correctamente'
@@ -141,7 +137,6 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
 
 
     const contactData = req.body;
-    console.log('Datos de contacto recibidos:', contactData);
 
     // Buscar el contacto en Chatwoot
     const buildPayloadItem = (key, value) => {
@@ -175,11 +170,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
                 'api_access_token': api_access_token,
             },
         });
-
         if (response.data.meta.count > 0) {
-            console.log('Contacto encontrado en chatwoot:', response.data.payload[0].id);
-            console.log('Datos del contacto', response.data.payload[0]);
-
             const conversationData = {
                 inbox_id: "20",
                 source_id: response.data.payload[0].identifier,
@@ -198,8 +189,6 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
                         'api_access_token': api_access_token,
                     },
                 });
-                console.log('Conversación creada en Chatwoot:', response.data.id);
-                console.log('Datos de la conversación:', response.data);
                 res.status(200).json(response.data);
             }
             catch (error) {
@@ -207,19 +196,13 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
                 res.status(500).json({ error: error.message, detalles: error });
             }
         } else {
-
             console.log('Contacto no encontrado en Chatwoot');
             res.status(404).json({ message: 'Contacto no encontrado en Chatwoot' });
         }
-
     } catch (error) {
         console.error(` Error:`, error);
         res.status(500).json({ error: error.message, detalles: error });
     }
-
-
-
 };
-
 
 export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba };
