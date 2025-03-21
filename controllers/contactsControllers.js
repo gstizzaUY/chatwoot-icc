@@ -482,7 +482,9 @@ try {
     console.log('estado_sdr', estado_sdr);
 } catch (error) {
     console.error('Error al parsear customData:', error);
-    
+    tiene_ichef = '';
+    participo_SDR = '';
+    estado_sdr = '';
 }
 
 
