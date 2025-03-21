@@ -475,11 +475,6 @@ try {
         participo_SDR = jsonCustomData?.participo_SDR || '';
         estado_sdr = jsonCustomData?.estado_sdr || '';
     }
-    console.log('contactCustomData', contactCustomData);
-    console.log('jsonCustomData', jsonCustomData);
-    console.log('tiene_ichef', tiene_ichef);
-    console.log('participo_SDR', participo_SDR);
-    console.log('estado_sdr', estado_sdr);
 } catch (error) {
     console.error('Error al parsear customData:', error);
     tiene_ichef = '';
@@ -488,14 +483,24 @@ try {
 }
 
 
-
-
+    // Extraer la etapa del contacto
+    let contactStage = contact.stage;
+    if (contactStage === 'lead') {
+        contactStage = 'lead';
+    } else if (contactStage === 'marketingQualifiedLead') {
+        contactStage = 'mql';
+    } else if (contactStage === 'salesQualifiedLead') {
+        contactStage = 'sql';
+    } else if (contactStage === 'opportunity') {
+        contactStage = 'oportunidad';
+    } else if (contactStage === 'customer') {
+        contactStage = 'cliente';
+    }
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
-        "inbox_id": contact.phone !== undefined ? 3 : 13,
-        "email": contact.email !== undefined ? contact.email : '',
-        "phone_number": contact.phone,
+        "email": contact.email,
+        "phone_number": contact.phoneInternational,
         "identifier": contact.id,
         "custom_attributes": {
             "firstname": contact.firstname,
