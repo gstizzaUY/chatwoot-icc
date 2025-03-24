@@ -302,7 +302,7 @@ const updateDeal = (req, res) => {
                 "filter_operator": "equal_to",
                 "values": [contactoBuscar],
                 "query_operator": null,
-                "query_operator": "OR"
+                "query_operator": null
             }
         ]
     }
