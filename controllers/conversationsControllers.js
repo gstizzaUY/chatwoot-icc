@@ -144,12 +144,13 @@ async function SetLabels(conversationId, labels) {
 	}
 }
 
+// Estados: open, pending, resolved
 async function CreateConversation(contactId, inboxId, contactPhone, messageContent) {
 	const conversation = {
 		inbox_id: inboxId,
 		source_id: contactPhone,
 		contact_id: contactId,
-		status: "pending",
+		status: "resolved",
 		message: {
 			content: messageContent
 		}
@@ -214,13 +215,14 @@ async function ProcessOutgoingMessage(message) {
 
 	// El mensaje fue enviado por el bot, y la sesion fue derivada
 	if (message.is_hsm) {
+		await ChangeConversationStatus(conversationId, "resolved");
+		console.log(`Conversación ${conversationId} creada por HSM.`);
+	} else if (message.in_bot || message.agent === "Chatbot") {
 		await ChangeConversationStatus(conversationId, "pending");
-		console.log(`Conversación ${conversationId} por HSM, pendiente.`);
-	} else if (!message.in_bot) {
-		if (message.agent === "Chatbot") {
-			await ChangeConversationStatus(conversationId, "open");
-			console.log(`Conversación ${conversationId} abierta, derivada por Chatbot.`);
-		} else console.warn(`Conversación ${conversationId} cerrada, atendida por ${message.agent}.`);
+		console.log(`Conversación ${conversationId} pendiente, en Chatbot.`);
+	} else {
+		await ChangeConversationStatus(conversationId, "open");
+		console.log(`Conversación ${conversationId} abierta.`);
 	}
 }
 
