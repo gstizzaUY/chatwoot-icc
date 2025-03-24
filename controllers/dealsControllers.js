@@ -223,7 +223,7 @@ const createDeal = (req, res) => {
 };
 
 const updateDeal = (req, res) => {
-    console.log('deao', req.body);
+    console.log('deal', req.body);
     const deal = req.body.eventData;
     // Convertir deal.id en número
     const dealId = parseInt(deal.id);
@@ -303,18 +303,6 @@ const updateDeal = (req, res) => {
                 "values": [contactoBuscar],
                 "query_operator": null,
                 "query_operator": "OR"
-            },
-            {
-                "attribute_key": "email",
-                "filter_operator": "equal_to",
-                "values": [contactoBuscar],
-                "query_operator": "OR"
-            },
-            {
-                "attribute_key": "phone_number",
-                "filter_operator": "equal_to",
-                "values": [contactoBuscar],
-                "query_operator": null
             }
         ]
     }
