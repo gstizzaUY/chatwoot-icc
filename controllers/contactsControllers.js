@@ -53,7 +53,7 @@ const importContacts = async (req, res) => {
         "name": contact.firstname + ' ' + contact.lastname,
         "inbox_id": contact.phone !== null ? 23 : 1,
         "email": contact.email,
-        "phone_number": contact.phone.length > 0 ? contact.phoneInternational : null,
+        "phone_number": contact.phoneInternational,
         "identifier": contact.id,
         "custom_attributes": {
             "firstname": contact.firstname,
@@ -669,7 +669,7 @@ const createContact = async (req, res) => {
             },
         });
         console.log(`Contacto creado: ${response.data.payload}`);
-        res.status(200).json(response.data.payload);
+        res.status(200).json({ payload: response.data.payload });
     } catch (error) {
         console.error(` Error al crear contacto:`, error.message);
         res.status(500).json({ error: error.message, detalles: error });
