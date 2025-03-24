@@ -8,7 +8,7 @@ const api_access_token = process.env.API_ACCESS_TOKEN;
 
 const importContacts = async (req, res) => {
     const contact = req.body.contact;
-    console.log('Importar Contacto', contact.id);
+    console.log('Importar Contacto', contact);
 
     // Actualizar campo tiene_ichef extraido de customData
     let tiene_ichef = '';
@@ -29,6 +29,10 @@ const importContacts = async (req, res) => {
         participo_SDR = '';
         estado_sdr = '';
     }
+
+    console.log('tiene_ichef:', tiene_ichef);
+    console.log('participo_SDR:', participo_SDR);
+    console.log('estado_sdr:', estado_sdr);
 
 
     // Extraer la etapa del contacto
