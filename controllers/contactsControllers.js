@@ -895,7 +895,7 @@ const updateContact = async (req, res) => {
                     },
                 });
                 console.log(`Contacto actualizado con id ${response.data.payload.identifier}`);
-                //  res.status(200).json(response.data);
+                // res.status(200).json(response.data);
             } catch (error) {
                 console.error(` Error al actualizar contacto:`, error.message);
                 res.status(500).json({ error: error.message, detalles: error });
@@ -966,6 +966,9 @@ const updateContact = async (req, res) => {
                 console.error(`Error al buscar conversaciones del contacto:`, error.message);
                 res.status(500).json({ error: error.message });
             }
+
+            console.log('Contacto actualizado', contact.id);
+            res.status(200).json({ message: 'Contacto actualizado' });
 
 
         } else {
