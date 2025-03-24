@@ -51,7 +51,7 @@ const importContacts = async (req, res) => {
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
-        "inbox_id": contact.phone !== null ? 4 : 1,
+        "inbox_id": contact.phone !== null ? 23 : 1,
         "email": contact.email,
         "phone_number": contact.phoneInternational,
         "identifier": contact.id,
@@ -517,6 +517,7 @@ const createContact = async (req, res) => {
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
+        "inbox_id": contact.phone !== null ? 23 : 1,  
         "email": contact.email,
         "phone_number": contact.phoneInternational,
         "identifier": contact.id,
