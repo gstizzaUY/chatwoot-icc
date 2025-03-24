@@ -484,6 +484,7 @@ const importContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
+    console.log('Crear Contacto', contact);
 
     // Actualizar campo tiene_ichef extraido de customData
     let tiene_ichef = '';
@@ -660,6 +661,8 @@ const createContact = async (req, res) => {
             "estado_sdr": estado_sdr
         }
     };
+
+    console.log('Datos del contacto a crear:', contactData);
 
     try {
         const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
