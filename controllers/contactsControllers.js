@@ -10,11 +10,25 @@ const importContacts = async (req, res) => {
     const contact = req.body.contact;
 
     // Actualizar campo tiene_ichef extraido de customData
-    const contactCustomData = contact.customData;
-    const jsonCustomData = JSON.parse(contactCustomData);
-    const tiene_ichef = jsonCustomData.tiene_ichef;
-    const participo_SDR = jsonCustomData.participo_SDR;
-    const estado_sdr = jsonCustomData.estado_sdr;
+    let tiene_ichef = '';
+    let participo_SDR = '';
+    let estado_sdr = '';
+
+    try {
+        if (contact && contact.customData) {
+            const contactCustomData = contact.customData;
+            const jsonCustomData = JSON.parse(contactCustomData);
+            tiene_ichef = jsonCustomData?.tiene_ichef || '';
+            participo_SDR = jsonCustomData?.participo_SDR || '';
+            estado_sdr = jsonCustomData?.estado_sdr || '';
+        }
+    } catch (error) {
+        console.error('Error al parsear customData:', error);
+        tiene_ichef = '';
+        participo_SDR = '';
+        estado_sdr = '';
+    }
+
 
     // Extraer la etapa del contacto
     let contactStage = contact.stage;
