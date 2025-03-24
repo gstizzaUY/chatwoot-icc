@@ -202,7 +202,10 @@ const importContacts = async (req, res) => {
             });
             console.log(`Contacto creado con id ${response.data.payload.id}`);
         } catch (error) {
-            console.error(` Error al crear contacto:`, error.message);
+            console.error(`Error al crear contacto (${error.response?.status || 'sin status'}):`, error.message);
+            if (error.response?.data) {
+                console.error('Detalles del error:', JSON.stringify(error.response.data, null, 2));
+            }
         }
     };
 
