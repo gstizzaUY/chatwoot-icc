@@ -671,7 +671,10 @@ const createContact = async (req, res) => {
         console.log(`Contacto creado: ${response.data.payload}`);
         res.status(200).json({ payload: response.data.payload });
     } catch (error) {
-        console.error(` Error al crear contacto:`, error.message);
+        console.error(`Error al crear contacto (${error.response?.status || 'sin status'}):`, error.message);
+        if (error.response?.data) {
+            console.error('Detalles del error:', JSON.stringify(error.response.data, null, 2));
+        }
         res.status(500).json({ error: error.message, detalles: error });
     }
 };
