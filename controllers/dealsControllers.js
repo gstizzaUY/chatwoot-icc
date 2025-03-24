@@ -321,6 +321,7 @@ const updateDeal = (req, res) => {
 
     axios.post(searchUrl, payload, config)
     .then(response => {
+        console.log('response', response.data);
         if (response.data.meta.count > 0) {
             const contact = response.data.payload[0];
             console.log('Contacto encontrado - Actualizar Deal:', contact);
