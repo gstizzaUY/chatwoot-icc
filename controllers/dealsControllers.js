@@ -227,16 +227,22 @@ const updateDeal = (req, res) => {
     const deal = req.body.eventData;
     // Convertir deal.id en número
     const dealId = parseInt(deal.id);
+    console.log('dealId', dealId);
 
     // Función para extraer información del contacto del nombre del deal
     const extractContactInfo = (dealName) => {
         const regex = /\((.*?)\)(?:\s*\((.*?)\))?/;
         const matches = dealName.match(regex);
 
+        console.log('matches', matches);
+
         if (!matches) return null;
 
         const firstParenthesis = matches[1]?.trim();
         const secondParenthesis = matches[2]?.trim();
+
+        console.log('firstParenthesis', firstParenthesis);
+        console.log('secondParenthesis', secondParenthesis);
 
         // Caso 1: Tiene dos paréntesis (nombre y apellido)
         if (secondParenthesis) {
@@ -268,6 +274,9 @@ const updateDeal = (req, res) => {
 
     const contactInfo = extractContactInfo(deal.dealName);
     const contactoBuscar = contactInfo?.identifier || contactInfo?.name || '';
+
+    console.log('contactInfo', contactInfo);
+    console.log('contactoBuscar', contactoBuscar);
 
 
 
@@ -314,6 +323,7 @@ const updateDeal = (req, res) => {
     .then(response => {
         if (response.data.meta.count > 0) {
             const contact = response.data.payload[0];
+            console.log('Contacto encontrado - Actualizar Deal:', contact);
             // Asegurarnos de que deals sea siempre un array
             let deals = Array.isArray(contact.custom_attributes.deals) 
                 ? contact.custom_attributes.deals 
