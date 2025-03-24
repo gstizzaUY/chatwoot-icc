@@ -190,6 +190,8 @@ const importContacts = async (req, res) => {
         }
     };
 
+    console.log('Datos del contacto a crear:', contactData);
+
     const createNewContactImport = async () => {
         try {
             const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
