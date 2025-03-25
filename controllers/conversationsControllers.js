@@ -181,7 +181,7 @@ async function ProcessOutgoingMessage(message) {
 	const contactId = await GetContactId(contact);
 
 	if (!contactId) {
-		console.warn("No se encontro el contacto con telefono:", contactPhone);
+		console.error("Error al obtener contacto con telefono:", contactPhone);
 		console.info(message);
 		return;
 	}
@@ -194,9 +194,11 @@ async function ProcessOutgoingMessage(message) {
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (!conversationId) {
 		const newConversationId = await CreateConversation(contactId, inboxId, contactPhone, messageContent);
-		console.log(`Nueva conversación ${newConversationId} creada.`);
+		console.log(`Conversación ${newConversationId} creada.`);
 		return;
 	}
+
+	if (message.body.includes("Derivé la conversación")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
@@ -216,18 +218,13 @@ async function ProcessOutgoingMessage(message) {
 	// El mensaje fue enviado por el bot, y la sesion fue derivada
 	if (message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "resolved");
-		console.log(`Conversación ${conversationId} creada por HSM, resuelta.`);
-	} else if (!message.in_bot) {
+		console.log(`Conversación ${conversationId} resuelta.`);
+	} else if (message.in_bot) {
+		await ChangeConversationStatus(conversationId, "pending");
+		console.log(`Conversación ${conversationId} pendiente.`);
+	} else {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
-	} else if (message.agent === "Chatbot") {
-		if (message.body.includes("Derivé la conversación")) {
-			await ChangeConversationStatus(conversationId, "open");
-			console.log(`Conversación ${conversationId} abierta por timeout.`);
-		} else {
-			await ChangeConversationStatus(conversationId, "pending");
-			console.log(`Conversación ${conversationId} pendiente, en Chatbot.`);
-		}
 	}
 }
 
@@ -237,7 +234,7 @@ async function ProcessOutgoingMessage(message) {
 	contact_phone: string,
 	body: string,
 	attachment_url: string,
-	agent: string,
+	agent: string, // Chatbot
 	in_bot: boolean,
 	is_hsm: boolean,
 	tags: [string]
