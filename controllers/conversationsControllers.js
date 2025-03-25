@@ -216,13 +216,18 @@ async function ProcessOutgoingMessage(message) {
 	// El mensaje fue enviado por el bot, y la sesion fue derivada
 	if (message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "resolved");
-		console.log(`Conversación ${conversationId} creada por HSM.`);
-	} else if (message.in_bot || message.agent === "Chatbot") {
-		await ChangeConversationStatus(conversationId, "pending");
-		console.log(`Conversación ${conversationId} pendiente, en Chatbot.`);
-	} else {
+		console.log(`Conversación ${conversationId} creada por HSM, resuelta.`);
+	} else if (!message.in_bot) {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
+	} else if (message.agent === "Chatbot") {
+		if (message.body.includes("Derivé la conversación")) {
+			await ChangeConversationStatus(conversationId, "open");
+			console.log(`Conversación ${conversationId} abierta por timeout.`);
+		} else {
+			await ChangeConversationStatus(conversationId, "pending");
+			console.log(`Conversación ${conversationId} pendiente, en Chatbot.`);
+		}
 	}
 }
 
