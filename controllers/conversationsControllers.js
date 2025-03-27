@@ -197,7 +197,7 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
-	if (messageContent.includes("Derivé la conversación")) message.in_bot = false;
+	if (messageContent.includes("derivamos con un asesor")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
