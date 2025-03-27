@@ -186,7 +186,6 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
-	//const messageContent = message.attachment_url ? `${message.attachment_url}\n${message.body || ""}` : message.body;
 	let messageContent = message.attachment_url || "";
 	if (message.body) messageContent += messageContent ? `\n${message.body}` : message.body;
 	if (message.agent !== "Chatbot") messageContent += `\n\n[${message.agent}]`;
@@ -198,7 +197,7 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
-	if (message.body.includes("Derivé la conversación")) message.in_bot = false;
+	if (messageContent.includes("Derivé la conversación")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
@@ -215,7 +214,6 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	// El mensaje fue enviado por el bot, y la sesion fue derivada
 	if (message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "resolved");
 		console.log(`Conversación ${conversationId} resuelta.`);
@@ -234,7 +232,7 @@ async function ProcessOutgoingMessage(message) {
 	contact_phone: string,
 	body: string,
 	attachment_url: string,
-	agent: string, // Chatbot
+	agent: string,
 	in_bot: boolean,
 	is_hsm: boolean,
 	tags: [string]
