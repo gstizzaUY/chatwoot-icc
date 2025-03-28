@@ -9,8 +9,22 @@ const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;
 
 const chatwootWebhook = async (req, res) => {
+    try {
+        const webhook = req.body;
 
-    if (webhook.event === 'contact_created'){
+        if (!webhook || webhook.event !== 'contact_created') {
+            return res.status(400).json({
+                error: 'Evento no soportado o datos inválidos'
+            });
+        }
+
+        // Validar datos requeridos
+        if (!webhook.name || !webhook.email || !webhook.phone_number) {
+            return res.status(400).json({
+                error: 'Faltan datos requeridos del contacto'
+            });
+        }
+
         const dataContact = {
             "serviceToken": serviceToken,
             "serviceAction": "form",
@@ -19,9 +33,9 @@ const chatwootWebhook = async (req, res) => {
                 "lastname": "",
                 "email": webhook.email,
                 "phone": webhook.phone_number,
-                "city": webhook.additional_attributes.city,
-                "country": webhook.additional_attributes.country_conde,
-                "company": webhook.additional_attributes.company_name,
+                "city": webhook.additional_attributes?.city || '',
+                "country": webhook.additional_attributes?.country_code || '',
+                "company": webhook.additional_attributes?.company_name || '',
             }
         };
 
@@ -30,7 +44,16 @@ const chatwootWebhook = async (req, res) => {
                 'Content-Type': 'application/json'
             }
         });
-        return res.status(200);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Contacto procesado correctamente'
+        });
+    } catch (error) {
+        console.error('Error en chatwootWebhook:', error);
+        return res.status(500).json({
+            error: error.message || 'Error interno del servidor'
+        });
     }
 };
 
@@ -129,13 +152,6 @@ const chatwootWebhookConversationCreated = async (req, res) => {
 
 
 const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
-    // Datos de contacto recibidos
-    // id del contacto
-    // teléfono del contacto
-    // email del contacto
-    // Responsable del contacto
-
-
     const contactData = req.body;
 
     // Buscar el contacto en Chatwoot
@@ -172,13 +188,13 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
         });
         if (response.data.meta.count > 0) {
             const conversationData = {
-                inbox_id: "20",
+                inbox_id: contactData.inbox_id || "20",
                 source_id: response.data.payload[0].identifier,
                 contact_id: response.data.payload[0].id,
                 status: 'pending',
                 team_id: 1,
                 message: {
-                    content: 'Campaña creada para SDR',
+                    content: contactData.system_message || '',
                 }
             };
 
