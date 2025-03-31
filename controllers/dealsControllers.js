@@ -230,7 +230,7 @@ const updateDeal = (req, res) => {
 
     // Función para extraer información del contacto del nombre del deal
     const extractContactInfo = (dealName) => {
-        const regex = /\((.*?)\)(?:\s*\((.*?)\))?/;
+        const regex = /\((.*?)\)(?:\s*\((.*?)\))?(?:\s*\((.*?)\))?/;
         const matches = dealName.match(regex);
 
         console.log('matches', matches);
@@ -245,7 +245,15 @@ const updateDeal = (req, res) => {
         console.log('secondParenthesis', secondParenthesis);
         console.log('thirdParenthesis', thirdParenthesis);
 
-        // Caso 1: Tiene dos paréntesis (nombre y apellido)
+        // Caso 1: Tiene tres paréntesis (nombre, apellido e identifier)
+        if (thirdParenthesis) {
+            return {
+                name: `${firstParenthesis} ${secondParenthesis}`,
+                identifier: thirdParenthesis
+            };
+        }
+
+        // Caso 2: Tiene dos paréntesis (nombre y apellido)
         if (secondParenthesis) {
             return {
                 name: `${firstParenthesis} ${secondParenthesis}`,
@@ -253,7 +261,7 @@ const updateDeal = (req, res) => {
             };
         }
 
-        // Caso 2: Tiene un paréntesis
+        // Caso 3: Tiene un paréntesis
         if (firstParenthesis) {
             // Verificar si es un ID (número)
             if (/^\d+$/.test(firstParenthesis)) {
@@ -267,14 +275,6 @@ const updateDeal = (req, res) => {
             return {
                 name: firstParenthesis,
                 identifier: null
-            };
-        }
-
-        // Caso 3: Tiene tres paréntesis (nombre, apellido y identifier)
-        if (thirdParenthesis) {
-            return {
-                name: `${firstParenthesis} ${secondParenthesis}`,
-                identifier: thirdParenthesis
             };
         }
 
