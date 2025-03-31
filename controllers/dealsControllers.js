@@ -227,7 +227,6 @@ const updateDeal = (req, res) => {
     const deal = req.body.eventData;
     // Convertir deal.id en número
     const dealId = parseInt(deal.id);
-    console.log('dealId', dealId);
 
     // Función para extraer información del contacto del nombre del deal
     const extractContactInfo = (dealName) => {
@@ -240,9 +239,11 @@ const updateDeal = (req, res) => {
 
         const firstParenthesis = matches[1]?.trim();
         const secondParenthesis = matches[2]?.trim();
+        const thirdParenthesis = matches[3]?.trim();
 
         console.log('firstParenthesis', firstParenthesis);
         console.log('secondParenthesis', secondParenthesis);
+        console.log('thirdParenthesis', thirdParenthesis);
 
         // Caso 1: Tiene dos paréntesis (nombre y apellido)
         if (secondParenthesis) {
@@ -266,6 +267,14 @@ const updateDeal = (req, res) => {
             return {
                 name: firstParenthesis,
                 identifier: null
+            };
+        }
+
+        // Caso 3: Tiene tres paréntesis (nombre, apellido y identifier)
+        if (thirdParenthesis) {
+            return {
+                name: `${firstParenthesis} ${secondParenthesis}`,
+                identifier: thirdParenthesis
             };
         }
 
