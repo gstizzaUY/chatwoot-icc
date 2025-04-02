@@ -95,6 +95,16 @@ async function GetLastConversationId(contactId, inboxId) {
 	}
 }
 
+async function GetConversationMessages(conversationId) {
+	try {
+		const response = await chatwoot.get(`/conversations/${conversationId}/messages`);
+		return response.data.payload;
+	} catch (error) {
+		console.error("Error al obtener mensajes de la conversación", conversationId, error.message);
+		return null;
+	}
+}
+
 async function SendMessage(conversationId, content) {
 	const privateMessage = {
 		message_type: "outgoing",
@@ -164,6 +174,22 @@ async function CreateConversation(contactId, inboxId, contactPhone, messageConte
 	}
 }
 
+async function AsignConversation(conversationId, agentEmailPrefix) {
+	try {
+		const response = await chatwoot.get("/agents");
+		const agents = response.data.payload;
+		const agent = agents.find(agent => agent.email.startsWith(agentEmailPrefix));
+		if (!agent) {
+			console.error("Error al obtener agente con email", agentEmailPrefix);
+		}
+		await chatwoot.post(`/conversations/${conversationId}/assign`, {
+			assignee_id: agent.id
+		});
+	} catch (error) {
+		console.error("Error al asignar conversación", conversationId, error.message);
+	}
+}
+
 const TAGS_MAPPING = {
 	Comercial: "comercial",
 	Demo: "demo",
@@ -223,6 +249,20 @@ async function ProcessOutgoingMessage(message) {
 	} else {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
+
+		const messages = await GetConversationMessages(conversationId);
+		for (let i = messages.length - 1; i >= 0; i--) {
+			const message = messages[i];
+			if (!message.sender.phone_number) // Mensaje saliente
+				continue;
+			if (message.content.includes("Quiero más info sobre el iChef Robot")) {
+				console.log(`Conversación ${conversationId} asignada.`);
+				await AsignConversation(conversationId, "mfulco");
+				break;
+			} else {
+				break; // El contacto interactuo con el bot
+			}
+		}
 	}
 }
 
