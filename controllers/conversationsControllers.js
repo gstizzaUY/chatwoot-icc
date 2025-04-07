@@ -177,12 +177,13 @@ async function CreateConversation(contactId, inboxId, contactPhone, messageConte
 async function AsignConversation(conversationId, agentEmailPrefix) {
 	try {
 		const response = await chatwoot.get("/agents");
-		const agents = response.data.payload;
+		const agents = response.data;
 		const agent = agents.find(agent => agent.email.startsWith(agentEmailPrefix));
 		if (!agent) {
 			console.error("Error al obtener agente con email", agentEmailPrefix);
+			return;
 		}
-		await chatwoot.post(`/conversations/${conversationId}/assign`, {
+		await chatwoot.post(`/conversations/${conversationId}/assignments`, {
 			assignee_id: agent.id
 		});
 	} catch (error) {
@@ -253,11 +254,12 @@ async function ProcessOutgoingMessage(message) {
 		const messages = await GetConversationMessages(conversationId);
 		for (let i = messages.length - 1; i >= 0; i--) {
 			const message = messages[i];
-			if (!message.sender.phone_number) // Mensaje saliente
+			if (!message.sender?.phone_number) { // Mensaje saliente
 				continue;
+			}
 			if (message.content.includes("Quiero más info sobre el iChef Robot")) {
-				console.log(`Conversación ${conversationId} asignada.`);
 				await AsignConversation(conversationId, "mfulco");
+				console.log(`Conversación ${conversationId} asignada.`);
 				break;
 			} else {
 				break; // El contacto interactuo con el bot
