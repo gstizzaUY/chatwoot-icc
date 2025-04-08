@@ -174,7 +174,7 @@ async function CreateConversation(contactId, inboxId, contactPhone, messageConte
 	}
 }
 
-async function AsignConversation(conversationId, agentEmailPrefix) {
+async function AsignConversationToAgent(conversationId, agentEmailPrefix) {
 	try {
 		const response = await chatwoot.get("/agents");
 		const agents = response.data;
@@ -185,6 +185,23 @@ async function AsignConversation(conversationId, agentEmailPrefix) {
 		}
 		await chatwoot.post(`/conversations/${conversationId}/assignments`, {
 			assignee_id: agent.id
+		});
+	} catch (error) {
+		console.error("Error al asignar conversación", conversationId, error.message);
+	}
+}
+
+async function AsignConversationToTeam(conversationId, teamName) {
+	try {
+		const response = await chatwoot.get("/teams");
+		const teams = response.data;
+		const team = teams.find(team => team.name === teamName);
+		if (!team) {
+			console.error("Error al obtener equipo con nombre", teamName);
+			return;
+		}
+		await chatwoot.post(`/conversations/${conversationId}/assignments`, {
+			team_id: team.id
 		});
 	} catch (error) {
 		console.error("Error al asignar conversación", conversationId, error.message);
@@ -258,10 +275,12 @@ async function ProcessOutgoingMessage(message) {
 				continue;
 			}
 			if (message.content.includes("Quiero más info sobre el iChef Robot")) {
-				await AsignConversation(conversationId, "mfulco");
-				console.log(`Conversación ${conversationId} asignada.`);
+				await AsignConversationToAgent(conversationId, "ncardozo");
+				console.log(`Conversación ${conversationId} asignada, contacto inactivo.`);
 				break;
 			} else {
+				await AsignConversationToTeam(conversationId, "ventas");
+				console.log(`Conversación ${conversationId} asignada.`);
 				break; // El contacto interactuo con el bot
 			}
 		}
