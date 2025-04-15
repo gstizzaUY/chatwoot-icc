@@ -136,10 +136,69 @@ const importDeals = async (req, res) => {
 
 
 const createDeal = (req, res) => {
-
+    console.log('deal', req.body);
     const deal = req.body.eventData;
-    const nombre = deal.dealName;
-    const dealId = deal.id;
+    // Convertir deal.id en número
+    const dealId = typeof deal.id === 'string' ? parseInt(deal.id) : deal.id;
+
+    // Función para extraer información del contacto del nombre del deal
+    const extractContactInfo = (dealName) => {
+        const regex = /\((.*?)\)(?:\s*\((.*?)\))?(?:\s*\((.*?)\))?/;
+        const matches = dealName.match(regex);
+
+        console.log('matches', matches);
+
+        if (!matches) return null;
+
+        const firstParenthesis = matches[1]?.trim();
+        const secondParenthesis = matches[2]?.trim();
+        const thirdParenthesis = matches[3]?.trim();
+
+        console.log('firstParenthesis', firstParenthesis);
+        console.log('secondParenthesis', secondParenthesis);
+        console.log('thirdParenthesis', thirdParenthesis);
+
+        // Caso 1: Tiene tres paréntesis (nombre, apellido e identifier)
+        if (thirdParenthesis) {
+            return {
+                name: `${firstParenthesis} ${secondParenthesis}`,
+                identifier: thirdParenthesis
+            };
+        }
+
+        // Caso 2: Tiene dos paréntesis (nombre y apellido)
+        if (secondParenthesis) {
+            return {
+                name: `${firstParenthesis} ${secondParenthesis}`,
+                identifier: null
+            };
+        }
+
+        // Caso 3: Tiene un paréntesis
+        if (firstParenthesis) {
+            // Verificar si es un ID (número)
+            if (/^\d+$/.test(firstParenthesis)) {
+                return {
+                    name: null,
+                    identifier: firstParenthesis
+                };
+            }
+
+            // Si no es un número, asumimos que es un nombre
+            return {
+                name: firstParenthesis,
+                identifier: null
+            };
+        }
+
+        return null;
+    };
+
+    const contactInfo = extractContactInfo(deal.dealName);
+    const contactoBuscar = contactInfo?.identifier || contactInfo?.name || '';
+
+    console.log('contactInfo', contactInfo);
+    console.log('contactoBuscar', contactoBuscar);
 
     // Buscar el contacto en chatwoot
     const searchUrl = `${chatwoot_url}/api/v1/accounts/2/contacts/filter`;
@@ -154,13 +213,13 @@ const createDeal = (req, res) => {
             {
                 "attribute_key": "identifier",
                 "filter_operator": "equal_to",
-                "values": [contactId],
+                "values": [contactoBuscar],
                 "query_operator": "OR"
             },
             {
-                "attribute_key": "email",
+                "attribute_key": "name",
                 "filter_operator": "equal_to",
-                "values": [contactId],
+                "values": [contactoBuscar],
                 "query_operator": null
             }
         ]
@@ -168,25 +227,38 @@ const createDeal = (req, res) => {
 
     axios.post(searchUrl, payload, config)
         .then(response => {
+            console.log('response', response.data);
             if (response.data.meta.count > 0) {
                 const contact = response.data.payload[0];
                 console.log('Contacto encontrado - Crear Oportunidad:', contact);
-                const deals = contact.custom_attributes.deals || [];
+                
+                // Asegurarnos de que deals sea siempre un array
+                let deals = Array.isArray(contact.custom_attributes.deals) 
+                    ? contact.custom_attributes.deals 
+                    : [];
+                
+                console.log('Deals del contacto:', deals);
 
                 // Verificar si el deal ya existe
-                const existingDeal = deals.find(d => d.id === dealId);
+                const existingDeal = deals.find(d => {
+                    const existingId = typeof d.id === 'string' ? parseInt(d.id) : d.id;
+                    return existingId === dealId;
+                });
 
                 // Si existe, actualizarlo, sino, agregarlo
-
                 if (existingDeal) {
                     console.log('Deal existente - Actualizar:', existingDeal);
+                    deals = deals.filter(d => {
+                        const currentId = typeof d.id === 'string' ? parseInt(d.id) : d.id;
+                        return currentId !== dealId;
+                    });
+                    deals.push(deal);
                 } else {
                     console.log('Deal nuevo - Agregar:', deal);
                     deals.push(deal);
                 }
 
                 // Actualizar el contacto con el nuevo deal
-
                 const update = {
                     "identifier": contact.identifier,
                     "custom_attributes": {
@@ -200,24 +272,22 @@ const createDeal = (req, res) => {
                         'api_access_token': api_access_token
                     }
                 })
-
-                    .then(response => {
-                        console.log('Contacto actualizado:', response.data);
-                        res.json({ message: 'Deal creado exitosamente' });
-                    }
-                    )
-                    .catch(error => {
-                        console.error(`Error al importar el deal para el contacto con ID: ${contactId}`, error);
-                        res.status(500).json({ message: 'Error al importar el deal' });
-                    });
+                .then(response => {
+                    console.log('Contacto actualizado:', response.data);
+                    res.json({ message: 'Deal creado exitosamente' });
+                })
+                .catch(error => {
+                    console.error(`Error al importar el deal para el contacto`, error);
+                    res.status(500).json({ message: 'Error al importar el deal' });
+                });
 
             } else {
-                console.log(`No se encontró el contacto con ID: ${contactId}`);
+                console.log(`No se encontró el contacto`);
                 res.status(404).json({ message: 'No se encontró el contacto' });
             }
         })
         .catch(error => {
-            console.error(`Error al buscar el contacto con ID: ${contactId}`, error);
+            console.error(`Error al buscar el contacto`, error);
             res.status(500).json({ message: 'Error al buscar el contacto' });
         });
 };
