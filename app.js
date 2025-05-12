@@ -6,6 +6,7 @@ import contactsRoutes from './routes/contactsRoutes.js';
 import customAtributesRoutes from './routes/customAtributesRoutes.js';
 import dealsRoutes from './routes/dealsRoutes.js';
 import conversationsRoutes from './routes/conversationsRoutes.js';
+import CNS_ConversationsRoutes from './routes/CNS_ConversationsRoutes.js';
 import inconcertRoutes from './routes/inconcertRoutes.js';
 
 dotenv.config();
@@ -27,6 +28,7 @@ app.use('/api/contacts', contactsRoutes);
 app.use('/api/custom_atributes', customAtributesRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/conversations', conversationsRoutes);
+app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes);
 
 app.listen(port, () => {
