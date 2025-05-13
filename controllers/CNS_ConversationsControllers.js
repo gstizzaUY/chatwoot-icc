@@ -255,6 +255,11 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
+	if (message.assigned)
+		await AsignConversationToAgent(conversationId, message.assigned.email);
+	else
+		await AsignConversationToTeam(conversationId, "soporte");
+
 	if (message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "resolved");
 		console.log(`Conversación ${conversationId} resuelta.`);
@@ -264,8 +269,6 @@ async function ProcessOutgoingMessage(message) {
 	} else {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
-		//await AsignConversationToAgent(conversationId, "tech");
-		//await AsignConversationToTeam(conversationId, "cns");
 	}
 }
 
@@ -276,7 +279,7 @@ async function ProcessOutgoingMessage(message) {
 	body: string,
 	attachment_url: string,
 	agent: string, // who sent it
-	assigned: string, // user assigned to the contact
+	assigned: { email }, // user assigned to the contact
 	in_bot: boolean,
 	is_hsm: boolean,
 	tags: [string]
