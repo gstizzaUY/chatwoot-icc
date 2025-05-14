@@ -291,4 +291,27 @@ async function NotifyOutgoingMessage(req, res) {
 	return res.status(200).send("Event received");
 }
 
-export { NotifyOutgoingMessage };
+async function FindConversation(req, res) {
+	const contactPhone = req.query.contactPhone;
+	const contact = { phone: contactPhone };
+	const contactId = await GetContactId(contact);
+
+	if (!contactId) {
+		console.error("Error al obtener contacto con telefono:", contactPhone);
+		return res.redirect(302, chatwoot_url);
+	}
+
+	const phoneNumberId = "119510014469871";
+	const inboxId = await GetWppInboxId(phoneNumberId);
+
+	const conversationId = await GetLastConversationId(contactId, inboxId);
+	if (!conversationId) {
+		console.log("No se encontró ninguna conversación del contacto:", contactPhone);
+		return res.redirect(302, chatwoot_url);
+	}
+
+	const url = `${chatwoot_url}/app/accounts/1/conversations/${conversationId}`;
+	return res.redirect(302, url);
+}
+
+export { NotifyOutgoingMessage, FindConversation };

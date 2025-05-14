@@ -1,5 +1,5 @@
 import express from "express";
-import { NotifyOutgoingMessage } from "../controllers/CNS_ConversationsControllers.js";
+import { FindConversation, NotifyOutgoingMessage } from "../controllers/CNS_ConversationsControllers.js";
 import {
 	OnOutgoingWppMessage,
 	OnSolvedWppConversation
@@ -7,6 +7,7 @@ import {
 
 const router = express.Router();
 
+router.get("/find-conversation", FindConversation); // Bot
 router.post("/outgoing-message", NotifyOutgoingMessage); // Bot
 router.post("/outgoing-wpp-message", OnOutgoingWppMessage); // Agente
 router.post("/solved-wpp-conversation", OnSolvedWppConversation);
