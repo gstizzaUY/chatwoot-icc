@@ -225,10 +225,13 @@ async function AsignConversationToTeam(conversationId, teamName) {
 	}
 }
 
-async function UpdateContact(contactId, serviceId, clientEmail) {
+async function UpdateContact(contactId, clientEmail, serviceId, trackingUrl) {
 	const contact = {
 		company_name: serviceId,
-		email: clientEmail
+		email: clientEmail,
+		custom_attributes: {
+			trackingUrl
+		}
 	};
 	try {
 		const response = await chatwoot.put(`/contacts/${contactId}`, contact);
@@ -288,9 +291,9 @@ async function ProcessOutgoingMessage(message) {
 	await SendMessage(conversationId, messageContent);
 
 	const service = GetServiceInfo(contactPhone);
-	if (service) {
-		const { serviceId, clientEmail } = service;
-		await UpdateContact(contactId, serviceId, clientEmail);
+	if (service && service.serviceId) {
+		const { serviceId, clientEmail, trackingUrl } = service;
+		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
 		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
 	}
 
