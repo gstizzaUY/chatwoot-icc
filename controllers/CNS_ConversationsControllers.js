@@ -256,7 +256,6 @@ async function ProcessOutgoingMessage(message) {
 
 	if (!contactId) {
 		console.error("Error al obtener contacto con telefono:", contactPhone);
-		console.info(message);
 		return;
 	}
 
@@ -271,7 +270,7 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
-	//if (messageContent.includes("DERIVAR POR TIMEOUT")) message.in_bot = false;
+	if (messageContent.includes("Derivé esta conversación")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
@@ -292,6 +291,7 @@ async function ProcessOutgoingMessage(message) {
 	if (service) {
 		const { serviceId, clientEmail } = service;
 		await UpdateContact(contactId, serviceId, clientEmail);
+		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
 	}
 
 	if (message.assigned) {
