@@ -5,7 +5,7 @@ dotenv.config();
 
 const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;
-
+const PNX_API_URL = process.env.PNX_API_URL;
 const CHATWOOT_URL_PREFIX = `${chatwoot_url}/api/v1/accounts/1`;
 
 const chatwoot = axios.create({
@@ -16,12 +16,29 @@ const chatwoot = axios.create({
 	}
 });
 
+const px = axios.create({
+	baseURL: PNX_API_URL,
+	headers: {
+		"Content-Type": "application/json"
+	}
+});
+
 async function FetchInboxes() {
 	try {
 		const response = await chatwoot.get("/inboxes");
 		return response.data.payload;
 	} catch (error) {
 		console.error("Error al obtener bandejas de entrada", error.message);
+		return null;
+	}
+}
+
+async function GetServiceInfo(contactPhone) {
+	try {
+		const response = await px.get(`Bot/serviceByPhone?incomingNumber=${contactPhone}`);
+		return response.data;
+	} catch (error) {
+		console.error("Error al obtener información del servicio", error.message);
 		return null;
 	}
 }
@@ -208,8 +225,24 @@ async function AsignConversationToTeam(conversationId, teamName) {
 	}
 }
 
-const TAGS_MAPPING = {
+async function UpdateContact(contactId, serviceId, clientEmail) {
+	const contact = {
+		company_name: serviceId,
+		email: clientEmail
+	};
+	try {
+		const response = await chatwoot.put(`/contacts/${contactId}`, contact);
+		return response.data;
+	} catch (error) {
+		console.error("Error al actualizar contacto", error.message);
+		return null;
+	}
+}
 
+const TAGS_MAPPING = {
+	"Consulta Servicio": "consulta_servicio",
+	"Confirma ingreso": "confirma_ingreso",
+	"Confirma egreso": "confirma_egreso",
 };
 
 // Agregar mensajes enviados por el bot
@@ -255,9 +288,16 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	if (message.assigned)
+	const service = GetServiceInfo(contactPhone);
+	if (service) {
+		const { serviceId, clientEmail } = service;
+		await UpdateContact(contactId, serviceId, clientEmail);
+	}
+
+	if (message.assigned) {
 		await AsignConversationToAgent(conversationId, message.assigned.email);
-	else
+		console.log(`Conversación ${conversationId} asignada a ${message.assigned.email}.`);
+	} else
 		await AsignConversationToTeam(conversationId, "soporte");
 
 	if (message.is_hsm) {
