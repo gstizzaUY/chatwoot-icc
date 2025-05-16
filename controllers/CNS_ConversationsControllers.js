@@ -38,7 +38,7 @@ async function GetServiceInfo(contactPhone) {
 		const response = await px.get(`Bot/serviceByPhone?incomingNumber=${contactPhone}`);
 		return response.data;
 	} catch (error) {
-		console.error("Error al obtener información del servicio", error.message);
+		//console.warn("No se encontro ningun servicio para el contacto", contactPhone);
 		return null;
 	}
 }
@@ -227,8 +227,11 @@ async function AsignConversationToTeam(conversationId, teamName) {
 
 async function UpdateContact(contactId, clientEmail, serviceId, trackingUrl) {
 	const contact = {
-		company_name: serviceId,
 		email: clientEmail,
+		additional_attributes: {
+			//description: serviceId,
+			company_name: serviceId,
+		},
 		custom_attributes: {
 			trackingUrl
 		}
@@ -290,13 +293,6 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	const service = GetServiceInfo(contactPhone);
-	if (service && service.serviceId) {
-		const { serviceId, clientEmail, trackingUrl } = service;
-		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
-		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
-	}
-
 	if (message.assigned) {
 		await AsignConversationToAgent(conversationId, message.assigned.email);
 		console.log(`Conversación ${conversationId} asignada a ${message.assigned.email}.`);
@@ -312,6 +308,13 @@ async function ProcessOutgoingMessage(message) {
 	} else {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
+	}
+
+	const service = await GetServiceInfo(contactPhone);
+	if (service && service.serviceId) {
+		const { serviceId, clientEmail, trackingUrl } = service;
+		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
+		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
 	}
 }
 

@@ -7,7 +7,7 @@ import {
 
 const router = express.Router();
 
-router.get("/find-conversation", FindConversation); // Bot
+router.get("/find-conversation", FindConversation);
 router.post("/outgoing-message", NotifyOutgoingMessage); // Bot
 router.post("/outgoing-wpp-message", OnOutgoingWppMessage); // Agente
 router.post("/solved-wpp-conversation", OnSolvedWppConversation);
