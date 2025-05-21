@@ -230,7 +230,7 @@ async function UpdateContact(contactId, clientEmail, serviceId, trackingUrl) {
 		email: clientEmail,
 		additional_attributes: {
 			//description: serviceId,
-			company_name: serviceId,
+			company_name: serviceId
 		},
 		custom_attributes: {
 			trackingUrl
@@ -248,7 +248,7 @@ async function UpdateContact(contactId, clientEmail, serviceId, trackingUrl) {
 const TAGS_MAPPING = {
 	"Consulta Servicio": "consulta_servicio",
 	"Confirma ingreso": "confirma_ingreso",
-	"Confirma egreso": "confirma_egreso",
+	"Confirma egreso": "confirma_egreso"
 };
 
 // Agregar mensajes enviados por el bot
@@ -293,11 +293,11 @@ async function ProcessOutgoingMessage(message) {
 
 	await SendMessage(conversationId, messageContent);
 
-	if (message.assigned) {
+	/*if (message.assigned) {
 		await AsignConversationToAgent(conversationId, message.assigned.email);
 		console.log(`Conversación ${conversationId} asignada a ${message.assigned.email}.`);
 	} else
-		await AsignConversationToTeam(conversationId, "soporte");
+		await AsignConversationToTeam(conversationId, "soporte");*/
 
 	if (message.is_hsm) {
 		await ChangeConversationStatus(conversationId, "resolved");
@@ -312,9 +312,36 @@ async function ProcessOutgoingMessage(message) {
 
 	const service = await GetServiceInfo(contactPhone);
 	if (service && service.serviceId) {
-		const { serviceId, clientEmail, trackingUrl } = service;
+		const { serviceId, clientEmail, trackingUrl, techNumber } = service;
 		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
 		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
+
+		switch (techNumber) {
+			case 3:
+				await AsignConversationToAgent(conversationId, "dgutierrez");
+				break;
+			case 40:
+				await AsignConversationToAgent(conversationId, "mmagnoni");
+				break;
+			case 42:
+				await AsignConversationToAgent(conversationId, "dtophan");
+				break;
+			case 205:
+				await AsignConversationToAgent(conversationId, "eaguilera");
+				break;
+			case 206:
+				await AsignConversationToAgent(conversationId, "fbertoloni");
+				break;
+			case 222:
+				await AsignConversationToAgent(conversationId, "golivera");
+				break;
+			case 223:
+				await AsignConversationToAgent(conversationId, "hrusso");
+				break;
+			default:
+				console.warn("No se encontró el técnico con número", techNumber);
+				break;
+		}
 	}
 }
 
