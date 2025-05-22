@@ -276,7 +276,10 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
+	// Closing messages
 	if (messageContent.includes("Derivé esta conversación")) message.in_bot = false;
+	if (messageContent.includes("Le mantendremos informado")) message.in_bot = false;
+	if (messageContent.includes("Hemos recibido su confirmación")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
