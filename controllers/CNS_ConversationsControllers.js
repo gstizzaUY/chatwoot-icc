@@ -280,8 +280,8 @@ async function ProcessOutgoingMessage(message) {
 	if (messageContent.includes("Derivé esta conversación")) message.in_bot = false;
 
 	// Resolve conversation messages
-	if (messageContent.includes("Le mantendremos informado")) message.is_hsm = false;
-	if (messageContent.includes("Hemos recibido su confirmación")) message.is_hsm = false;
+	if (messageContent.includes("Le mantendremos informado")) message.is_hsm = true;
+	if (messageContent.includes("Hemos recibido su confirmación")) message.is_hsm = true;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
