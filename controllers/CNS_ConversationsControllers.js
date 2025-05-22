@@ -276,10 +276,12 @@ async function ProcessOutgoingMessage(message) {
 		return;
 	}
 
-	// Closing messages
+	// Scale to agent messages
 	if (messageContent.includes("Derivé esta conversación")) message.in_bot = false;
-	if (messageContent.includes("Le mantendremos informado")) message.in_bot = false;
-	if (messageContent.includes("Hemos recibido su confirmación")) message.in_bot = false;
+
+	// Resolve conversation messages
+	if (messageContent.includes("Le mantendremos informado")) message.is_hsm = false;
+	if (messageContent.includes("Hemos recibido su confirmación")) message.is_hsm = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
