@@ -262,7 +262,7 @@ const chatwootCampaignCreatedExpoBebe2025 = async (req, res) => {
                 inbox_id: contactData.inbox_id || "14",
                 source_id: response.data.payload[0].identifier,
                 contact_id: response.data.payload[0].id,
-                status: 'pending',
+                status: 'open',
                 team_id: 2,
                 message: {
                     content: contactData.system_message || '',
