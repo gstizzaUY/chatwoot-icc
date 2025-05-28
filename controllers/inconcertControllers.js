@@ -221,4 +221,75 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
     }
 };
 
-export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba };
+
+const chatwootCampaignCreatedExpoBebe2025 = async (req, res) => {
+    const contactData = req.body;
+
+    // Buscar el contacto en Chatwoot
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+
+    const payload = {
+        payload: [
+            { id: contactData.id, key: 'identifier' },
+            { id: contactData.email, key: 'email' },
+            { id: contactData.phone, key: 'phone_number' }
+        ]
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
+    };
+
+    try {
+        const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'api_access_token': api_access_token,
+            },
+        });
+        if (response.data.meta.count > 0) {
+            const conversationData = {
+                inbox_id: contactData.inbox_id || "14",
+                source_id: response.data.payload[0].identifier,
+                contact_id: response.data.payload[0].id,
+                status: 'pending',
+                team_id: 2,
+                message: {
+                    content: contactData.system_message || '',
+                }
+            };
+
+            try {
+                const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/conversations`, conversationData, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api_access_token': api_access_token,
+                    },
+                });
+                res.status(200).json(response.data);
+            }
+            catch (error) {
+                console.error('Error al crear la conversación en Chatwoot:', error);
+                res.status(500).json({ error: error.message, detalles: error });
+            }
+        } else {
+            console.log('Contacto no encontrado en Chatwoot');
+            res.status(404).json({ message: 'Contacto no encontrado en Chatwoot' });
+        }
+    } catch (error) {
+        console.error(` Error:`, error);
+        res.status(500).json({ error: error.message, detalles: error });
+    }
+};
+
+export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba, chatwootCampaignCreatedExpoBebe2025 };
