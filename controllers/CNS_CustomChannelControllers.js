@@ -149,23 +149,23 @@ async function SendCustomMessage(req, res) {
 		return res.status(404).send("Inbox not found");
 	}
 
-	let body = req.body;
-	const contactId = await GetContactId(body);
+	const body = req.body;
+	let contactId = await GetContactId(body);
 	if (!contactId) {
 		const newContactId = await CreateContact(body);
 		if (!newContactId) {
 			return res.status(500).send("Failed to create contact");
 		}
 		console.log("New contact for", body.email, "created with ID:", newContactId);
-		body.id = newContactId;
+		contactId = newContactId;
 	}
 
 	const inboxId = inbox.id;
-	const contactPhone = body.phone || body.id;
+	const contactPhoneOrId = body.phone || body.id;
 	const messageContent = body.message;
 	const conversationId = await GetLastConversationId(contactId, inboxId);
 	if (!conversationId) {
-		const newConversationId = await CreateConversation(contactId, inboxId, contactPhone, messageContent);
+		const newConversationId = await CreateConversation(contactId, inboxId, contactPhoneOrId, messageContent);
 		if (!newConversationId) {
 			return res.status(500).send("Failed to create conversation");
 		}
