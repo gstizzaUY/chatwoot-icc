@@ -55,6 +55,7 @@ async function GetContactId(contact) {
 		if (response.data.meta.count > 0) {
 			return response.data.payload[0].id;
 		}
+		return null;
 	} catch (error) {
 		//console.error("Error al obtener contacto", payload, error.message);
 		return null;
@@ -148,13 +149,14 @@ async function SendCustomMessage(req, res) {
 		return res.status(404).send("Inbox not found");
 	}
 
-	const body = req.body;
+	let body = req.body;
 	const contactId = await GetContactId(body);
 	if (!contactId) {
 		const newContactId = await CreateContact(body);
 		if (!newContactId) {
 			return res.status(500).send("Failed to create contact");
 		}
+		console.log("New contact for", body, "created with ID:", newContactId);
 		body.id = newContactId;
 	}
 
