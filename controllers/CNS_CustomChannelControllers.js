@@ -71,7 +71,7 @@ async function CreateContact(contact) {
 	};
 	try {
 		const response = await chatwoot.post("/contacts", contactData);
-		return response.data.id;
+		return response.data.payload.contact.id;
 	} catch (error) {
 		console.error("Error al crear contacto", contactData, error.message);
 		return null;
@@ -156,7 +156,7 @@ async function SendCustomMessage(req, res) {
 		if (!newContactId) {
 			return res.status(500).send("Failed to create contact");
 		}
-		console.log("New contact for", body, "created with ID:", newContactId);
+		console.log("New contact for", body.email, "created with ID:", newContactId);
 		body.id = newContactId;
 	}
 
