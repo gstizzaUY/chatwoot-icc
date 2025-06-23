@@ -96,7 +96,7 @@ async function GetContactId(contact) {
 	}
 }
 
-async function GetLastConversationId(contactId, inboxId) {
+async function GetLastWppConversationId(contactId, inboxId) {
 	try {
 		const response = await chatwoot.get(`/contacts/${contactId}/conversations`);
 		const conversations = response.data.payload;
@@ -269,7 +269,7 @@ async function ProcessOutgoingMessage(message) {
 	if (message.body) messageContent += messageContent ? `\n${message.body}` : message.body;
 	if (message.agent !== "Chatbot") messageContent += `\n\n[${message.agent}]`;
 
-	const conversationId = await GetLastConversationId(contactId, inboxId);
+	const conversationId = await GetLastWppConversationId(contactId, inboxId);
 	if (!conversationId) {
 		const newConversationId = await CreateConversation(contactId, inboxId, contactPhone, messageContent);
 		console.log(`Conversación ${newConversationId} creada.`);
@@ -382,7 +382,7 @@ async function FindConversation(req, res) {
 	const phoneNumberId = "119510014469871";
 	const inboxId = await GetWppInboxId(phoneNumberId);
 
-	const conversationId = await GetLastConversationId(contactId, inboxId);
+	const conversationId = await GetLastWppConversationId(contactId, inboxId);
 	if (!conversationId) {
 		console.log("No se encontró ninguna conversación del contacto:", contactPhone);
 		return res.redirect(302, chatwoot_url);
