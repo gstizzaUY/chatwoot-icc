@@ -31,6 +31,11 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes);
 
+app.use('api/rd-station', (req, res) => {
+    console.log(req.body);
+    res.status(200).send('Datos recibidos');
+});
+
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
 });
