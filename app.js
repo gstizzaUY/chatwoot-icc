@@ -8,15 +8,17 @@ import dealsRoutes from './routes/dealsRoutes.js';
 import conversationsRoutes from './routes/conversationsRoutes.js';
 import CNS_ConversationsRoutes from './routes/CNS_ConversationsRoutes.js';
 import inconcertRoutes from './routes/inconcertRoutes.js';
+import rdStationRoutes from './routes/rdStationRoutes.js';
 
 dotenv.config();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 4000;
 
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(cors());
+
 
 app.get('/', (req, res) => {
     res.send('API funcionando');
@@ -31,10 +33,7 @@ app.use('/api/conversations', conversationsRoutes);
 app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes);
 
-app.use('/api/rd-station', (req, res) => {
-    console.log(req.body);
-    res.status(200).send('Datos recibidos');
-});
+app.use('/api/rd-station', rdStationRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
