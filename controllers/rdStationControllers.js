@@ -924,6 +924,203 @@ const importarContactos = async (req, res) => {
     }
 };
 
+
+const actualizarContacto = async (req, res) => {
+    // Actualiza un contacto cuando se actualiza en inconcert
+    const contacto = req.body.eventData;
+    console.log('Actualizar Contacto', contacto.id);
+
+    // Buscamos el contacto por email en RD Station si tiene email, sino lo construimos con el teléfono
+    const email = contacto.email || generateEmailFromPhone(contacto.phone || contacto.mobile);
+    if (!email || !isValidEmail(email)) {
+        console.log(`❌ ERROR: Contacto sin email válido | ID=${contacto.id}`);
+        return res.status(400).json({
+            success: false,
+            statusCode: 400,
+            error: 'El contacto debe tener un email válido o un número de teléfono válido (mínimo 7 dígitos).',
+            contact: {
+                id: contacto.id,
+                email: email || 'vacío',
+                phone: contacto.phone || contacto.mobile || 'N/A'
+            }
+        });
+    }
+
+    try {
+        // Buscar el contacto en RD Station
+        let existingContact = null;
+        let tokenRefreshed = false;
+
+        try {
+            existingContact = await findContactByEmail(email, contacto);
+        } catch (error) {
+            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
+                console.log(`🔄 Token expirado, refrescando... | ID=${contacto.id}`);
+
+                const refreshSuccess = await refreshAccessToken();
+                if (!refreshSuccess) {
+                    console.log(`❌ ERROR: No se pudo refrescar token | ID=${contacto.id}`);
+                    return res.status(401).json({
+                        success: false,
+                        statusCode: 401,
+                        error: 'No se pudo refrescar el token de acceso.',
+                        details: 'Token expirado y no se pudo renovar. Verificar credenciales.'
+                    });
+                }
+
+                tokenRefreshed = true;
+
+                // Reintentar búsqueda con token renovado
+                try {
+                    existingContact = await findContactByEmail(email, contacto);
+                } catch (retryError) {
+                    console.log(`❌ ERROR: Segundo intento fallido | ID=${contacto.id} | ${retryError.message}`);
+                    return res.status(500).json({
+                        success: false,
+                        statusCode: 500,
+                        error: 'Error al verificar existencia del contacto en RD Station después de refrescar token.',
+                        details: process.env.NODE_ENV === 'development' ? retryError.message : undefined
+                    });
+                }
+            } else {
+                console.log(`❌ ERROR: Búsqueda fallida | ID=${contacto.id} | ${error.message}`);
+                return res.status(500).json({
+                    success: false,
+                    statusCode: 500,
+                    error: 'Error al buscar contacto en RD Station.',
+                    details: process.env.NODE_ENV === 'development' ? error.message : undefined
+                });
+            }
+        }
+
+        if (!existingContact) {
+            console.log(`❌ ERROR: Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}`);
+            return res.status(404).json({
+                success: false,
+                statusCode: 404,
+                error: 'Contacto no encontrado en RD Station.',
+                contact: {
+                    id: contacto.id,
+                    email: email
+                }
+            });
+        }
+
+        // Mapear correctamente los nombres de propiedades del eventData a los esperados por updateContact
+        const contactoParaActualizar = {
+            id: contacto.id,
+            firstname: contacto.name?.split(' ')[0] || contacto.firstname,
+            lastname: contacto.lastname,
+            email: email,
+            phone: contacto.phone,
+            mobile: contacto.mobile,
+            nickname: contacto.nickname,
+            cedula: contacto.cedula,
+            language: contacto.language,
+            position: contacto.position,
+            rut: contacto.rut,
+            address1: contacto.address1,
+            address2: contacto.address2,
+            numero_puerta: contacto.numero_puerta,
+            city: contacto.city,
+            state: contacto.state,
+            zip: contacto.zip,
+            country: contacto.country,
+            Demo_Fecha_Hora: contacto.demo_fecha_hora,
+            direccion_demo: contacto.direccion_demo,
+            facebook: contacto.facebook,
+            instagram: contacto.instagram,
+            linkedin: contacto.linkedin,
+            twitter: contacto.twitter,
+            website: contacto.website,
+            stage: contacto.stage,
+            owner: contacto.owner,
+            ownerName: contacto.owner_name,
+            id_equipo: contacto.id_equipo,
+            importado_px: contacto.importado_px,
+            cupon_url: contacto.cupon_url,
+            envia_cupon_despues: contacto.envia_cupon_despues,
+            estado_sdr: contacto.estado_sdr,
+            foreignDocument: contacto.foreign_document,
+            participo_SDR: contacto.participo_sdr,
+            referente: contacto.referente,
+            tiene_ichef: contacto.tiene_ichef,
+            token_invitado: contacto.token_invitado,
+            fuente_contacto: contacto.fuente_contacto,
+            status_contacto: contacto.status_contacto,
+            uso: contacto.uso,
+            categiria_contacto: contacto.categoria_contacto,
+            clientComments: contacto.client_comments,
+            comments: contacto.comments,
+            customData: contacto.custom_data,
+            membership: contacto.membership,
+            nucleo_familiar: contacto.enc_nucleo_familiar,
+            // Campos de encuesta con nombres correctos
+            forma_pago: contacto.enc_forma_pago,
+            acesso_ichef: contacto.enc_acesso_ichef,
+            cantidad_personas_Cocina: contacto.enc_cantidad_personas_cocina,
+            condicion_alimenticia: contacto.enc_condicion_alimenticia,
+            contenido_preferido: contacto.enc_contenido_preferido,
+            experiencia: contacto.enc_experiencia,
+            frecuencia_Cocina: contacto.enc_frecuencia_cocina,
+            gusta_cocinar: contacto.enc_gusta_cocinar,
+            gustos_alimenticios: contacto.enc_gustos_alimenticios,
+            mayor_desafio: contacto.enc_mayor_desafio,
+            profesional: contacto.enc_profesional,
+            sugerencia_contenido: contacto.enc_sugerencia_contenido,
+            via_se_entero_ichef: contacto.enc_via_se_entero_ichef,
+            quien_cocina_casa: contacto.enc_quien_cocina_casa,
+            // Campos de referencia
+            referredAtCampaignId: contacto.referredatcampaignid,
+            referredAtInteractionId: contacto.referredatinteractionid,
+            referredByContactId: contacto.referredbycontactid,
+            referredDate: contacto.referreddate,
+            createdByCampaignId: contacto.createdbycampaignid,
+            createdByUserId: contacto.createdbyuserid,
+            createdDate: contacto.createddate
+        };
+
+        // Actualizar el contacto usando la función existente que ya tiene todas las validaciones
+        const updateSuccess = await updateContact(existingContact.uuid, contactoParaActualizar);
+        if (!updateSuccess) {
+            console.log(`❌ ERROR ACTUALIZACIÓN: ID=${contacto.id} | ${email}`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Error al actualizar el contacto en RD Station.',
+                contact: {
+                    id: contacto.id,
+                    email: email,
+                    uuid: existingContact.uuid
+                }
+            });
+        }
+
+        console.log(`✅ ACTUALIZADO: ID=${contacto.id} | ${email} | UUID=${existingContact.uuid}`);
+        return res.status(200).json({
+            success: true,
+            statusCode: 200,
+            message: 'Contacto actualizado exitosamente en RD Station.',
+            contact: {
+                id: contacto.id,
+                email: email,
+                uuid: existingContact.uuid
+            },
+            tokenRefreshed: tokenRefreshed
+        });
+
+    } catch (error) {
+        console.error('Error inesperado al actualizar contacto:', error);
+        return res.status(500).json({
+            success: false,
+            statusCode: 500,
+            error: 'Error interno del servidor.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+
 export {
     importarContactos,
     isValidEmail,
@@ -933,5 +1130,6 @@ export {
     findContactByEmail,
     createContact,
     updateContact,
+    actualizarContacto,
     logContactError
 };
