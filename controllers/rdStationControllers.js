@@ -926,27 +926,58 @@ const importarContactos = async (req, res) => {
 
 
 const actualizarContacto = async (req, res) => {
-    // Actualiza un contacto cuando se actualiza en inconcert
-    const contacto = req.body.eventData;
-    console.log('Actualizar Contacto', contacto.id);
-
-    // Buscamos el contacto por email en RD Station si tiene email, sino lo construimos con el teléfono
-    const email = contacto.email || generateEmailFromPhone(contacto.phone || contacto.mobile);
-    if (!email || !isValidEmail(email)) {
-        console.log(`❌ ERROR: Contacto sin email válido | ID=${contacto.id}`);
-        return res.status(400).json({
-            success: false,
-            statusCode: 400,
-            error: 'El contacto debe tener un email válido o un número de teléfono válido (mínimo 7 dígitos).',
-            contact: {
-                id: contacto.id,
-                email: email || 'vacío',
-                phone: contacto.phone || contacto.mobile || 'N/A'
-            }
-        });
-    }
-
     try {
+        // Actualiza un contacto cuando se actualiza en inconcert
+        const contacto = req.body.eventData || req.body;
+        const datosPersonalizados = contacto.customData;
+        const custom_data = JSON.parse(datosPersonalizados || '{}');
+        
+        console.log('Actualizar un Contacto', contacto);
+        console.log('Custom Data', custom_data);
+
+        // Función auxiliar para convertir strings booleanos específicos
+        const parseBoolean = (value) => {
+            if (typeof value === 'boolean') return value;
+            if (typeof value === 'string') {
+                return value.toLowerCase() === 'true';
+            }
+            return false;
+        };
+
+        // Función auxiliar para convertir strings a números
+        const parseNumber = (value) => {
+            if (typeof value === 'number') return value;
+            if (typeof value === 'string') {
+                const num = parseInt(value, 10);
+                return isNaN(num) ? 0 : num;
+            }
+            return 0;
+        };
+
+        // Función auxiliar para validar cf_tiene_ichef
+        const validateTieneIchef = (value) => {
+            if (!value || value === null || value === undefined || value === '' || value === 'N/A') {
+                return 'No';
+            }
+            return value;
+        };
+
+        // Buscamos el contacto por email en RD Station si tiene email, sino lo construimos con el teléfono
+        const email = contacto.email || generateEmailFromPhone(contacto.phone || contacto.mobile);
+        if (!email || !isValidEmail(email)) {
+            console.log(`❌ ERROR: Contacto sin email válido | ID=${contacto.id}`);
+            return res.status(400).json({
+                success: false,
+                statusCode: 400,
+                error: 'El contacto debe tener un email válido o un número de teléfono válido (mínimo 7 dígitos).',
+                contact: {
+                    id: contacto.id,
+                    email: email || 'vacío',
+                    phone: contacto.phone || contacto.mobile || 'N/A'
+                }
+            });
+        }
+
         // Buscar el contacto en RD Station
         let existingContact = null;
         let tokenRefreshed = false;
@@ -1006,78 +1037,80 @@ const actualizarContacto = async (req, res) => {
             });
         }
 
-        // Mapear correctamente los nombres de propiedades del eventData a los esperados por updateContact
+        // Determinar qué teléfono usar (phone o mobile)
+        const phoneToUse = contacto.phone || contacto.mobile;
+
+        // Mapear correctamente los datos del webhook a la estructura esperada por updateContact
         const contactoParaActualizar = {
             id: contacto.id,
-            firstname: contacto.name?.split(' ')[0] || contacto.firstname,
+            firstname: contacto.firstname,
             lastname: contacto.lastname,
             email: email,
-            phone: contacto.phone,
+            phone: phoneToUse,
             mobile: contacto.mobile,
-            nickname: contacto.nickname,
-            cedula: contacto.cedula,
+            nickname: custom_data.nickname || contacto.nickname,
+            cedula: custom_data.cedula || contacto.cedula,
             language: contacto.language,
             position: contacto.position,
-            rut: contacto.rut,
+            rut: custom_data.rut || contacto.rut,
             address1: contacto.address1,
             address2: contacto.address2,
-            numero_puerta: contacto.numero_puerta,
+            numero_puerta: custom_data.numero_puerta,
             city: contacto.city,
             state: contacto.state,
             zip: contacto.zip,
             country: contacto.country,
-            Demo_Fecha_Hora: contacto.demo_fecha_hora,
-            direccion_demo: contacto.direccion_demo,
+            Demo_Fecha_Hora: custom_data.Demo_Fecha_Hora,
+            direccion_demo: custom_data.direccion_demo,
             facebook: contacto.facebook,
-            instagram: contacto.instagram,
+            instagram: custom_data.instagram || contacto.instagram,
             linkedin: contacto.linkedin,
             twitter: contacto.twitter,
             website: contacto.website,
             stage: contacto.stage,
             owner: contacto.owner,
-            ownerName: contacto.owner_name,
-            id_equipo: contacto.id_equipo,
-            importado_px: contacto.importado_px,
-            cupon_url: contacto.cupon_url,
-            envia_cupon_despues: contacto.envia_cupon_despues,
-            estado_sdr: contacto.estado_sdr,
-            foreignDocument: contacto.foreign_document,
-            participo_SDR: contacto.participo_sdr,
-            referente: contacto.referente,
-            tiene_ichef: contacto.tiene_ichef,
-            token_invitado: contacto.token_invitado,
-            fuente_contacto: contacto.fuente_contacto,
-            status_contacto: contacto.status_contacto,
-            uso: contacto.uso,
-            categiria_contacto: contacto.categoria_contacto,
-            clientComments: contacto.client_comments,
+            ownerName: custom_data.ownerName,
+            id_equipo: custom_data.id_equipo,
+            importado_px: custom_data.importado_px,
+            cupon_url: custom_data.cupon_url,
+            envia_cupon_despues: custom_data.envia_cupon_despues,
+            estado_sdr: custom_data.estado_sdr,
+            foreignDocument: custom_data.foreignDocument,
+            participo_SDR: custom_data.participo_SDR,
+            referente: custom_data.referente,
+            tiene_ichef: custom_data.tiene_ichef,
+            token_invitado: custom_data.token_invitado,
+            fuente_contacto: custom_data.fuente_contacto,
+            status_contacto: custom_data.status_contacto,
+            uso: custom_data.uso,
+            categiria_contacto: custom_data.categiria_contacto,
+            clientComments: contacto.clientComments,
             comments: contacto.comments,
-            customData: contacto.custom_data,
+            customData: contacto.customData,
             membership: contacto.membership,
-            nucleo_familiar: contacto.enc_nucleo_familiar,
-            // Campos de encuesta con nombres correctos
-            forma_pago: contacto.enc_forma_pago,
-            acesso_ichef: contacto.enc_acesso_ichef,
-            cantidad_personas_Cocina: contacto.enc_cantidad_personas_cocina,
-            condicion_alimenticia: contacto.enc_condicion_alimenticia,
-            contenido_preferido: contacto.enc_contenido_preferido,
-            experiencia: contacto.enc_experiencia,
-            frecuencia_Cocina: contacto.enc_frecuencia_cocina,
-            gusta_cocinar: contacto.enc_gusta_cocinar,
-            gustos_alimenticios: contacto.enc_gustos_alimenticios,
-            mayor_desafio: contacto.enc_mayor_desafio,
-            profesional: contacto.enc_profesional,
-            sugerencia_contenido: contacto.enc_sugerencia_contenido,
-            via_se_entero_ichef: contacto.enc_via_se_entero_ichef,
-            quien_cocina_casa: contacto.enc_quien_cocina_casa,
-            // Campos de referencia
-            referredAtCampaignId: contacto.referredatcampaignid,
-            referredAtInteractionId: contacto.referredatinteractionid,
-            referredByContactId: contacto.referredbycontactid,
-            referredDate: contacto.referreddate,
-            createdByCampaignId: contacto.createdbycampaignid,
-            createdByUserId: contacto.createdbyuserid,
-            createdDate: contacto.createddate
+            nucleo_familiar: custom_data.nucleo_familiar,
+            referredAtCampaignId: contacto.referredAtCampaignId,
+            referredAtInteractionId: contacto.referredAtInteractionId,
+            referredByContactId: contacto.referredByContactId,
+            referredDate: contacto.referredDate,
+            createdByCampaignId: contacto.createdByCampaignId,
+            createdByUserId: contacto.createdByUserId,
+            createdDate: contacto.createdDate,
+            // Campos de encuesta
+            forma_pago: custom_data.forma_pago,
+            acesso_ichef: custom_data.acesso_ichef,
+            cantidad_personas_Cocina: custom_data.cantidad_personas_Cocina,
+            condicion_alimenticia: custom_data.condicion_alimenticia,
+            contenido_preferido: custom_data.contenido_preferido,
+            experiencia: custom_data.experiencia,
+            frecuencia_Cocina: custom_data.frecuencia_Cocina,
+            gusta_cocinar: custom_data.gusta_cocinar,
+            gustos_alimenticios: custom_data.gustos_alimenticios,
+            mayor_desafio: custom_data.mayor_desafio,
+            profesional: custom_data.profesional,
+            sugerencia_contenido: custom_data.sugerencia_contenido,
+            via_se_entero_ichef: custom_data.via_se_entero_ichef,
+            quien_cocina_casa: custom_data.quien_cocina_casa
         };
 
         // Actualizar el contacto usando la función existente que ya tiene todas las validaciones
