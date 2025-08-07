@@ -54,7 +54,6 @@ const importContacts = async (req, res) => {
         "inbox_id": contact.phone !== null ? 23 : 1,
         "email": contact.email,
         "phone_number": contact.phoneInternational,
-        "identifier": contact.id,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -215,7 +214,6 @@ const importContacts = async (req, res) => {
             "name": contact.firstname + ' ' + contact.lastname,
             "email": contact.email,
             "phone_number": contact.phoneInternational,
-            "identifier": contact.id,
             "custom_attributes": {
                 "firstname": contact.firstname,
                 "lastname": contact.lastname,
@@ -445,7 +443,7 @@ const importContacts = async (req, res) => {
 
     const payload = {
         payload: [
-            { id: contact.id, key: 'identifier' },
+            { id: contact.id, key: 'id' },
             { id: contact.email, key: 'email' },
             { id: contact.phone, key: 'phone_number' }
         ]
@@ -526,7 +524,6 @@ const createContact = async (req, res) => {
         "inbox_id": contact.phone !== null ? 23 : 1,  
         "email": contact.email,
         "phone_number": contact.phoneInternational,
-        "identifier": contact.id,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -714,7 +711,6 @@ const updateContact = async (req, res) => {
         "name": contact.firstname + ' ' + contact.lastname,
         "email": contact.email,
         "phone_number": contact.phoneInternational,
-        "identifier": contact.id,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -863,7 +859,7 @@ const updateContact = async (req, res) => {
 
     const payload = {
         payload: [
-            { id: contact.id, key: 'identifier' },
+            { id: contact.id, key: 'id' },
             { id: contact.email, key: 'email' },
             { id: contact.phone, key: 'phone_number' }
         ]
@@ -894,7 +890,7 @@ const updateContact = async (req, res) => {
                         'api_access_token': api_access_token,
                     },
                 });
-                console.log(`Contacto actualizado con id ${response.data.payload.identifier}`);
+                console.log(`Contacto actualizado con id ${response.data.payload.id}`);
                 // res.status(200).json(response.data);
             } catch (error) {
                 console.error(` Error al actualizar contacto:`, error.message);
@@ -1000,7 +996,7 @@ const deleteContact = async (req, res) => {
 
     const payload = {
         payload: [
-            { id: contact.id, key: 'identifier' },
+            { id: contact.id, key: 'id' },
             { id: contact.email, key: 'email' },
             { id: contact.phone, key: 'phone_number' }
         ]

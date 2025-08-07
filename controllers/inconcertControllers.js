@@ -167,7 +167,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
 
     const payload = {
         payload: [
-            { id: contactData.id, key: 'identifier' },
+            { id: contactData.id, key: 'id' },
             { id: contactData.email, key: 'email' },
             { id: contactData.phone, key: 'phone_number' }
         ]
@@ -189,7 +189,7 @@ const chatwootCampaignCreatedSdrPrueba = async (req, res) => {
         if (response.data.meta.count > 0) {
             const conversationData = {
                 inbox_id: contactData.inbox_id || "20",
-                source_id: response.data.payload[0].identifier,
+                source_id: response.data.payload[0].custom_attributes.id,
                 contact_id: response.data.payload[0].id,
                 status: 'pending',
                 team_id: 1,
@@ -238,7 +238,7 @@ const chatwootCampaignCreatedExpoBebe2025 = async (req, res) => {
 
     const payload = {
         payload: [
-            { id: contactData.id, key: 'identifier' },
+            { id: contactData.id, key: 'id' },
             { id: contactData.email, key: 'email' },
             { id: contactData.phone, key: 'phone_number' }
         ]
@@ -260,7 +260,7 @@ const chatwootCampaignCreatedExpoBebe2025 = async (req, res) => {
         if (response.data.meta.count > 0) {
             const conversationData = {
                 inbox_id: contactData.inbox_id || "14",
-                source_id: response.data.payload[0].identifier,
+                source_id: response.data.payload[0].custom_attributes.id,
                 contact_id: response.data.payload[0].id,
                 status: 'open',
                 team_id: 2,
