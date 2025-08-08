@@ -359,7 +359,7 @@ const importContacts = async (req, res) => {
             });
             console.log(`Contacto importado con id ${response.data.payload.id}`);
         } catch (error) {
-            console.error(` Error al actualizar contacto:`, error.message);
+            console.error(`Error al actualizar contacto:`, error.message);
         };
 
         // Buscar las conversaciones del contacto
@@ -893,8 +893,10 @@ const updateContact = async (req, res) => {
                 console.log(`Contacto actualizado con id ${response.data.payload.id}`);
                 // res.status(200).json(response.data);
             } catch (error) {
-                console.error(` Error al actualizar contacto:`, error.message);
+                console.error(`Error al actualizar contacto:`, contactId, error.message);
+                console.log(updateContactData);
                 res.status(500).json({ error: error.message, detalles: error });
+                return;
             }
 
             // Buscar las conversaciones del contacto
@@ -912,13 +914,13 @@ const updateContact = async (req, res) => {
                     tags: conversation.labels || []
                 }));
 
-                console.log(`Conversaciones del contacto:`, conversations);
+                //console.log(`Conversaciones del contacto:`, conversations);
 
                 conversations.forEach(async conversation => {
                     try {
                         // Filtrar las etiquetas existentes
                         const currentLabels = conversation.tags;
-                        console.log(`Etiquetas actuales:`, currentLabels);
+                        //console.log(`Etiquetas actuales:`, currentLabels);
 
                         // Remover etiquetas de oportunidad anteriores
                         const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
@@ -935,7 +937,7 @@ const updateContact = async (req, res) => {
                             updatedLabels = [...updatedLabels, 'tiene_ichef'];
                         }
 
-                        console.log(`Etiquetas actualizadas:`, updatedLabels);
+                        //console.log(`Etiquetas actualizadas:`, updatedLabels);
 
                         const updateConversationData = {
                             "labels": updatedLabels
@@ -952,8 +954,7 @@ const updateContact = async (req, res) => {
                             }
                         );
                         console.log(`Conversación ${conversation.id} actualizada con etiquetas:`, updatedLabels);
-                    }
-                    catch (error) {
+                    } catch (error) {
                         console.error(`Error al actualizar etiquetas de la conversación:`, error.message);
                     }
                 });
@@ -962,16 +963,12 @@ const updateContact = async (req, res) => {
                 console.error(`Error al buscar conversaciones del contacto:`, error.message);
                 res.status(500).json({ error: error.message });
             }
-
             console.log('Contacto actualizado', contact.id);
             res.status(200).json({ message: 'Contacto actualizado' });
-
-
         } else {
             console.log('Contacto no encontrado');
             res.status(404).json({ message: 'Contacto no encontrado' });
         }
-
     } catch (error) {
         console.error(` Error:`, error);
         res.status(500).json({ error: error.message, detalles: error });
