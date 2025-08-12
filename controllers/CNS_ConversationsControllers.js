@@ -319,6 +319,10 @@ async function ProcessOutgoingMessage(message) {
 		const { serviceId, clientEmail, trackingUrl, techNumber } = service;
 		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
 		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
+		if (!techNumber) {
+			console.warn(`El servicio ${serviceId} no tiene técnico asignado.`);
+			return;
+		}
 
 		switch (techNumber) {
 			case 3:

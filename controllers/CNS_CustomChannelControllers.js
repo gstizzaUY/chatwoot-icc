@@ -82,9 +82,7 @@ async function GetLastConversationId(contactId, inboxId) {
 	try {
 		const response = await chatwoot.get(`/contacts/${contactId}/conversations`);
 		const conversations = response.data.payload;
-		const conversation = conversations.find(
-			conversation => conversation.inbox_id === inboxId
-		);
+		const conversation = conversations.find(conversation => conversation.inbox_id === inboxId);
 		if (conversation) return conversation.id;
 		return null;
 	} catch (error) {
@@ -140,23 +138,18 @@ async function AddPrivateMessage(conversationId, content) {
 */
 async function SendCustomMessage(req, res) {
 	const inboxes = await FetchInboxes();
-	const inbox = inboxes.find(
-		inbox =>
-			inbox.channel_type === "Channel::Api" &&
-			inbox.name === "Solicitud Partes"
-	);
-	if (!inbox) {
-		return res.status(404).send("Inbox not found");
-	}
+	const inbox = inboxes.find(inbox => inbox.channel_type === "Channel::Api" && inbox.name === "Solicitud Partes");
+	if (!inbox) return res.status(404).send("Inbox not found");
 
 	const body = req.body;
 	let contactId = await GetContactId(body);
 	if (!contactId) {
 		const newContactId = await CreateContact(body);
 		if (!newContactId) {
+			console.error("Failed to create contact for", body);
 			return res.status(500).send("Failed to create contact");
 		}
-		console.log("New contact for", body.email, "created with ID:", newContactId);
+		console.log("New contact for", body.id, "created with ID:", newContactId);
 		contactId = newContactId;
 	}
 
@@ -167,6 +160,7 @@ async function SendCustomMessage(req, res) {
 	if (!conversationId) {
 		const newConversationId = await CreateConversation(contactId, inboxId, contactPhoneOrId, messageContent);
 		if (!newConversationId) {
+			console.error("Failed to create conversation for contact ID:", contactId);
 			return res.status(500).send("Failed to create conversation");
 		}
 		return res.status(200).send({
@@ -175,7 +169,8 @@ async function SendCustomMessage(req, res) {
 	}
 	const message = await AddPrivateMessage(conversationId, messageContent);
 	if (!message) {
-		return res.status(500).send("Failed to send message");
+		console.error("Failed to add message to conversation ID:", conversationId);
+		return res.status(500).send("Failed to add message");
 	}
 	return res.status(200).send(message);
 }

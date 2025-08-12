@@ -894,7 +894,7 @@ const updateContact = async (req, res) => {
                 // res.status(200).json(response.data);
             } catch (error) {
                 console.error(`Error al actualizar contacto:`, contactId, error.message);
-                console.log(updateContactData);
+                //console.log(updateContactData);
                 res.status(500).json({ error: error.message, detalles: error });
                 return;
             }
