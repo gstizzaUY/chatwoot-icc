@@ -81,7 +81,7 @@ const importDeals = async (req, res) => {
             const payload = {
                 "payload": [
                     {
-                        "attribute_key": "identifier",
+                        "attribute_key": "id",
                         "filter_operator": "equal_to",
                         "values": [contactId],
                         "query_operator": "OR"
@@ -105,7 +105,6 @@ const importDeals = async (req, res) => {
 
                     // Actualizar el contacto con los deals
                     const update = {
-                        "identifier": contact.identifier,
                         "custom_attributes": {
                             "deals": contactDeals
                         }
@@ -158,11 +157,11 @@ const createDeal = (req, res) => {
         console.log('secondParenthesis', secondParenthesis);
         console.log('thirdParenthesis', thirdParenthesis);
 
-        // Caso 1: Tiene tres paréntesis (nombre, apellido e identifier)
+        // Caso 1: Tiene tres paréntesis (nombre, apellido e chatwoot_id)
         if (thirdParenthesis) {
             return {
                 name: `${firstParenthesis} ${secondParenthesis}`,
-                identifier: thirdParenthesis
+                chatwoot_id: thirdParenthesis
             };
         }
 
@@ -170,7 +169,7 @@ const createDeal = (req, res) => {
         if (secondParenthesis) {
             return {
                 name: `${firstParenthesis} ${secondParenthesis}`,
-                identifier: null
+                chatwoot_id: null
             };
         }
 
@@ -180,14 +179,14 @@ const createDeal = (req, res) => {
             if (/^\d+$/.test(firstParenthesis)) {
                 return {
                     name: null,
-                    identifier: firstParenthesis
+                    chatwoot_id: firstParenthesis
                 };
             }
 
             // Si no es un número, asumimos que es un nombre
             return {
                 name: firstParenthesis,
-                identifier: null
+                chatwoot_id: null
             };
         }
 
@@ -195,7 +194,7 @@ const createDeal = (req, res) => {
     };
 
     const contactInfo = extractContactInfo(deal.dealName);
-    const contactoBuscar = contactInfo?.identifier || contactInfo?.name || '';
+    const contactoBuscar = contactInfo?.chatwoot_id || contactInfo?.name || '';
 
     console.log('contactInfo', contactInfo);
     console.log('contactoBuscar', contactoBuscar);
@@ -211,7 +210,7 @@ const createDeal = (req, res) => {
     const payload = {
         "payload": [
             {
-                "attribute_key": "identifier",
+                "attribute_key": "id",
                 "filter_operator": "equal_to",
                 "values": [contactoBuscar],
                 "query_operator": "OR"
@@ -260,7 +259,6 @@ const createDeal = (req, res) => {
 
                 // Actualizar el contacto con el nuevo deal
                 const update = {
-                    "identifier": contact.identifier,
                     "custom_attributes": {
                         "deals": deals
                     }
@@ -315,11 +313,11 @@ const updateDeal = (req, res) => {
         console.log('secondParenthesis', secondParenthesis);
         console.log('thirdParenthesis', thirdParenthesis);
 
-        // Caso 1: Tiene tres paréntesis (nombre, apellido e identifier)
+        // Caso 1: Tiene tres paréntesis (nombre, apellido e chatwoot_id)
         if (thirdParenthesis) {
             return {
                 name: `${firstParenthesis} ${secondParenthesis}`,
-                identifier: thirdParenthesis
+                chatwoot_id: thirdParenthesis
             };
         }
 
@@ -327,7 +325,7 @@ const updateDeal = (req, res) => {
         if (secondParenthesis) {
             return {
                 name: `${firstParenthesis} ${secondParenthesis}`,
-                identifier: null
+                chatwoot_id: null
             };
         }
 
@@ -337,14 +335,14 @@ const updateDeal = (req, res) => {
             if (/^\d+$/.test(firstParenthesis)) {
                 return {
                     name: null,
-                    identifier: firstParenthesis
+                    chatwoot_id: firstParenthesis
                 };
             }
 
             // Si no es un número, asumimos que es un nombre
             return {
                 name: firstParenthesis,
-                identifier: null
+                chatwoot_id: null
             };
         }
 
@@ -352,7 +350,7 @@ const updateDeal = (req, res) => {
     };
 
     const contactInfo = extractContactInfo(deal.dealName);
-    const contactoBuscar = contactInfo?.identifier || contactInfo?.name || '';
+    const contactoBuscar = contactInfo?.chatwoot_id || contactInfo?.name || '';
 
     console.log('contactInfo', contactInfo);
     console.log('contactoBuscar', contactoBuscar);
@@ -371,7 +369,7 @@ const updateDeal = (req, res) => {
     const payload = {
         "payload": [
             {
-                "attribute_key": "identifier",
+                "attribute_key": "id",
                 "filter_operator": "equal_to",
                 "values": [contactoBuscar],
                 "query_operator": "OR"
@@ -424,7 +422,6 @@ const updateDeal = (req, res) => {
                 // Actualizar el contacto con el nuevo deal
 
                 const update = {
-                    "identifier": contact.identifier,
                     "custom_attributes": {
                         "deals": deals
                     }

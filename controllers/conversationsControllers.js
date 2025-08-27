@@ -56,7 +56,7 @@ async function GetContactId(contact) {
 
 	const payload = {
 		payload: [
-			{ id: contact.id, key: "identifier" },
+			{ id: contact.id, key: "id" },
 			{ id: contact.email, key: "email" },
 			{ id: contact.phone, key: "phone_number" }
 		]

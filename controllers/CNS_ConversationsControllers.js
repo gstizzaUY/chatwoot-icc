@@ -73,11 +73,10 @@ async function GetContactId(contact) {
 
 	const payload = {
 		payload: [
-			{ id: contact.id, key: "identifier" },
-			{ id: contact.email, key: "email" },
-			{ id: contact.phone, key: "phone_number" }
+			{ value: contact.email, key: "email" },
+			{ value: contact.phone, key: "phone_number" }
 		]
-			.map(item => buildPayloadItem(item.key, item.id))
+			.map(item => buildPayloadItem(item.key, item.value))
 			.filter(Boolean)
 			.map((item, index, array) => ({
 				...item,
@@ -320,6 +319,10 @@ async function ProcessOutgoingMessage(message) {
 		const { serviceId, clientEmail, trackingUrl, techNumber } = service;
 		await UpdateContact(contactId, clientEmail, serviceId, trackingUrl);
 		console.log(`Contacto ${contactId} actualizado con servicio ${serviceId}.`);
+		if (!techNumber) {
+			console.warn(`El servicio ${serviceId} no tiene técnico asignado.`);
+			return;
+		}
 
 		switch (techNumber) {
 			case 3:

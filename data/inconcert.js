@@ -5,7 +5,6 @@ const datosinconcert =
     "source_id": "00598{{ contact.phoneLocal }}",
     "email": "{{ contact.email }}",
     "phone_number": "{{ contact.phoneInternational }}",
-    "identifier": "{{ contact.id }}",
     "custom_attributes": {
         "firstname": "{{ contact.firstname }}",
         "lastname": "{{ contact.lastname }}",
