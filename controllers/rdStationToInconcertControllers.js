@@ -6,7 +6,7 @@ dotenv.config();
 const INCONCERT_URL = process.env.INCONCERT_URL;
 const INCONCERT_CREATE_CONTACT_TOKEN = "10d76b834c3f2d48991a78a48f3f1de3";
 
-const rdStationToInconcertController = async (req, res) => {
+const masterSushi = async (req, res) => {
     try {
         const { leads } = req.body;
 
@@ -122,4 +122,4 @@ const rdStationToInconcertController = async (req, res) => {
     }
 };
 
-export { rdStationToInconcertController };
+export { masterSushi };

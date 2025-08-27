@@ -1,8 +1,8 @@
 import express from 'express';
-import { rdStationToInconcertController } from '../controllers/rdStationToInconcertControllers.js';
+import { masterSushi } from '../controllers/rdStationToInconcertControllers.js';
 
 const router = express.Router();
 
-router.post('/leads-to-inconcert', rdStationToInconcertController);
+router.post('/masterclass-sushi',  masterSushi);
 
 export default router;
