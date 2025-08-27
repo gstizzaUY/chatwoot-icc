@@ -7,13 +7,19 @@ const INCONCERT_URL = process.env.INCONCERT_URL;
 const INCONCERT_CREATE_CONTACT_TOKEN = "10d76b834c3f2d48991a78a48f3f1de3";
 
 const masterSushi = async (req, res) => {
+    console.log('=== INICIO MASTERCLASS SUSHI ENDPOINT ===');
+    console.log('Headers recibidos:', req.headers);
+    console.log('Body recibido:', JSON.stringify(req.body, null, 2));
+    
     try {
         const { leads } = req.body;
 
         if (!leads || !Array.isArray(leads)) {
+            console.log('ERROR: Leads no proporcionados o formato incorrecto');
             return res.status(400).json({ error: 'Leads no proporcionados o formato incorrecto' });
         }
 
+        console.log(`Procesando ${leads.length} leads`);
         const results = [];
 
         for (const lead of leads) {
@@ -26,16 +32,22 @@ const masterSushi = async (req, res) => {
             const fullName = lead.name || '';
             const lastName = custom_fields.lastname || '';
             let firstName = '';
+            
+            console.log(`Separando nombre: fullName="${fullName}", lastName="${lastName}"`);
+            
             if (fullName && lastName) {
                 firstName = fullName.replace(lastName, '').trim();
+                console.log(`Método 1 - firstName: "${firstName}", lastName: "${lastName}"`);
             } else {
                 // Si no hay lastname, asumir que el último nombre es apellido
                 const nameParts = fullName.split(' ');
                 if (nameParts.length > 1) {
                     firstName = nameParts.slice(0, -1).join(' ');
-                    lastName = nameParts[nameParts.length - 1];
+                    const extractedLastName = nameParts[nameParts.length - 1];
+                    console.log(`Método 2 - firstName: "${firstName}", lastName: "${extractedLastName}"`);
                 } else {
                     firstName = fullName;
+                    console.log(`Método 3 - solo firstName: "${firstName}"`);
                 }
             }
 
@@ -64,6 +76,8 @@ const masterSushi = async (req, res) => {
             };
 
             console.log('ContactData mapeado:', contactData);
+            console.log('INCONCERT_URL desde .env:', INCONCERT_URL);
+            console.log('INCONCERT_TOKEN:', INCONCERT_CREATE_CONTACT_TOKEN);
 
             // Datos del payload para Inconcert
             const data = {
@@ -85,40 +99,64 @@ const masterSushi = async (req, res) => {
             console.log('URL de Inconcert:', INCONCERT_URL);
 
             // Enviar a Inconcert
+            console.log(`--- ENVIANDO A INCONCERT PARA LEAD ${lead.id} ---`);
             try {
+                console.log('Iniciando request a Inconcert...');
                 const response = await axios.post(INCONCERT_URL, data, {
                     headers: {
                         'Content-Type': 'application/json'
-                    }
+                    },
+                    timeout: 30000 // 30 segundos timeout
                 });
-                console.log('Respuesta de Inconcert para lead', lead.id, ':', response.data);
+                console.log('✅ ÉXITO - Respuesta de Inconcert para lead', lead.id);
+                console.log('Status code:', response.status);
+                console.log('Response data:', response.data);
+                console.log('Response headers:', response.headers);
                 results.push({
                     leadId: lead.id,
                     status: 'success',
                     response: response.data
                 });
             } catch (error) {
-                console.error('Error enviando a Inconcert para lead', lead.id, ':', error.message);
+                console.error('❌ ERROR enviando a Inconcert para lead', lead.id);
+                console.error('Error message:', error.message);
+                console.error('Error code:', error.code);
                 if (error.response) {
-                    console.error('Status:', error.response.status);
-                    console.error('Data:', error.response.data);
+                    console.error('Response status:', error.response.status);
+                    console.error('Response statusText:', error.response.statusText);
+                    console.error('Response data:', error.response.data);
+                    console.error('Response headers:', error.response.headers);
+                } else if (error.request) {
+                    console.error('No response received. Request details:', error.request);
+                } else {
+                    console.error('Error setting up request:', error.message);
                 }
                 results.push({
                     leadId: lead.id,
                     status: 'error',
-                    error: error.response?.data || error.message
+                    error: error.response?.data || error.message,
+                    errorCode: error.code,
+                    statusCode: error.response?.status
                 });
             }
         }
 
-        console.log('Procesamiento completado. Resultados:', results);
+        console.log('=== PROCESAMIENTO COMPLETADO ===');
+        console.log('Total leads procesados:', leads.length);
+        console.log('Resultados finales:', JSON.stringify(results, null, 2));
         res.json({
             message: 'Procesamiento completado',
+            totalLeads: leads.length,
             results: results
         });
     } catch (error) {
-        console.error('Error en rdStationToInconcertController:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+        console.error('❌ ERROR CRÍTICO en masterSushi:', error);
+        console.error('Stack trace:', error.stack);
+        res.status(500).json({ 
+            error: 'Error interno del servidor',
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 };
 
