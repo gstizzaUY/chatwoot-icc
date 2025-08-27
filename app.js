@@ -9,6 +9,7 @@ import conversationsRoutes from './routes/conversationsRoutes.js';
 import CNS_ConversationsRoutes from './routes/CNS_ConversationsRoutes.js';
 import inconcertRoutes from './routes/inconcertRoutes.js';
 import rdStationRoutes from './routes/rdStationRoutes.js';
+import rdStationToInconcertRoutes from './routes/rdStationToInconcertRoutes.js';
 
 dotenv.config();
 
@@ -34,6 +35,7 @@ app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes);
 
 app.use('/api/rd-station', rdStationRoutes);
+app.use('/api/rd-station', rdStationToInconcertRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
