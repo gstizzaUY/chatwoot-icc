@@ -7,7 +7,7 @@ dotenv.config();
 
 // Configuración simplificada
 const RD_STATION_CONFIG = {
-    API_BASE_URL: 'https://api.rd.services'
+    API_BASE_URL: process.env.RD_STATION_API_BASE_URL
 };
 
 /**
@@ -17,10 +17,10 @@ const RD_STATION_CONFIG = {
  * @property {string} refresh_token - Token de refresco para renovar el access_token
  */
 let credenciales = {
-    "client_id": "41234d0a-ff8f-4c76-9b5c-f18ddf968425",
-    "client_secret": "34ec421d374649028e82911fe7af717c",
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS5yZC5zZXJ2aWNlcyIsInN1YiI6IjNySVh5UDluZ1RIRC1rTDdvcU9MTmdLeUFYNC02bTBLQXpTeXozX2FKU1lAY2xpZW50cyIsImF1ZCI6Imh0dHBzOi8vYXBwLnJkc3RhdGlvbi5jb20uYnIvYXBpL3YyLyIsImFwcF9uYW1lIjoiaW1wb3J0YWNpw7NuIGNvbnRhY3RvcyBpbmNvbmNlcnQiLCJleHAiOjE3NTQxNTk3NDYsImlhdCI6MTc1NDA3MzM0Niwic2NvcGUiOiIifQ.ep01eaI4k5aB5WltnhZUYVwcgA12I_v8L3QAy5GBikRr7qWLD2W1OhKZWV_iCf5hFT7yp459792AjVTv1Iy5mo-mOnMZWoEQRhUbga3_FcNnEuVjT9d0-52Fifddy1CThZbsls_DQ-pMRm18XaSSBPx4w2mZPj-K3s4Xx57BgiklojGLkT5SWQQgFMWax7Pi5K0udkIVpXX_lNz8u4fmu7_IUvy5PgQ4JCHENh1EfOUwKgEGVd1Q31z0SK5e_JHUmI_uHQTrE5YP_fQgidanuUc9BvlI4DqVvQpwzI3pwwe1sYSnFL1IOWL2DsqQLwapX4mvRJyO9WFB5zHOI30CCg",
-    "refresh_token": "W0nd7CUAZg03J7oLPm5I2OZAyujtb-Phzy_3YJ-wVuk"
+    "client_id": process.env.RD_STATION_CLIENT_ID,
+    "client_secret": process.env.RD_STATION_CLIENT_SECRET,
+    "access_token": "",
+    "refresh_token": process.env.RD_STATION_REFRESH_TOKEN
 }
 
 /**
