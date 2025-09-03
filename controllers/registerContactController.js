@@ -38,10 +38,9 @@ function GenerateContactId(phone) {
 	return encodeURIComponent(`${phone.replace(/\D/g, "")}@email.com`);
 }
 
-async function GetContact(phone) {
-	const id = GenerateContactId(phone);
+async function GetContact(email) {
 	try {
-		const response = await rdstation.get(`/platform/contacts/email:${id}`);
+		const response = await rdstation.get(`/platform/contacts/email:${email}`);
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
@@ -68,11 +67,16 @@ async function CreateContact(contact) {
 }
 
 async function CreateIfNew(contact) {
-	const existing_contact = await GetContact(contact.phone);
-	if (!existing_contact) {
-		const new_contact = await CreateContact(contact);
-		if (new_contact) console.log("Contacto registrado:", new_contact.email);
+	const email = contact.email;
+	if (email) {
+		const existing_contact = await GetContact(email);
+		if (existing_contact) return;
 	}
+	const id = GenerateContactId(contact.phone);
+	const existing_contact = await GetContact(id);
+	if (existing_contact) return;
+	const new_contact = await CreateContact(contact);
+	if (new_contact) console.log("Contacto registrado:", new_contact.email);
 }
 
 async function HandleNewContact(message) {
