@@ -101,4 +101,33 @@ async function OnNewContact(req, res) {
 	return res.status(200).send("Event received");
 }
 
-export { OnNewContact };
+async function FetchContact(phone, email) {
+	if (email) {
+		const contact = await GetContact(email);
+		if (contact) return contact;
+	}
+	const id = GenerateContactId(phone);
+	const contact = await GetContact(id);
+	if (contact) return contact;
+	return null;
+}
+
+async function GetContactRD(req, res) {
+	const email = req.query.email;
+	const phone = req.query.phone;
+	try {
+		const contact = await FetchContact(phone, email);
+		if (contact) return res.status(200).json(contact);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			const contact = await FetchContact(phone, email);
+			if (contact) return res.status(200).json(contact);
+		}
+	}
+	return res.status(404).send("Contact not found");
+}
+
+export { OnNewContact, GetContactRD };
