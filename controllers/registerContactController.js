@@ -55,8 +55,8 @@ async function CreateContact(contact) {
 		name: contact.name,
 		email: contact.email || GenerateContactId(contact.phone),
 		mobile_phone: contact.phone.replace(/\D/g, ""),
+		cf_nickname: contact.username,
 		cf_id_equipo: contact.serial,
-		//cf_username: contact.username,
 		cf_tiene_ichef: contact.serial ? "Sí" : "No"
 	};
 	try {
@@ -73,8 +73,8 @@ async function UpdateContact(email, contact) {
 	const contactData = {
 		name: contact.name,
 		mobile_phone: contact.phone.replace(/\D/g, ""),
+		cf_nickname: contact.username,
 		cf_id_equipo: contact.serial,
-		//cf_username: contact.username,
 		cf_tiene_ichef: contact.serial ? "Sí" : "No"
 	};
 	try {
