@@ -53,8 +53,11 @@ async function GetContact(email) {
 async function CreateContact(contact) {
 	const contactData = {
 		name: contact.name,
-		email: GenerateContactId(contact.phone),
-		mobile_phone: contact.phone.replace(/\D/g, "")
+		email: contact.email || GenerateContactId(contact.phone),
+		mobile_phone: contact.phone.replace(/\D/g, ""),
+		cf_id_equipo: contact.serial,
+		//cf_username: contact.username,
+		cf_tiene_ichef: contact.serial ? "Sí" : "No"
 	};
 	try {
 		const response = await rdstation.post("/platform/contacts", contactData);
@@ -66,38 +69,68 @@ async function CreateContact(contact) {
 	}
 }
 
-async function CreateIfNew(contact) {
+async function UpdateContact(email, contact) {
+	const contactData = {
+		name: contact.name,
+		mobile_phone: contact.phone.replace(/\D/g, ""),
+		cf_id_equipo: contact.serial,
+		//cf_username: contact.username,
+		cf_tiene_ichef: contact.serial ? "Sí" : "No"
+	};
+	try {
+		const response = await rdstation.patch(`/platform/contacts/email:${email}`, contactData);
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
+		console.error("Error al actualizar contacto", contactData, error.message);
+		return null;
+	}
+}
+
+async function CreateIfNew(contact, do_update) {
 	const email = contact.email;
 	if (email) {
 		const existing_contact = await GetContact(email);
-		if (existing_contact) return;
+		if (existing_contact) {
+			if (do_update) {
+				const updated_contact = await UpdateContact(email, contact);
+				console.log("Contacto actualizado por email:", updated_contact);
+			}
+			return;
+		}
 	}
 	const id = GenerateContactId(contact.phone);
 	const existing_contact = await GetContact(id);
-	if (existing_contact) return;
+	if (existing_contact) {
+		if (do_update) {
+			const updated_contact = await UpdateContact(id, contact);
+			console.log("Contacto actualizado por celular:", updated_contact);
+		}
+		return;
+	}
 	const new_contact = await CreateContact(contact);
-	if (new_contact) console.log("Contacto registrado:", new_contact.email);
+	if (new_contact) console.log("Nuevo contacto creado:", new_contact);
 }
 
-async function HandleNewContact(message) {
-	if (message.event === "automation_event.conversation_created") {
-		const contact = message.meta.sender;
-		try {
-			await CreateIfNew(contact);
-		} catch (error) {
-			if (error.message === "INVALID_TOKEN") {
-				console.log("Generando nuevo token");
-				const token = await UpdateAccessToken();
-				SetAccessToken(token);
-				await CreateIfNew(contact);
-			}
+async function HandleNewContact(contact, do_update) {
+	try {
+		await CreateIfNew(contact, do_update);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			await CreateIfNew(contact, do_update);
 		}
 	}
 }
 
 async function OnNewContact(req, res) {
 	const message = req.body;
-	HandleNewContact(message); // do not await
+	if (message.event === "automation_event.conversation_created") {
+		const contact = message.meta.sender;
+		HandleNewContact(contact, false); // do not await
+	}
 	return res.status(200).send("Event received");
 }
 
@@ -130,4 +163,10 @@ async function GetContactRD(req, res) {
 	return res.status(404).send("Contact not found");
 }
 
-export { OnNewContact, GetContactRD };
+async function RegisterContact(req, res) {
+	const contact = req.body;
+	HandleNewContact(contact, true); // do not await
+	return res.status(200).send("Event received");
+}
+
+export { OnNewContact, GetContactRD, RegisterContact };
