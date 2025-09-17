@@ -1277,7 +1277,7 @@ const actualizarContacto = async (req, res) => {
                     details: process.env.NODE_ENV === 'development' ? createError.message : undefined,
                     contact: {
                         id: contacto.id,
-                        email: email
+                        email: email 
                     }
                 });
             }
@@ -1408,41 +1408,38 @@ const actualizarContacto = async (req, res) => {
  */
 const createConversionEvent = async (email, eventName, eventData = {}) => {
     const apiCall = async () => {
-        // Estructura correcta según la documentación de RD Station
+        // Estructura correcta según la documentación oficial de RD Station
         const payload = {
-            event_type: "CONVERSION",
-            event_family: "CDP",
-            payload: {
-                conversion_identifier: eventName,
-                name: eventData.name || '',
-                email: email,
-                personal_phone: eventData.phone || '',
-                mobile_phone: eventData.phone || '',
-                state: eventData.state || '',
-                city: eventData.city || '',
-                // Campos personalizados del demo
-                cf_fecha_demo: eventData.date || '',
-                cf_horario_demo: eventData.timeslot || '',
-                cf_local_demo: eventData.local_demo || '',
-                cf_direccion_demo: eventData.direccion_demo || '',
-                cf_source_url: eventData.source_url || '',
-                cf_calendar_id: eventData.calendar_id || '',
-                // Campos adicionales recomendados
-                available_for_mailing: true,
-                // legal_bases: [
-                //     {
-                //         category: "communications",
-                //         type: "consent", 
-                //         status: "granted"
-                //     }
-                // ]
-                traffic_source: eventData.source_url || ''
-            }
+            conversion_identifier: eventName,
+            name: eventData.name || '',
+            email: email,
+            personal_phone: eventData.phone || '',
+            mobile_phone: eventData.phone || '',
+            state: eventData.state || '',
+            city: eventData.city || '',
+            // Campos personalizados del demo
+            cf_fecha_demo: eventData.date || '',
+            cf_horario_demo: eventData.timeslot || '',
+            cf_local_demo: eventData.local_demo || '',
+            cf_direccion_demo: eventData.direccion_demo || '',
+            cf_source_url: eventData.source_url || '',
+            cf_calendar_id: eventData.calendar_id || '',
+            // Campos adicionales recomendados
+            available_for_mailing: true,
+            traffic_source: eventData.source_url || '',
+            // Bases legales de consentimiento
+            legal_bases: [
+                {
+                    category: "communications",
+                    type: "consent", 
+                    status: "granted"
+                }
+            ]
         };
 
-        // URL con parámetro event_type según documentación
+        // URL correcta según documentación (sin query parameters)
         const response = await axios.post(
-            `${RD_STATION_CONFIG.API_BASE_URL}/platform/events?event_type=conversion`,
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/events`,
             payload,
             {
                 headers: {
