@@ -1065,6 +1065,62 @@ const importarContactos = async (req, res) => {
             }
 
             console.log(`✅ ACTUALIZADO: ID=${contactInfo.id} | ${contactInfo.email} | UUID=${existingContact.uuid}`);
+            
+            // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
+            // Solo registrar evento si tiene TANTO Demo_Fecha_Hora COMO source_url Y la fecha es reciente/futura
+            let eventCreated = false;
+            if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
+                
+                // Validar que la fecha de demo es reciente o futura (no demos pasadas)
+                const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
+                const demoDate = new Date(demoDateStr);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                
+                // Solo procesar si la demo es de ayer en adelante (permite demos del día anterior por diferencias de zona horaria)
+                if (demoDate >= yesterday) {
+                    console.log(`📅 DEBUG: Detectado actualización por registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
+                    console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
+                    console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
+                    
+                    // Determinar tipo de evento basado en la URL de origen
+                    let eventName = 'demo'; // default
+                    if (contact.source_url && contact.source_url.includes('demo-antel')) {
+                        eventName = 'demo-antel';
+                    }
+                    
+                    console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
+                    
+                    const eventSuccess = await createConversionEvent(contact.email, eventName, {
+                        name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
+                        email: contact.email,
+                        phone: contact.phone || contact.mobile,
+                        date: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[0] : '',
+                        timeslot: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[1] : '',
+                        local_demo: contact.local_demo || '',
+                        direccion_demo: contact.direccion_demo || '',
+                        state: contact.state || '',
+                        city: contact.city || '',
+                        source_url: contact.source_url || '',
+                        calendar_id: contact.calendar_id || ''
+                    });
+                    
+                    eventCreated = eventSuccess;
+                    console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+                } else {
+                    console.log(`📋 DEBUG: Demo PASADA detectada en actualización (${demoDateStr}) - NO se registra evento de conversión para evitar duplicados`);
+                }
+            } else {
+                console.log(`📋 DEBUG: Contacto actualizado sin datos de demo válidos - NO se registra evento de conversión`);
+                if (!contact.Demo_Fecha_Hora || contact.Demo_Fecha_Hora.trim() === '') {
+                    console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora`);
+                }
+                if (!contact.source_url || contact.source_url.trim() === '') {
+                    console.log(`📋 DEBUG: - Sin source_url`);
+                }
+            }
+            
             return res.status(200).json({
                 success: true,
                 action: 'UPDATE',
@@ -1074,7 +1130,8 @@ const importarContactos = async (req, res) => {
                     id: contactInfo.id,
                     email: contact.email,
                     uuid: existingContact.uuid
-                }
+                },
+                eventCreated: eventCreated
             });
         }
 
@@ -1095,6 +1152,62 @@ const importarContactos = async (req, res) => {
         }
 
         console.log(`✅ CREADO: ID=${contactInfo.id} | ${contactInfo.email}`);
+
+        // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
+        // Solo registrar evento si tiene TANTO Demo_Fecha_Hora COMO source_url Y la fecha es reciente/futura
+        let eventCreated = false;
+        if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
+            
+            // Validar que la fecha de demo es reciente o futura (no demos pasadas)
+            const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
+            const demoDate = new Date(demoDateStr);
+            const today = new Date();
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            
+            // Solo procesar si la demo es de ayer en adelante (permite demos del día anterior por diferencias de zona horaria)
+            if (demoDate >= yesterday) {
+                console.log(`📅 DEBUG: Detectado registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
+                console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
+                console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
+                
+                // Determinar tipo de evento basado en la URL de origen
+                let eventName = 'demo'; // default
+                if (contact.source_url && contact.source_url.includes('demo-antel')) {
+                    eventName = 'demo-antel';
+                }
+                
+                console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
+                
+                const eventSuccess = await createConversionEvent(contact.email, eventName, {
+                    name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
+                    email: contact.email,
+                    phone: contact.phone || contact.mobile,
+                    date: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[0] : '',
+                    timeslot: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[1] : '',
+                    local_demo: contact.local_demo || '',
+                    direccion_demo: contact.direccion_demo || '',
+                    state: contact.state || '',
+                    city: contact.city || '',
+                    source_url: contact.source_url || '',
+                    calendar_id: contact.calendar_id || ''
+                });
+                
+                eventCreated = eventSuccess;
+                console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+            } else {
+                console.log(`📋 DEBUG: Demo PASADA detectada (${demoDateStr}) - NO se registra evento de conversión para evitar duplicados`);
+            }
+        } else {
+            console.log(`📋 DEBUG: Contacto creado sin datos de demo válidos - NO se registra evento de conversión`);
+            if (!contact.Demo_Fecha_Hora || contact.Demo_Fecha_Hora.trim() === '') {
+                console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora`);
+            }
+            if (!contact.source_url || contact.source_url.trim() === '') {
+                console.log(`📋 DEBUG: - Sin source_url`);
+            }
+        }
+
         return res.status(201).json({
             success: true,
             action: 'CREATE',
@@ -1103,7 +1216,8 @@ const importarContactos = async (req, res) => {
             contact: {
                 id: contactInfo.id,
                 email: contact.email
-            }
+            },
+            eventCreated: eventCreated
         });
 
     } catch (error) {
