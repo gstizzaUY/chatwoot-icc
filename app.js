@@ -13,6 +13,10 @@ import rdStationToInconcertRoutes from './routes/rdStationToInconcertRoutes.js';
 
 dotenv.config();
 
+console.log('🔄 Iniciando aplicación...');
+console.log('🔧 Variables de entorno cargadas');
+console.log('📊 Puerto configurado:', process.env.PORT || 4000);
+
 const app = express();
 const port = process.env.PORT || 4000;
 
@@ -39,4 +43,27 @@ app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes);
 
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
+    console.log('✅ Aplicación iniciada correctamente');
+});
+
+// Manejo de errores para debug en deploy
+process.on('uncaughtException', (error) => {
+    console.error('❌ Error no capturado:', error);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ Promise rechazada:', reason);
+    console.error('En promise:', promise);
+    process.exit(1);
+});
+
+process.on('SIGTERM', () => {
+    console.log('🔄 SIGTERM recibido - cerrando aplicación...');
+    process.exit(0);
+});
+
+process.on('SIGINT', () => {
+    console.log('🔄 SIGINT recibido - cerrando aplicación...');
+    process.exit(0);
 });
