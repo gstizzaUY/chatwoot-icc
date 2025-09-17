@@ -1,12 +1,72 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
 
 dotenv.config();
 
 const RD_STATION_CONFIG = {
     API_BASE_URL: process.env.RDSTATION_URL
+};
+
+/**
+ * Circuit breaker para evitar reintentos cuando RD Station está caído
+ */
+const circuitBreaker = {
+    isOpen: false,
+    failureCount: 0,
+    lastFailureTime: null,
+    failureThreshold: 5, // Después de 5 fallos consecutivos del servidor
+    resetTimeout: 300000, // 5 minutos en milisegundos
+    
+    /**
+     * Verifica si el circuit breaker permite hacer la petición
+     */
+    canMakeRequest() {
+        if (!this.isOpen) {
+            return true;
+        }
+        
+        // Si han pasado más de resetTimeout minutos, reiniciar el circuit breaker
+        const now = Date.now();
+        if (this.lastFailureTime && (now - this.lastFailureTime) > this.resetTimeout) {
+            console.log('🔄 Circuit breaker reseteado después de período de espera');
+            this.reset();
+            return true;
+        }
+        
+        return false;
+    },
+    
+    /**
+     * Registra un fallo del servidor (5xx)
+     */
+    recordServerFailure() {
+        this.failureCount++;
+        this.lastFailureTime = Date.now();
+        
+        if (this.failureCount >= this.failureThreshold) {
+            this.isOpen = true;
+            console.log(`🚨 Circuit breaker ABIERTO después de ${this.failureCount} fallos del servidor. Esperando ${this.resetTimeout/1000/60} minutos antes de reintentar.`);
+        }
+    },
+    
+    /**
+     * Registra un éxito y resetea el contador si es necesario
+     */
+    recordSuccess() {
+        if (this.failureCount > 0) {
+            console.log('✅ Circuit breaker: Operación exitosa, reseteando contador de fallos');
+        }
+        this.reset();
+    },
+    
+    /**
+     * Resetea el circuit breaker
+     */
+    reset() {
+        this.isOpen = false;
+        this.failureCount = 0;
+        this.lastFailureTime = null;
+    }
 };
 
 /**
@@ -113,6 +173,78 @@ const validateFieldOptions = (fieldName, value) => {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Control de concurrencia para refresh token
+ */
+let refreshTokenPromise = null;
+
+/**
+ * Wrapper que maneja automáticamente el refresh del token cuando es necesario
+ * @param {Function} apiCall - Función que hace la llamada a la API
+ * @param {string} operationName - Nombre de la operación para logging
+ * @param {Object} contactData - Datos del contacto para logging
+ * @returns {Promise<any>} - Resultado de la operación
+ */
+const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) => {
+    try {
+        // Intentar la operación original
+        const result = await apiCall();
+        return result;
+    } catch (error) {
+        const isTokenExpired = error.response?.status === 401;
+        
+        if (!isTokenExpired) {
+            // Si no es error de token, propagar el error
+            throw error;
+        }
+
+        console.log(`🔄 Token expirado detectado en ${operationName} | ID=${contactData.id} | Intentando refresh automático...`);
+
+        // Manejar concurrencia: si ya hay un refresh en progreso, esperar a que termine
+        if (refreshTokenPromise) {
+            console.log(`⏳ Refresh ya en progreso, esperando... | ID=${contactData.id}`);
+            try {
+                await refreshTokenPromise;
+            } catch (refreshError) {
+                console.log(`❌ Refresh concurrente falló | ID=${contactData.id}`);
+                throw error; // Throw el error original
+            }
+        } else {
+            // Iniciar nuevo refresh
+            refreshTokenPromise = refreshAccessToken();
+            
+            try {
+                const refreshSuccess = await refreshTokenPromise;
+                
+                if (!refreshSuccess) {
+                    console.log(`❌ No se pudo refrescar token para ${operationName} | ID=${contactData.id}`);
+                    throw error; // Throw el error original
+                }
+                
+                console.log(`✅ Token refrescado exitosamente para ${operationName} | ID=${contactData.id}`);
+            } catch (refreshError) {
+                console.log(`❌ Error durante refresh para ${operationName} | ID=${contactData.id}`);
+                throw error; // Throw el error original
+            } finally {
+                // Limpiar la promesa de refresh
+                refreshTokenPromise = null;
+            }
+        }
+
+        // Reintentar la operación original con el token actualizado
+        console.log(`🔄 Reintentando ${operationName} con token actualizado | ID=${contactData.id}`);
+        
+        try {
+            const result = await apiCall();
+            console.log(`✅ ${operationName} exitoso después de refresh de token | ID=${contactData.id}`);
+            return result;
+        } catch (retryError) {
+            console.log(`❌ ${operationName} falló después de refresh de token | ID=${contactData.id} | ${retryError.response?.status}`);
+            throw retryError;
+        }
+    }
+};
+
+/**
  * Configuración para manejo de rate limiting y reintentos
  */
 const RETRY_CONFIG = {
@@ -124,7 +256,7 @@ const RETRY_CONFIG = {
 };
 
 /**
- * Ejecuta una función con reintentos automáticos y manejo de rate limiting
+ * Ejecuta una función con reintentos automáticos, auto-refresh de token y manejo de rate limiting
  * @param {Function} apiCall - Función que hace la llamada a la API
  * @param {string} operationName - Nombre de la operación para logging
  * @param {Object} contactData - Datos del contacto para logging de errores
@@ -133,7 +265,8 @@ const RETRY_CONFIG = {
  */
 const executeWithRetry = async (apiCall, operationName, contactData = {}, retryCount = 0) => {
     try {
-        const result = await apiCall();
+        // Usar executeWithAutoRefresh para manejar automáticamente el refresh del token
+        const result = await executeWithAutoRefresh(apiCall, operationName, contactData);
 
         // Si llegamos aquí, la operación fue exitosa
         if (retryCount > 0) {
@@ -144,17 +277,24 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
 
     } catch (error) {
         const isRateLimit = error.response?.status === 429;
-        const isTokenExpired = error.response?.status === 401;
         const isServerError = error.response?.status >= 500;
-        const shouldRetry = (isRateLimit || isTokenExpired || isServerError) && retryCount < RETRY_CONFIG.MAX_RETRIES;
+        const isClientError = error.response?.status >= 400 && error.response?.status < 500;
+        
+        // No reintentar para errores de cliente (400-499) excepto 429
+        // El 401 ya se maneja en executeWithAutoRefresh
+        if (isClientError && !isRateLimit) {
+            console.log(`❌ ${operationName} ERROR CLIENTE: ${error.response?.status} | ID=${contactData.id} | No se reintentará`);
+            throw error;
+        }
+
+        const shouldRetry = (isRateLimit || isServerError) && retryCount < RETRY_CONFIG.MAX_RETRIES;
 
         if (!shouldRetry) {
-            // Si no podemos reintentar más, loggear el error final
-            if (operationName === 'CREATE') {
-                logContactError('CREATE', contactData, error, null, {
-                    retryCount,
-                    finalFailure: true
-                });
+            // Log detallado del fallo final
+            if (isServerError) {
+                console.log(`❌ ${operationName} FALLO FINAL: Error del servidor (${error.response?.status}) después de ${retryCount} reintentos | ID=${contactData.id}`);
+            } else if (retryCount >= RETRY_CONFIG.MAX_RETRIES) {
+                console.log(`❌ ${operationName} FALLO FINAL: Máximo de reintentos alcanzado (${retryCount}/${RETRY_CONFIG.MAX_RETRIES}) | ID=${contactData.id}`);
             }
             throw error;
         }
@@ -169,8 +309,6 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
         if (isRateLimit) {
             delayMs += RETRY_CONFIG.RATE_LIMIT_DELAY;
             console.log(`⏳ Rate limit detectado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
-        } else if (isTokenExpired) {
-            console.log(`🔄 Token expirado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         } else {
             console.log(`🔄 Error ${error.response?.status}, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         }
@@ -183,123 +321,136 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
 };
 
 /**
- * Registra únicamente los errores de contactos que NO se pudieron crear
- * @param {string} operation - Tipo de operación ('CREATE', 'VALIDATION_FAILED')
- * @param {Object} contactData - Datos del contacto que causó el error
- * @param {Object} error - Objeto de error capturado
- * @param {string} [contactUuid] - UUID del contacto (solo para actualizaciones)
- * @param {Object} [additionalInfo] - Información adicional sobre el contexto del error
- */
-const logContactError = (operation, contactData, error, contactUuid = null, additionalInfo = {}) => {
-    try {
-        // Solo loggear errores de creación fallida
-        if (operation !== 'CREATE' && operation !== 'VALIDATION_FAILED') {
-            return; // No loggear errores de UPDATE, SEARCH, etc.
-        }
-
-        const timestamp = new Date().toISOString();
-
-        // Información esencial del contacto
-        const contactInfo = {
-            id: contactData.id || 'N/A',
-            firstname: contactData.firstname || 'N/A',
-            lastname: contactData.lastname || 'N/A',
-            email: contactData.email || 'N/A',
-            phone: contactData.phone || contactData.mobile || 'N/A',
-            cedula: contactData.cedula || 'N/A'
-        };
-
-        // Información del error
-        const errorInfo = {
-            status: error.response?.status || 'N/A',
-            message: error.message || 'Error desconocido',
-            data: error.response?.data || 'N/A'
-        };
-
-        // Si el error data es HTML, simplificarlo
-        if (typeof errorInfo.data === 'string' && errorInfo.data.includes('<!DOCTYPE html>')) {
-            errorInfo.data = 'RD Station maintenance/error page';
-        }
-
-        // Crear log entry compacto - TODO EN UNA LÍNEA
-        const logEntry = {
-            timestamp,
-            operation,
-            contact: contactInfo,
-            error: errorInfo,
-            retryAttempts: additionalInfo.retryCount || 0,
-            finalFailure: additionalInfo.finalFailure !== false // Por defecto true si no se especifica
-        };
-
-        // Crear el directorio de logs si no existe - usar ruta relativa robusta
-        const currentDir = process.cwd();
-        const isInBackendDir = currentDir.endsWith('backend');
-        const logsDir = isInBackendDir
-            ? path.join(currentDir, 'logs')
-            : path.join(currentDir, 'backend', 'logs');
-
-        if (!fs.existsSync(logsDir)) {
-            console.log(`📁 Creando directorio de logs: ${logsDir}`);
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-
-        // Archivo único para errores de creación fallida
-        const logFileName = `rd-station-failed-creates-${new Date().toISOString().split('T')[0]}.log`;
-        const logFilePath = path.join(logsDir, logFileName);
-
-        // Escribir UNA LÍNEA por error (JSON compacto)
-        const logLine = JSON.stringify(logEntry) + '\n';
-        fs.appendFileSync(logFilePath, logLine);
-
-    } catch (logError) {
-        console.error('❌ Error al escribir log de contacto:', logError.message);
-        // Fallback: al menos mostrar el error en consola
-        console.error('Error original del contacto:', {
-            id: contactData?.id,
-            email: contactData?.email,
-            error: error.message
-        });
-    }
-};
-
-/**
  * Refresca el token de acceso cuando ha expirado
+ * Implementa exactamente el flujo descrito en: https://developers.rdstation.com/reference/atualizar-access-token
  * @returns {Promise<boolean>} - True si el token se refrescó exitosamente, false en caso contrario
  */
 const refreshAccessToken = async () => {
     try {
+        // Verificar circuit breaker antes de intentar
+        if (!circuitBreaker.canMakeRequest()) {
+            const timeToWait = Math.ceil((circuitBreaker.resetTimeout - (Date.now() - circuitBreaker.lastFailureTime)) / 1000 / 60);
+            console.error(`🚨 REFRESH TOKEN BLOQUEADO: Circuit breaker abierto. Intenta en ${timeToWait} minutos.`);
+            return false;
+        }
+
+        // Validar que tenemos las credenciales necesarias
+        if (!credenciales.client_id || !credenciales.client_secret || !credenciales.refresh_token) {
+            console.error('❌ REFRESH TOKEN ERROR: Credenciales incompletas', {
+                hasClientId: !!credenciales.client_id,
+                hasClientSecret: !!credenciales.client_secret,
+                hasRefreshToken: !!credenciales.refresh_token
+            });
+            return false;
+        }
+
+        console.log('🔄 Intentando refrescar token de acceso...');
+
+        // Construir el payload exactamente como especifica la documentación
+        const requestBody = {
+            client_id: credenciales.client_id,
+            client_secret: credenciales.client_secret,
+            refresh_token: credenciales.refresh_token,
+            grant_type: 'refresh_token' // Este campo es obligatorio según la documentación
+        };
+
+        console.log('🔗 Enviando request a RD Station auth endpoint...');
+
         const refreshResponse = await axios.post(
             'https://api.rd.services/auth/token',
-            {
-                client_id: credenciales.client_id,
-                client_secret: credenciales.client_secret,
-                refresh_token: credenciales.refresh_token
-            },
+            requestBody,
             {
                 headers: {
                     'accept': 'application/json',
                     'content-type': 'application/json'
-                }
+                },
+                timeout: 15000 // 15 segundos de timeout
             }
         );
 
-        if (refreshResponse.data && refreshResponse.data.access_token) {
-            credenciales.access_token = refreshResponse.data.access_token;
-
-            // También actualizamos el refresh_token si viene en la respuesta
-            if (refreshResponse.data.refresh_token) {
-                credenciales.refresh_token = refreshResponse.data.refresh_token;
-            }
-
-            console.log('TOKEN REFRESHED SUCCESSFULLY');
-            return true;
+        // Verificar que la respuesta contiene los datos esperados
+        if (!refreshResponse.data) {
+            console.error('❌ REFRESH TOKEN ERROR: Respuesta vacía del servidor');
+            return false;
         }
 
-        console.error('Respuesta inesperada del servidor al refrescar token:', refreshResponse.data);
-        return false;
+        const { access_token, refresh_token, expires_in } = refreshResponse.data;
+
+        if (!access_token) {
+            console.error('❌ REFRESH TOKEN ERROR: No se recibió access_token en la respuesta', refreshResponse.data);
+            return false;
+        }
+
+        // Actualizar las credenciales
+        credenciales.access_token = access_token;
+
+        // Actualizar refresh_token si se proporciona uno nuevo
+        if (refresh_token) {
+            credenciales.refresh_token = refresh_token;
+            console.log('🔄 Refresh token actualizado');
+        }
+
+        // Log información sobre expiración si está disponible
+        if (expires_in) {
+            const expirationTime = new Date(Date.now() + (expires_in * 1000));
+            console.log(`⏰ Nuevo token expira en ${expires_in} segundos (${expirationTime.toLocaleString()})`);
+        }
+
+        // Registrar éxito en circuit breaker
+        circuitBreaker.recordSuccess();
+        console.log('✅ TOKEN REFRESHED SUCCESSFULLY');
+        return true;
 
     } catch (error) {
-        console.error('Error al refrescar el token de acceso:', error.response?.data || error.message);
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+        const errorMessage = error.message;
+
+        // Registrar fallos del servidor en el circuit breaker
+        if (status >= 500 && status < 600) {
+            circuitBreaker.recordServerFailure();
+        }
+
+        // Logging detallado según el tipo de error
+        if (status >= 500 && status < 600) {
+            console.error(`❌ REFRESH TOKEN ERROR: Error del servidor de RD Station (${status})`, {
+                status,
+                message: errorMessage,
+                data: errorData,
+                circuitBreakerFailures: circuitBreaker.failureCount
+            });
+            console.error('🚨 El servidor de RD Station está experimentando problemas. Intenta más tarde.');
+        } else if (status === 401) {
+            console.error('❌ REFRESH TOKEN ERROR: Credenciales inválidas (401)', {
+                message: errorMessage,
+                data: errorData
+            });
+            console.error('🔑 El refresh_token puede haber expirado o las credenciales son incorrectas.');
+            console.error('💡 Acción requerida: Verificar refresh_token, client_id y client_secret en variables de entorno.');
+        } else if (status === 400) {
+            console.error('❌ REFRESH TOKEN ERROR: Request inválido (400)', {
+                message: errorMessage,
+                data: errorData
+            });
+            console.error('📝 Verificar que el formato del request sea correcto según la documentación.');
+        } else if (error.code === 'ECONNABORTED') {
+            console.error('❌ REFRESH TOKEN ERROR: Timeout al conectar con RD Station', {
+                message: errorMessage
+            });
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+            console.error('❌ REFRESH TOKEN ERROR: No se puede conectar con RD Station', {
+                code: error.code,
+                message: errorMessage
+            });
+        } else {
+            console.error('❌ REFRESH TOKEN ERROR: Error desconocido', {
+                status,
+                code: error.code,
+                message: errorMessage,
+                data: errorData
+            });
+        }
+
         return false;
     }
 };
@@ -763,25 +914,6 @@ const importarContactos = async (req, res) => {
             // Verificar teléfono principal o móvil
             const phoneToValidate = contact.phone || contact.mobile;
             if (!isValidPhone(phoneToValidate)) {
-                // Crear un error simulado para el logging
-                const validationError = {
-                    response: {
-                        status: 400,
-                        statusText: 'Bad Request',
-                        data: {
-                            message: 'Contacto sin email válido ni teléfono válido',
-                            validation_details: {
-                                email: contact.email || 'vacío',
-                                phone: contact.phone || 'null',
-                                mobile: contact.mobile || 'null'
-                            }
-                        }
-                    },
-                    message: 'Validación fallida: El contacto debe tener un email válido o un número de teléfono válido'
-                };
-
-                // Registrar el error de validación en el log
-                logContactError('VALIDATION_FAILED', contact, validationError);
                 console.log(`❌ VALIDACIÓN FALLIDA: ID=${contactInfo.id} | Sin email ni teléfono válido`);
 
                 return res.status(400).json({
@@ -803,48 +935,17 @@ const importarContactos = async (req, res) => {
 
         // Buscar el contacto en RD Station
         let existingContact = null;
-        let tokenRefreshed = false;
 
         try {
             existingContact = await findContactByEmail(contact.email, contact);
         } catch (error) {
-            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
-                console.log(`🔄 Token expirado, refrescando... | ID=${contactInfo.id}`);
-
-                const refreshSuccess = await refreshAccessToken();
-                if (!refreshSuccess) {
-                    console.log(`❌ ERROR: No se pudo refrescar token | ID=${contactInfo.id}`);
-                    return res.status(401).json({
-                        success: false,
-                        statusCode: 401,
-                        error: 'No se pudo refrescar el token de acceso.',
-                        details: 'Token expirado y no se pudo renovar. Verificar credenciales.'
-                    });
-                }
-
-                tokenRefreshed = true;
-
-                // Reintentar búsqueda con token renovado
-                try {
-                    existingContact = await findContactByEmail(contact.email, contact);
-                } catch (retryError) {
-                    console.log(`❌ ERROR: Segundo intento fallido | ID=${contactInfo.id} | ${retryError.message}`);
-                    return res.status(500).json({
-                        success: false,
-                        statusCode: 500,
-                        error: 'Error al verificar existencia del contacto en RD Station después de refrescar token.',
-                        details: process.env.NODE_ENV === 'development' ? retryError.message : undefined
-                    });
-                }
-            } else {
-                console.log(`❌ ERROR: Búsqueda fallida | ID=${contactInfo.id} | ${error.message}`);
-                return res.status(500).json({
-                    success: false,
-                    statusCode: 500,
-                    error: 'Error al buscar contacto en RD Station.',
-                    details: process.env.NODE_ENV === 'development' ? error.message : undefined
-                });
-            }
+            console.log(`❌ ERROR: Búsqueda fallida | ID=${contactInfo.id} | ${error.message}`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Error al buscar contacto en RD Station.',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         }
 
         // Si el contacto ya existe, actualizarlo
@@ -875,8 +976,7 @@ const importarContactos = async (req, res) => {
                     id: contactInfo.id,
                     email: contact.email,
                     uuid: existingContact.uuid
-                },
-                tokenRefreshed: tokenRefreshed
+                }
             });
         }
 
@@ -905,8 +1005,7 @@ const importarContactos = async (req, res) => {
             contact: {
                 id: contactInfo.id,
                 email: contact.email
-            },
-            tokenRefreshed: tokenRefreshed
+            }
         });
 
     } catch (error) {
@@ -976,48 +1075,17 @@ const actualizarContacto = async (req, res) => {
 
         // Buscar el contacto en RD Station
         let existingContact = null;
-        let tokenRefreshed = false;
 
         try {
             existingContact = await findContactByEmail(email, contacto);
         } catch (error) {
-            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
-                console.log(`🔄 Token expirado, refrescando... | ID=${contacto.id}`);
-
-                const refreshSuccess = await refreshAccessToken();
-                if (!refreshSuccess) {
-                    console.log(`❌ ERROR: No se pudo refrescar token | ID=${contacto.id}`);
-                    return res.status(401).json({
-                        success: false,
-                        statusCode: 401,
-                        error: 'No se pudo refrescar el token de acceso.',
-                        details: 'Token expirado y no se pudo renovar. Verificar credenciales.'
-                    });
-                }
-
-                tokenRefreshed = true;
-
-                // Reintentar búsqueda con token renovado
-                try {
-                    existingContact = await findContactByEmail(email, contacto);
-                } catch (retryError) {
-                    console.log(`❌ ERROR: Segundo intento fallido | ID=${contacto.id} | ${retryError.message}`);
-                    return res.status(500).json({
-                        success: false,
-                        statusCode: 500,
-                        error: 'Error al verificar existencia del contacto en RD Station después de refrescar token.',
-                        details: process.env.NODE_ENV === 'development' ? retryError.message : undefined
-                    });
-                }
-            } else {
-                console.log(`❌ ERROR: Búsqueda fallida | ID=${contacto.id} | ${error.message}`);
-                return res.status(500).json({
-                    success: false,
-                    statusCode: 500,
-                    error: 'Error al buscar contacto en RD Station.',
-                    details: process.env.NODE_ENV === 'development' ? error.message : undefined
-                });
-            }
+            console.log(`❌ ERROR: Búsqueda fallida | ID=${contacto.id} | ${error.message}`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Error al buscar contacto en RD Station.',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         }
 
         if (!existingContact) {
@@ -1134,8 +1202,7 @@ const actualizarContacto = async (req, res) => {
                 id: contacto.id,
                 email: email,
                 uuid: existingContact.uuid
-            },
-            tokenRefreshed: tokenRefreshed
+            }
         });
 
     } catch (error) {
@@ -1291,27 +1358,8 @@ const registrarDemo = async (req, res) => {
         try {
             existingContact = await findContactByEmail(emailToUse, contactData);
         } catch (error) {
-            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
-                console.log(`🔄 Token expirado, refrescando...`);
-
-                const refreshSuccess = await refreshAccessToken();
-                if (!refreshSuccess) {
-                    return res.status(401).json({
-                        success: false,
-                        statusCode: 401,
-                        error: 'No se pudo refrescar el token de acceso.'
-                    });
-                }
-
-                tokenRefreshed = true;
-
-                // Reintentar búsqueda
-                try {
-                    existingContact = await findContactByEmail(emailToUse, contactData);
-                } catch (retryError) {
-                    console.log(`❌ Error en segundo intento de búsqueda: ${retryError.message}`);
-                }
-            }
+            console.log(`❌ Error en búsqueda de contacto: ${error.message}`);
+            // Continuar con la creación si no se puede buscar
         }
 
         let contactAction = '';
@@ -1365,8 +1413,7 @@ const registrarDemo = async (req, res) => {
                 email: emailToUse,
                 contactAction: contactAction,
                 eventName: eventName,
-                eventCreated: eventSuccess,
-                tokenRefreshed: tokenRefreshed
+                eventCreated: eventSuccess
             }
         };
 
@@ -1393,6 +1440,33 @@ const registrarDemo = async (req, res) => {
 };
 
 
+/**
+ * Función para obtener el estado del circuit breaker (útil para debugging)
+ * @returns {Object} - Estado actual del circuit breaker
+ */
+const getCircuitBreakerStatus = () => {
+    const now = Date.now();
+    const timeToReset = circuitBreaker.lastFailureTime ? 
+        Math.max(0, circuitBreaker.resetTimeout - (now - circuitBreaker.lastFailureTime)) : 0;
+    
+    return {
+        isOpen: circuitBreaker.isOpen,
+        failureCount: circuitBreaker.failureCount,
+        lastFailureTime: circuitBreaker.lastFailureTime,
+        timeToResetMs: timeToReset,
+        timeToResetMinutes: Math.ceil(timeToReset / 1000 / 60),
+        canMakeRequest: circuitBreaker.canMakeRequest()
+    };
+};
+
+/**
+ * Función para resetear manualmente el circuit breaker (útil para testing/debugging)
+ */
+const resetCircuitBreaker = () => {
+    console.log('🔄 Circuit breaker reseteado manualmente');
+    circuitBreaker.reset();
+};
+
 export {
     importarContactos,
     isValidEmail,
@@ -1403,8 +1477,9 @@ export {
     createContact,
     updateContact,
     actualizarContacto,
-    logContactError,
     createConversionEvent,
-    registrarDemo
+    registrarDemo,
+    getCircuitBreakerStatus,
+    resetCircuitBreaker
 
 };
