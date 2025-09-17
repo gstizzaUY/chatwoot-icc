@@ -19,7 +19,7 @@ const RD_STATION_CONFIG = {
 let credenciales = {
     "client_id": process.env.RD_STATION_CLIENT_ID,
     "client_secret": process.env.RD_STATION_CLIENT_SECRET,
-    "access_token": "",
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS5yZC5zZXJ2aWNlcyIsInN1YiI6IjNySVh5UDluZ1RIRC1rTDdvcU9MTmdLeUFYNC02bTBLQXpTeXozX2FKU1lAY2xpZW50cyIsImF1ZCI6Imh0dHBzOi8vYXBwLnJkc3RhdGlvbi5jb20uYnIvYXBpL3YyLyIsImFwcF9uYW1lIjoiaW1wb3J0YWNpw7NuIGNvbnRhY3RvcyBpbmNvbmNlcnQiLCJleHAiOjE3NTgxMzU3OTUsImlhdCI6MTc1ODA0OTM5NSwic2NvcGUiOiIifQ.RpZ-Eq5MvH_ceq_BOaE5OrFUW-Pke2WENQTdDOxPEVCvGNhW0CDAedryBdd_C_istxUkeq7fLZ9691kyWqO5Hy-G-T01l7rtdJEZOiakeqamdBbC5_I3KbFRtWzWE5wsYpvfJ3F7g1MOnU_MGtjcN-MEsm_ipIJU599mtWu323cYOfmAZqKcnryh8kfMD0wdwrfOCeSooDVgVJRGGm1Q3XqvWa3dappYvzQ02Itvr9FkcgZgWqyLO1Rnhg5pUQl2vLi5E8hVjMwyqygfD7beQSQfoZaYv8GQ4KSzT0kbOUZAapXHBYEZLphP9TrcodtMpoIksQfj0h4JdtZLKDXNhg",
     "refresh_token": process.env.RD_STATION_REFRESH_TOKEN
 }
 
