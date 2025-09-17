@@ -5,21 +5,17 @@ import path from 'path';
 
 dotenv.config();
 
-// Configuración simplificada
 const RD_STATION_CONFIG = {
     API_BASE_URL: process.env.RDSTATION_URL
 };
 
 /**
  * Credenciales para autenticación con RD Station API
- * @type {Object}
- * @property {string} access_token - Token de acceso para la API
- * @property {string} refresh_token - Token de refresco para renovar el access_token
  */
 let credenciales = {
     "client_id": process.env.RD_STATION_CLIENT_ID,
     "client_secret": process.env.RD_STATION_CLIENT_SECRET,
-    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJodHRwczovL2FwaS5yZC5zZXJ2aWNlcyIsInN1YiI6IjNySVh5UDluZ1RIRC1rTDdvcU9MTmdLeUFYNC02bTBLQXpTeXozX2FKU1lAY2xpZW50cyIsImF1ZCI6Imh0dHBzOi8vYXBwLnJkc3RhdGlvbi5jb20uYnIvYXBpL3YyLyIsImFwcF9uYW1lIjoiaW1wb3J0YWNpw7NuIGNvbnRhY3RvcyBpbmNvbmNlcnQiLCJleHAiOjE3NTgxMzU3OTUsImlhdCI6MTc1ODA0OTM5NSwic2NvcGUiOiIifQ.RpZ-Eq5MvH_ceq_BOaE5OrFUW-Pke2WENQTdDOxPEVCvGNhW0CDAedryBdd_C_istxUkeq7fLZ9691kyWqO5Hy-G-T01l7rtdJEZOiakeqamdBbC5_I3KbFRtWzWE5wsYpvfJ3F7g1MOnU_MGtjcN-MEsm_ipIJU599mtWu323cYOfmAZqKcnryh8kfMD0wdwrfOCeSooDVgVJRGGm1Q3XqvWa3dappYvzQ02Itvr9FkcgZgWqyLO1Rnhg5pUQl2vLi5E8hVjMwyqygfD7beQSQfoZaYv8GQ4KSzT0kbOUZAapXHBYEZLphP9TrcodtMpoIksQfj0h4JdtZLKDXNhg",
+    "access_token": "",
     "refresh_token": process.env.RD_STATION_REFRESH_TOKEN
 }
 
@@ -99,7 +95,7 @@ const validateFieldOptions = (fieldName, value) => {
     };
 
     const validOptions = fieldOptions[fieldName];
-    
+
     // Si el campo no está en la lista o es texto libre, permitir cualquier valor no vacío
     if (!validOptions) {
         return true;
@@ -138,20 +134,20 @@ const RETRY_CONFIG = {
 const executeWithRetry = async (apiCall, operationName, contactData = {}, retryCount = 0) => {
     try {
         const result = await apiCall();
-        
+
         // Si llegamos aquí, la operación fue exitosa
         if (retryCount > 0) {
             console.log(`✅ ${operationName} exitoso después de ${retryCount} reintentos | ID=${contactData.id}`);
         }
-        
+
         return result;
-        
+
     } catch (error) {
         const isRateLimit = error.response?.status === 429;
         const isTokenExpired = error.response?.status === 401;
         const isServerError = error.response?.status >= 500;
         const shouldRetry = (isRateLimit || isTokenExpired || isServerError) && retryCount < RETRY_CONFIG.MAX_RETRIES;
-        
+
         if (!shouldRetry) {
             // Si no podemos reintentar más, loggear el error final
             if (operationName === 'CREATE') {
@@ -162,13 +158,13 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
             }
             throw error;
         }
-        
+
         // Calcular delay para el siguiente intento
         let delayMs = Math.min(
             RETRY_CONFIG.INITIAL_DELAY * Math.pow(RETRY_CONFIG.BACKOFF_MULTIPLIER, retryCount),
             RETRY_CONFIG.MAX_DELAY
         );
-        
+
         // Si es rate limit, agregar delay adicional
         if (isRateLimit) {
             delayMs += RETRY_CONFIG.RATE_LIMIT_DELAY;
@@ -178,9 +174,9 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
         } else {
             console.log(`🔄 Error ${error.response?.status}, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         }
-        
+
         await delay(delayMs);
-        
+
         // Reintento recursivo
         return executeWithRetry(apiCall, operationName, contactData, retryCount + 1);
     }
@@ -514,7 +510,7 @@ const createContact = async (contactData) => {
         }
 
         const response = await axios.post(
-            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts`, 
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts`,
             payload,
             {
                 headers: {
@@ -696,7 +692,7 @@ const updateContact = async (contactUuid, contactData) => {
         }
 
         const response = await axios.patch(
-            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts/uuid:${contactUuid}`, 
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts/uuid:${contactUuid}`,
             updateData,
             {
                 headers: {
@@ -931,7 +927,7 @@ const actualizarContacto = async (req, res) => {
         const contacto = req.body.eventData || req.body;
         const datosPersonalizados = contacto.customData;
         const custom_data = JSON.parse(datosPersonalizados || '{}');
-        
+
         console.log('Actualizar un Contacto', contacto);
         console.log('Custom Data', custom_data);
 
@@ -1154,6 +1150,249 @@ const actualizarContacto = async (req, res) => {
 };
 
 
+/**
+ * Crea un evento de conversión en RD Station
+ * @param {string} email - Email del contacto
+ * @param {string} eventName - Nombre del evento (demo, demo-antel, etc.)
+ * @param {Object} eventData - Datos adicionales del evento
+ * @returns {Promise<boolean>} - True si el evento se creó exitosamente
+ */
+const createConversionEvent = async (email, eventName, eventData = {}) => {
+    const apiCall = async () => {
+        // Estructura correcta según la documentación de RD Station
+        const payload = {
+            event_type: "CONVERSION",
+            event_family: "CDP",
+            payload: {
+                conversion_identifier: eventName,
+                name: eventData.name || '',
+                email: email,
+                personal_phone: eventData.phone || '',
+                mobile_phone: eventData.phone || '',
+                state: eventData.state || '',
+                city: eventData.city || '',
+                // Campos personalizados del demo
+                cf_fecha_demo: eventData.date || '',
+                cf_horario_demo: eventData.timeslot || '',
+                cf_local_demo: eventData.local_demo || '',
+                cf_direccion_demo: eventData.direccion_demo || '',
+                cf_source_url: eventData.source_url || '',
+                cf_calendar_id: eventData.calendar_id || '',
+                // Campos adicionales recomendados
+                available_for_mailing: true,
+                // legal_bases: [
+                //     {
+                //         category: "communications",
+                //         type: "consent", 
+                //         status: "granted"
+                //     }
+                // ]
+                traffic_source: eventData.source_url || ''
+            }
+        };
+
+        // URL con parámetro event_type según documentación
+        const response = await axios.post(
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/events?event_type=conversion`,
+            payload,
+            {
+                headers: {
+                    'Authorization': `Bearer ${credenciales.access_token}`,
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json'
+                }
+            }
+        );
+        return response.data;
+    };
+
+    try {
+        const result = await executeWithRetry(apiCall, 'CONVERSION_EVENT', { email, eventName });
+        console.log(`✅ Evento de conversión creado exitosamente: ${eventName} para ${email}`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Error al crear evento de conversión | Email=${email} | Evento=${eventName}`);
+        console.error(`❌ Status: ${error.response?.status} | Data:`, error.response?.data);
+        console.error(`❌ Message: ${error.message}`);
+        return false;
+    }
+};
+
+/**
+ * Registra un demo desde el sistema de agendamiento
+ * Busca o crea el contacto y registra el evento de conversión correspondiente
+ * @param {Object} req - Objeto de solicitud de Express
+ * @param {Object} res - Objeto de respuesta de Express
+ */
+const registrarDemo = async (req, res) => {
+    try {
+        const demoData = req.body;
+
+        console.log('📩 Demo recibido:', {
+            email: demoData.email,
+            name: demoData.name,
+            date: demoData.date,
+            timeslot: demoData.timeslot,
+            source_url: demoData.source_url
+        });
+
+        // Validar datos requeridos
+        if (!demoData.email || !demoData.name || !demoData.date) {
+            return res.status(400).json({
+                success: false,
+                statusCode: 400,
+                error: 'Faltan datos requeridos: email, name y date son obligatorios.'
+            });
+        }
+
+        // Determinar el tipo de evento basado en la URL
+        let eventName = 'demo'; // default
+        if (demoData.source_url && demoData.source_url.includes('demo-antel')) {
+            eventName = 'demo-antel';
+        }
+
+        console.log(`📋 Evento determinado: ${eventName}`);
+
+        // Preparar datos del contacto para buscar/crear
+        const contactData = {
+            email: cleanEmail(demoData.email),
+            firstname: demoData.name,
+            lastname: demoData.lastname || '',
+            phone: demoData.phone,
+            state: demoData.state,
+            city: demoData.city,
+            Demo_Fecha_Hora: `${demoData.date} ${demoData.timeslot}`,
+            direccion_demo: demoData.direccion_demo
+        };
+
+        let existingContact = null;
+        let tokenRefreshed = false;
+        let emailToUse = contactData.email;
+
+        // Validar email principal
+        if (!isValidEmail(contactData.email)) {
+            console.log(`⚠️ Email inválido: ${contactData.email}`);
+
+            // Si hay teléfono, generar email ficticio
+            if (isValidPhone(contactData.phone)) {
+                emailToUse = generateEmailFromPhone(contactData.phone);
+                contactData.email = emailToUse;
+                console.log(`🔄 Email generado desde teléfono: ${emailToUse}`);
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    statusCode: 400,
+                    error: 'Email inválido y no se puede generar desde teléfono.'
+                });
+            }
+        }
+
+        // Buscar contacto existente
+        try {
+            existingContact = await findContactByEmail(emailToUse, contactData);
+        } catch (error) {
+            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
+                console.log(`🔄 Token expirado, refrescando...`);
+
+                const refreshSuccess = await refreshAccessToken();
+                if (!refreshSuccess) {
+                    return res.status(401).json({
+                        success: false,
+                        statusCode: 401,
+                        error: 'No se pudo refrescar el token de acceso.'
+                    });
+                }
+
+                tokenRefreshed = true;
+
+                // Reintentar búsqueda
+                try {
+                    existingContact = await findContactByEmail(emailToUse, contactData);
+                } catch (retryError) {
+                    console.log(`❌ Error en segundo intento de búsqueda: ${retryError.message}`);
+                }
+            }
+        }
+
+        let contactAction = '';
+
+        // Actualizar o crear contacto
+        if (existingContact) {
+            const updateSuccess = await updateContact(existingContact.uuid, contactData);
+            if (updateSuccess) {
+                console.log(`✅ CONTACTO ACTUALIZADO: ${emailToUse}`);
+                contactAction = 'UPDATED';
+            } else {
+                console.log(`⚠️ Error al actualizar contacto: ${emailToUse}`);
+                contactAction = 'UPDATE_FAILED';
+            }
+        } else {
+            const createSuccess = await createContact(contactData);
+            if (createSuccess) {
+                console.log(`✅ CONTACTO CREADO: ${emailToUse}`);
+                contactAction = 'CREATED';
+            } else {
+                console.log(`❌ Error al crear contacto: ${emailToUse}`);
+                return res.status(500).json({
+                    success: false,
+                    statusCode: 500,
+                    error: 'No se pudo crear el contacto en RD Station.'
+                });
+            }
+        }
+
+        // Crear evento de conversión
+        console.log(`📅 Intentando crear evento de conversión: ${eventName} para ${emailToUse}`);
+        const eventSuccess = await createConversionEvent(emailToUse, eventName, {
+            name: `${demoData.name} ${demoData.lastname || ''}`.trim(),
+            email: emailToUse,
+            phone: demoData.phone,
+            date: demoData.date,
+            timeslot: demoData.timeslot,
+            local_demo: demoData.local_demo,
+            direccion_demo: demoData.direccion_demo,
+            state: demoData.state,
+            city: demoData.city,
+            source_url: demoData.source_url,
+            calendar_id: demoData.calendar_id
+        });
+
+        const responseData = {
+            success: true,
+            statusCode: 200,
+            message: 'Demo registrado exitosamente.',
+            data: {
+                email: emailToUse,
+                contactAction: contactAction,
+                eventName: eventName,
+                eventCreated: eventSuccess,
+                tokenRefreshed: tokenRefreshed
+            }
+        };
+
+        // Si el evento falló pero el contacto se procesó bien, aún considerarlo exitoso pero con advertencia
+        if (!eventSuccess) {
+            console.log(`⚠️ ADVERTENCIA: Contacto procesado pero evento falló: ${eventName} para ${emailToUse}`);
+            responseData.message = 'Contacto procesado exitosamente, pero hubo un problema al registrar el evento de conversión.';
+            responseData.warning = 'El evento de conversión no se pudo crear. Revisar configuración de eventos en RD Station.';
+        } else {
+            console.log(`✅ DEMO COMPLETAMENTE REGISTRADO: Contacto ${contactAction} + Evento ${eventName} para ${emailToUse}`);
+        }
+
+        return res.status(200).json(responseData);
+
+    } catch (error) {
+        console.error('Error inesperado en registrarDemo:', error);
+        return res.status(500).json({
+            success: false,
+            statusCode: 500,
+            error: 'Error interno del servidor.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+
 export {
     importarContactos,
     isValidEmail,
@@ -1164,5 +1403,8 @@ export {
     createContact,
     updateContact,
     actualizarContacto,
-    logContactError
+    logContactError,
+    createConversionEvent,
+    registrarDemo
+
 };
