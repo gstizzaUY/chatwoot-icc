@@ -7,7 +7,7 @@ dotenv.config();
 
 // Configuración simplificada
 const RD_STATION_CONFIG = {
-    API_BASE_URL: process.env.RD_STATION_API_BASE_URL
+    API_BASE_URL: process.env.RDSTATION_URL
 };
 
 /**
