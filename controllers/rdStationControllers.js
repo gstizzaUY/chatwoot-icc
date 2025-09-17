@@ -1,7 +1,9 @@
 import axios from 'axios';
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+
+dotenv.config();
 
 const RD_STATION_CONFIG = {
     API_BASE_URL: process.env.RDSTATION_URL
