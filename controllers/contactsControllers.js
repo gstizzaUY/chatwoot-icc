@@ -741,10 +741,10 @@ const createContact = async (req, res) => {
                 },
             });
             
-            // Log para debugging de la respuesta de Chatwoot
-            console.log('📋 Respuesta completa de Chatwoot:', JSON.stringify(createResponse.data, null, 2));
-            
-            const contactId = createResponse.data.payload?.id || createResponse.data.id || 'ID no disponible';
+            const contactId = createResponse.data.payload?.contact?.id || 
+                           createResponse.data.payload?.id || 
+                           createResponse.data.id || 
+                           'ID no disponible';
             console.log(`✅ Contacto creado en Chatwoot con ID: ${contactId}`);
             res.status(201).json({ 
                 payload: createResponse.data.payload || createResponse.data,
