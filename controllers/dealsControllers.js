@@ -65,8 +65,7 @@ const importDeals = async (req, res) => {
 
         // Recorrer cada contacto con deals y buscarlo en chatwoot
         for (const contactId in dealsByContactId) {
-            console.log('Contact ID:', contactId);
-            console.log(`Buscando el contacto con ID: ${contactId}`);
+            console.log(`Buscando el contacto con ID en chatwoot: ${contactId}`);
             const contactDeals = dealsByContactId[contactId];
             console.log('Deal:', contactDeals);
 
@@ -97,11 +96,10 @@ const importDeals = async (req, res) => {
 
             try {
                 const response = await axios.post(searchUrl, payload, config);
-                console.log(response.data);
 
                 if (response.data.meta.count > 0) {
                     const contact = response.data.payload[0];
-                    console.log(contact);
+                    console.log('[searchContact] Contacto encontrado en chatwoot:', contact.id);
 
                     // Actualizar el contacto con los deals
                     const update = {
@@ -116,15 +114,15 @@ const importDeals = async (req, res) => {
                                 'api_access_token': api_access_token
                             }
                         });
-                        console.log('Contacto actualizado:', response.data);
+                        console.log('Contacto actualizado en chatwoot:', response.data);
                     } catch (error) {
                         console.error(`Error al importar los deals para el contacto con ID: ${contactId}`, error);
                     }
                 } else {
-                    console.log(`No se encontró el contacto con ID: ${contactId}`);
+                    console.log(`No se encontró el contacto con ID en chatwoot: ${contactId}`);
                 }
             } catch (error) {
-                console.error(`Error al buscar el contacto con ID: ${contactId}`, error);
+                console.error(`Error al buscar el contacto con ID en chatwoot: ${contactId}`, error);
             }
         }
     } catch (error) {
@@ -135,7 +133,7 @@ const importDeals = async (req, res) => {
 
 
 const createDeal = (req, res) => {
-    console.log('deal', req.body);
+    console.log('[createDeal] Datos del deal recibidos:', req.body);
     const deal = req.body.eventData;
     // Convertir deal.id en número
     const dealId = typeof deal.id === 'string' ? parseInt(deal.id) : deal.id;
@@ -145,17 +143,11 @@ const createDeal = (req, res) => {
         const regex = /\((.*?)\)(?:\s*\((.*?)\))?(?:\s*\((.*?)\))?/;
         const matches = dealName.match(regex);
 
-        console.log('matches', matches);
-
         if (!matches) return null;
 
         const firstParenthesis = matches[1]?.trim();
         const secondParenthesis = matches[2]?.trim();
         const thirdParenthesis = matches[3]?.trim();
-
-        console.log('firstParenthesis', firstParenthesis);
-        console.log('secondParenthesis', secondParenthesis);
-        console.log('thirdParenthesis', thirdParenthesis);
 
         // Caso 1: Tiene tres paréntesis (nombre, apellido e chatwoot_id)
         if (thirdParenthesis) {
@@ -195,9 +187,6 @@ const createDeal = (req, res) => {
 
     const contactInfo = extractContactInfo(deal.dealName);
     const contactoBuscar = contactInfo?.chatwoot_id || contactInfo?.name || '';
-
-    console.log('contactInfo', contactInfo);
-    console.log('contactoBuscar', contactoBuscar);
 
     // Buscar el contacto en chatwoot
     const searchUrl = `${chatwoot_url}/api/v1/accounts/2/contacts/filter`;
@@ -226,17 +215,15 @@ const createDeal = (req, res) => {
 
     axios.post(searchUrl, payload, config)
         .then(response => {
-            console.log('response', response.data);
+
             if (response.data.meta.count > 0) {
                 const contact = response.data.payload[0];
-                console.log('Contacto encontrado - Crear Oportunidad:', contact);
+                console.log('[searchContact] Contacto encontrado en chatwoot:', contact.id);
                 
                 // Asegurarnos de que deals sea siempre un array
                 let deals = Array.isArray(contact.custom_attributes.deals) 
                     ? contact.custom_attributes.deals 
                     : [];
-                
-                console.log('Deals del contacto:', deals);
 
                 // Verificar si el deal ya existe
                 const existingDeal = deals.find(d => {
@@ -246,14 +233,14 @@ const createDeal = (req, res) => {
 
                 // Si existe, actualizarlo, sino, agregarlo
                 if (existingDeal) {
-                    console.log('Deal existente - Actualizar:', existingDeal);
+                    console.log('[searchContact] Deal existente - Actualizar:', existingDeal);
                     deals = deals.filter(d => {
                         const currentId = typeof d.id === 'string' ? parseInt(d.id) : d.id;
                         return currentId !== dealId;
                     });
                     deals.push(deal);
                 } else {
-                    console.log('Deal nuevo - Agregar:', deal);
+                    console.log('[searchContact] Deal nuevo - Agregar:', deal);
                     deals.push(deal);
                 }
 
@@ -271,27 +258,27 @@ const createDeal = (req, res) => {
                     }
                 })
                 .then(response => {
-                    console.log('Contacto actualizado:', response.data);
+                    console.log('[updateContact] Contacto actualizado:', response.data);
                     res.json({ message: 'Deal creado exitosamente' });
                 })
                 .catch(error => {
-                    console.error(`Error al importar el deal para el contacto`, error);
+                    console.error(`[updateContact] Error al importar el deal para el contacto`, error);
                     res.status(500).json({ message: 'Error al importar el deal' });
                 });
 
             } else {
-                console.log(`No se encontró el contacto`);
+                console.log(`[searchContact] No se encontró el contacto`);
                 res.status(404).json({ message: 'No se encontró el contacto' });
             }
         })
         .catch(error => {
-            console.error(`Error al buscar el contacto`, error);
+            console.error(`[searchContact] Error al buscar el contacto`, error);
             res.status(500).json({ message: 'Error al buscar el contacto' });
         });
 };
 
 const updateDeal = (req, res) => {
-    console.log('deal', req.body);
+    console.log('[updateDeal] Deal recibido:', req.body);
     const deal = req.body.eventData;
     // Convertir deal.id en número
     const dealId = parseInt(deal.id);
@@ -301,17 +288,11 @@ const updateDeal = (req, res) => {
         const regex = /\((.*?)\)(?:\s*\((.*?)\))?(?:\s*\((.*?)\))?/;
         const matches = dealName.match(regex);
 
-        console.log('matches', matches);
-
         if (!matches) return null;
 
         const firstParenthesis = matches[1]?.trim();
         const secondParenthesis = matches[2]?.trim();
         const thirdParenthesis = matches[3]?.trim();
-
-        console.log('firstParenthesis', firstParenthesis);
-        console.log('secondParenthesis', secondParenthesis);
-        console.log('thirdParenthesis', thirdParenthesis);
 
         // Caso 1: Tiene tres paréntesis (nombre, apellido e chatwoot_id)
         if (thirdParenthesis) {
@@ -351,12 +332,6 @@ const updateDeal = (req, res) => {
 
     const contactInfo = extractContactInfo(deal.dealName);
     const contactoBuscar = contactInfo?.chatwoot_id || contactInfo?.name || '';
-
-    console.log('contactInfo', contactInfo);
-    console.log('contactoBuscar', contactoBuscar);
-
-
-
 
     // Buscar el contacto en chatwoot
     const searchUrl = `${chatwoot_url}/api/v1/accounts/2/contacts/filter`;
@@ -386,16 +361,15 @@ const updateDeal = (req, res) => {
 
     axios.post(searchUrl, payload, config)
     .then(response => {
-        console.log('response', response.data);
         if (response.data.meta.count > 0) {
             const contact = response.data.payload[0];
-            console.log('Contacto encontrado - Actualizar Deal:', contact);
+            console.log('[searchContact] Contacto encontrado en chatwoot - Actualizar Deal:', contact);
             // Asegurarnos de que deals sea siempre un array
             let deals = Array.isArray(contact.custom_attributes.deals) 
                 ? contact.custom_attributes.deals 
                 : [];
-            
-            console.log('Deals del contacto:', deals);
+
+            console.log('[searchContact] Deals del contacto:', deals);
 
             // verificar el tipo de datos para saber si debe ser parseado o no
             const dealIdNum = typeof dealId === 'string' ? parseInt(dealId) : dealId;
@@ -408,14 +382,14 @@ const updateDeal = (req, res) => {
 
             // Si existe, actualizarlo, sino, agregarlo
             if (existingDeal) {
-                console.log('Deal existente - Actualizar:', existingDeal);
+                console.log('[updateDeal] Deal existente - Actualizar:', existingDeal);
                 deals = deals.filter(d => {
                     const currentId = typeof d.id === 'string' ? parseInt(d.id) : d.id;
                     return currentId !== dealIdNum;
                 });
                 deals.push(deal);
             } else {
-                console.log('Deal nuevo - Agregar:', deal);
+                console.log('[updateDeal] Deal nuevo - Agregar:', deal);
                 deals.push(deal);
             }
 
@@ -435,26 +409,24 @@ const updateDeal = (req, res) => {
                 })
 
                     .then(response => {
-                        console.log('Contacto actualizado:', response.data);
+                        console.log('[updateDeal] Contacto actualizado en chatwoot:', response.data);
                         res.json({ message: 'Deal actualizado exitosamente' });
                     }
                     )
                     .catch(error => {
-                        console.error(`Error al importar el deal para el contacto`, error);
+                        console.error(`[updateDeal] Error al importar el deal para el contacto en chatwoot:`, error);
                         res.status(500).json({ message: 'Error al importar el deal' });
                     });
 
             } else {
-                console.log(`No se encontró el contacto`);
+                console.log(`[updateDeal] No se encontró el contacto en chatwoot`);
                 res.status(404).json({ message: 'No se encontró el contacto' });
             }
         })
         .catch(error => {
-            console.error(`Error al buscar el contacto`, error);
+            console.error(`[updateDeal] Error al buscar el contacto en chatwoot`, error);
             res.status(500).json({ message: 'Error al buscar el contacto' });
         });
-
-
 };
 
 
