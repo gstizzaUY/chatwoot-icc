@@ -1407,6 +1407,33 @@ const actualizarContacto = async (req, res) => {
  * @returns {Promise<boolean>} - True si el evento se creó exitosamente
  */
 const createConversionEvent = async (email, eventName, eventData = {}) => {
+    console.log(`🔧 DEBUG: Iniciando createConversionEvent`);
+    console.log(`📧 Email: ${email}`);
+    console.log(`🎯 Event Name: ${eventName}`);
+    console.log(`📊 Event Data:`, JSON.stringify(eventData, null, 2));
+
+    // Verificar credenciales antes de proceder
+    if (!credentialsValid) {
+        console.error(`❌ DEBUG: Credenciales de RD Station no válidas`);
+        return false;
+    }
+
+    if (!credenciales.access_token) {
+        console.log(`⚠️ DEBUG: Access token no disponible, intentando renovar...`);
+        
+        try {
+            const refreshSuccess = await refreshAccessToken();
+            if (!refreshSuccess) {
+                console.error(`❌ DEBUG: No se pudo renovar el access token`);
+                return false;
+            }
+            console.log(`✅ DEBUG: Access token renovado exitosamente`);
+        } catch (error) {
+            console.error(`❌ DEBUG: Error al renovar access token:`, error.message);
+            return false;
+        }
+    }
+
     const apiCall = async () => {
         // Estructura correcta según la documentación oficial de RD Station
         const payload = {
@@ -1437,10 +1464,24 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
             ]
         };
 
+        console.log(`🚀 DEBUG: Enviando payload a RD Station:`);
+        console.log(`📡 URL: ${RD_STATION_CONFIG.API_BASE_URL}/platform/events`);
+        console.log(`📦 Payload:`, JSON.stringify({
+            event_type: "CONVERSION",
+            event_family: "CDP",
+            payload: payload
+        }, null, 2));
+        console.log(`🔑 Token presente:`, !!credenciales.access_token);
+        console.log(`🔑 Token (primeros 10 chars):`, credenciales.access_token?.substring(0, 10) + '...');
+
         // URL correcta según documentación (sin query parameters)
         const response = await axios.post(
             `${RD_STATION_CONFIG.API_BASE_URL}/platform/events`,
-            payload,
+            {
+                event_type: "CONVERSION",
+                event_family: "CDP",
+                payload: payload
+            },
             {
                 headers: {
                     'Authorization': `Bearer ${credenciales.access_token}`,
@@ -1449,6 +1490,13 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
                 }
             }
         );
+
+        console.log(`✅ DEBUG: Respuesta de RD Station:`, {
+            status: response.status,
+            statusText: response.statusText,
+            data: response.data
+        });
+
         return response.data;
     };
 
@@ -1460,6 +1508,7 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
         console.error(`❌ Error al crear evento de conversión | Email=${email} | Evento=${eventName}`);
         console.error(`❌ Status: ${error.response?.status} | Data:`, error.response?.data);
         console.error(`❌ Message: ${error.message}`);
+        console.error(`❌ Full error:`, error);
         return false;
     }
 };
@@ -1580,7 +1629,11 @@ const registrarDemo = async (req, res) => {
         }
 
         // Crear evento de conversión
-        console.log(`📅 Intentando crear evento de conversión: ${eventName} para ${emailToUse}`);
+        console.log(`📅 DEBUG: Iniciando creación de evento de conversión`);
+        console.log(`📅 DEBUG: eventName=${eventName}`);
+        console.log(`📅 DEBUG: emailToUse=${emailToUse}`);
+        console.log(`📅 DEBUG: contactAction=${contactAction}`);
+        
         const eventSuccess = await createConversionEvent(emailToUse, eventName, {
             name: `${demoData.name} ${demoData.lastname || ''}`.trim(),
             email: emailToUse,
@@ -1594,6 +1647,8 @@ const registrarDemo = async (req, res) => {
             source_url: demoData.source_url,
             calendar_id: demoData.calendar_id
         });
+
+        console.log(`📅 DEBUG: Resultado del evento de conversión: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
 
         const responseData = {
             success: true,
@@ -1657,6 +1712,64 @@ const resetCircuitBreaker = () => {
     circuitBreaker.reset();
 };
 
+/**
+ * Función de test para el endpoint de eventos de conversión
+ * @param {Object} req - Objeto de solicitud de Express
+ * @param {Object} res - Objeto de respuesta de Express
+ */
+const testConversionEvent = async (req, res) => {
+    try {
+        console.log('🧪 TEST: Iniciando prueba de evento de conversión');
+
+        // Datos de prueba
+        const testEmail = 'test@rdstation.com';
+        const testEventName = 'demo-test';
+        const testEventData = {
+            name: 'Usuario de Prueba',
+            phone: '+59899123456',
+            date: '2025-01-15',
+            timeslot: '14:00',
+            source_url: 'https://test.com/demo',
+            state: 'Montevideo',
+            city: 'Montevideo'
+        };
+
+        console.log('🧪 TEST: Verificando credenciales...');
+        const credStatus = getCredentialsStatus();
+        console.log('🧪 TEST: Estado de credenciales:', credStatus);
+
+        if (!credentialsValid) {
+            return res.status(500).json({
+                success: false,
+                error: 'Credenciales no válidas',
+                credentialsStatus: credStatus
+            });
+        }
+
+        console.log('🧪 TEST: Llamando a createConversionEvent...');
+        const result = await createConversionEvent(testEmail, testEventName, testEventData);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Test de evento de conversión completado',
+            result: result,
+            testData: {
+                email: testEmail,
+                eventName: testEventName,
+                eventData: testEventData
+            }
+        });
+
+    } catch (error) {
+        console.error('🧪 TEST: Error durante la prueba:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Error durante el test',
+            details: error.message
+        });
+    }
+};
+
 export {
     importarContactos,
     isValidEmail,
@@ -1672,6 +1785,7 @@ export {
     getCircuitBreakerStatus,
     resetCircuitBreaker,
     getCredentialsStatus,
-    initializeCredentials
+    initializeCredentials,
+    testConversionEvent
 
 };

@@ -5,7 +5,8 @@ import {
     registrarDemo,
     getCredentialsStatus,
     getCircuitBreakerStatus,
-    initializeCredentials
+    initializeCredentials,
+    testConversionEvent
 } from '../controllers/rdStationControllers.js';
 
 const router = express.Router();
@@ -14,6 +15,9 @@ const router = express.Router();
 router.post('/importar-contactos', importarContactos);
 router.post('/actualizar-contacto', actualizarContacto);
 router.post('/registro-demo', registrarDemo);
+
+// Endpoint de test para eventos de conversión
+router.post('/test-conversion-event', testConversionEvent);
 
 // Endpoint de debugging para verificar estado del sistema
 router.get('/status', (req, res) => {
