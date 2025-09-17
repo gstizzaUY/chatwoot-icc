@@ -49,7 +49,7 @@ const importContacts = async (req, res) => {
         "name": contact.firstname + ' ' + contact.lastname,
         "inbox_id": contact.phone !== null ? 23 : 1,
         "email": contact.email,
-        "phone_number": contact.phoneInternational,
+        "phone_number": contact.phone,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
