@@ -20,18 +20,62 @@ function SetAccessToken(token) {
 }
 
 async function UpdateAccessToken() {
-	const credentials = {
-		client_id: RDSTATION_CLIENT_ID,
-		client_secret: RDSTATION_CLIENT_SECRET,
-		refresh_token: RDSTATION_REFRESH_TOKEN
-	};
-	try {
-		const response = await rdstation.post("/auth/token", credentials);
-		return response.data.access_token;
-	} catch (error) {
-		console.error("Error al actualizar token", error.message);
-		return null;
-	}
+    const credentials = {
+        client_id: RDSTATION_CLIENT_ID,
+        client_secret: RDSTATION_CLIENT_SECRET,
+        refresh_token: RDSTATION_REFRESH_TOKEN
+    };
+    
+    console.log("🔄 Intentando refrescar token...");
+    console.log("📍 URL:", RDSTATION_URL);
+    console.log("🔑 Client ID:", RDSTATION_CLIENT_ID ? "✓" : "❌");
+    console.log("🔐 Client Secret:", RDSTATION_CLIENT_SECRET ? "✓" : "❌");
+    console.log("🎫 Refresh Token:", RDSTATION_REFRESH_TOKEN ? "✓" : "❌");
+    
+    try {
+        const response = await rdstation.post("/auth/token", credentials, {
+            timeout: 30000, // 30 segundos de timeout
+            headers: {
+                "Content-Type": "application/json",
+                "User-Agent": "chatwoot-icc-app/1.0"
+            }
+        });
+        
+        console.log("✅ Token refrescado exitosamente");
+        return response.data.access_token;
+    } catch (error) {
+        console.error("❌ Error al actualizar token:");
+        console.error("📊 Status:", error.response?.status);
+        console.error("📄 Status Text:", error.response?.statusText);
+        console.error("📋 Response Data:", error.response?.data);
+        console.error("🌐 Request URL:", error.config?.url);
+        console.error("📡 Request Headers:", error.config?.headers);
+        console.error("📦 Request Data:", error.config?.data);
+        console.error("🔍 Error Code:", error.code);
+        console.error("💬 Error Message:", error.message);
+        
+        // Si es un error de red o timeout, reintentamos una vez más
+        if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.response?.status === 502) {
+            console.log("🔄 Error de conectividad, reintentando en 5 segundos...");
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            try {
+                const retryResponse = await rdstation.post("/auth/token", credentials, {
+                    timeout: 45000, // Timeout más largo para el reintento
+                    headers: {
+                        "Content-Type": "application/json",
+                        "User-Agent": "chatwoot-icc-app/1.0"
+                    }
+                });
+                console.log("✅ Token refrescado exitosamente en el reintento");
+                return retryResponse.data.access_token;
+            } catch (retryError) {
+                console.error("❌ Error en el reintento:", retryError.message);
+            }
+        }
+        
+        return null;
+    }
 }
 
 function GenerateContactId(phone) {
