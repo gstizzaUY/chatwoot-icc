@@ -1,9 +1,7 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
-
-dotenv.config();
 
 const RD_STATION_CONFIG = {
     API_BASE_URL: process.env.RDSTATION_URL
@@ -359,13 +357,18 @@ const refreshAccessToken = async () => {
  * @returns {Promise<boolean>} - True si tenemos un token válido
  */
 const ensureValidToken = async () => {
-    // Si no tenemos access token, intentar refrescar
-    if (!credenciales.access_token || credenciales.access_token.trim() === '') {
-        console.log('🔑 No hay access token, intentando obtener uno...');
-        return await refreshAccessToken();
+    try {
+        // Si no tenemos access token, intentar refrescar
+        if (!credenciales.access_token || credenciales.access_token.trim() === '') {
+            console.log('🔑 No hay access token, intentando obtener uno...');
+            return await refreshAccessToken();
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('❌ Error en ensureValidToken:', error.message);
+        return false;
     }
-    
-    return true;
 };
 
 /**
