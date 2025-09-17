@@ -474,7 +474,7 @@ const importContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log('[createContact] Contacto recibido para crear en chatwoot:', contact);
+    // console.log('[createContact] Contacto recibido para crear en chatwoot:', contact);
 
     // Extraer campos del customData
     let tiene_ichef = '';
@@ -698,7 +698,7 @@ const createContact = async (req, res) => {
 
     try {
         // Buscar contacto existente
-        console.log('🔍 Buscando contacto existente en Chatwoot...');
+        // console.log('🔍 Buscando contacto existente en Chatwoot...');
         const searchResponse = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, searchPayload, {
             headers: {
                 'Content-Type': 'application/json',
@@ -766,7 +766,7 @@ const filterContacts = async (req, res) => {
 
 const updateContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log('[updateContact] Contacto recibido para actualizar en chatwoot:', contact.id);
+    // console.log('[updateContact] Contacto recibido para actualizar en chatwoot:', contact.id);
 
     // Extraer campos del customData con manejo de errores
     let tiene_ichef = '';
@@ -1068,7 +1068,7 @@ const updateContact = async (req, res) => {
                                 },
                             }
                         );
-                        console.log(`Conversación ${conversation.id} actualizada en chatwoot con etiquetas:`, updatedLabels);
+                        // console.log(`Conversación ${conversation.id} actualizada en chatwoot con etiquetas:`, updatedLabels);
                     } catch (error) {
                         console.error(`Error al actualizar etiquetas de la conversación en chatwoot:`, error.message);
                     }

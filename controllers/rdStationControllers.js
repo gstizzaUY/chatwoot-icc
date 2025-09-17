@@ -125,15 +125,15 @@ const initializeCredentials = () => {
         console.error('💡 Acción requerida: Verificar archivo .env o variables de entorno del sistema');
         return false;
     } else {
-        console.log('✅ Credenciales de RD Station configuradas correctamente');
-        console.log(`🔗 API URL: ${process.env.RDSTATION_URL}`);
+        // console.log('✅ Credenciales de RD Station configuradas correctamente');
+        // console.log(`🔗 API URL: ${process.env.RDSTATION_URL}`);
         // Solo mostrar los primeros y últimos caracteres por seguridad
         const maskCredential = (str) => {
             if (!str || str.length < 8) return '[MASKED]';
             return str.substring(0, 4) + '...' + str.substring(str.length - 4);
         };
-        console.log(`🔑 Client ID: ${maskCredential(credenciales.client_id)}`);
-        console.log(`🔑 Refresh Token: ${maskCredential(credenciales.refresh_token)}`);
+        // console.log(`🔑 Client ID: ${maskCredential(credenciales.client_id)}`);
+        // console.log(`🔑 Refresh Token: ${maskCredential(credenciales.refresh_token)}`);
         return true;
     }
 };
@@ -273,7 +273,7 @@ const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) 
             throw error;
         }
 
-        console.log(`🔄 Token expirado detectado en ${operationName} | ID=${contactData.id} | Intentando refresh automático...`);
+        // console.log(`🔄 Token expirado detectado en ${operationName} | ID=${contactData.id} | Intentando refresh automático...`);
 
         // Manejar concurrencia: si ya hay un refresh en progreso, esperar a que termine
         if (refreshTokenPromise) {
@@ -307,7 +307,7 @@ const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) 
         }
 
         // Reintentar la operación original con el token actualizado
-        console.log(`🔄 Reintentando ${operationName} con token actualizado | ID=${contactData.id}`);
+        // console.log(`🔄 Reintentando ${operationName} con token actualizado | ID=${contactData.id}`);
         
         try {
             const result = await apiCall();
@@ -480,7 +480,7 @@ const refreshAccessToken = async () => {
         // Log información sobre expiración si está disponible
         if (expires_in) {
             const expirationTime = new Date(Date.now() + (expires_in * 1000));
-            console.log(`⏰ Nuevo token expira en ${expires_in} segundos (${expirationTime.toLocaleString()})`);
+            // console.log(`⏰ Nuevo token expira en ${expires_in} segundos (${expirationTime.toLocaleString()})`);
         }
 
         // Registrar éxito en circuit breaker
