@@ -720,7 +720,7 @@ const createContact = async (req, res) => {
                 });
                 console.log(`✅ Contacto actualizado en Chatwoot con ID: ${existingContactId}`);
                 res.status(200).json({ 
-                    payload: updateResponse.data.payload,
+                    payload: updateResponse.data.payload || updateResponse.data,
                     action: 'updated',
                     message: 'Contacto actualizado exitosamente'
                 });
@@ -740,9 +740,14 @@ const createContact = async (req, res) => {
                     'api_access_token': api_access_token,
                 },
             });
-            console.log(`✅ Contacto creado en Chatwoot con ID: ${createResponse.data.payload.id}`);
+            
+            // Log para debugging de la respuesta de Chatwoot
+            console.log('📋 Respuesta completa de Chatwoot:', JSON.stringify(createResponse.data, null, 2));
+            
+            const contactId = createResponse.data.payload?.id || createResponse.data.id || 'ID no disponible';
+            console.log(`✅ Contacto creado en Chatwoot con ID: ${contactId}`);
             res.status(201).json({ 
-                payload: createResponse.data.payload,
+                payload: createResponse.data.payload || createResponse.data,
                 action: 'created',
                 message: 'Contacto creado exitosamente'
             });
