@@ -29,6 +29,23 @@ app.get('/', (req, res) => {
     res.send('API funcionando');
 });
 
+// Health check endpoint para deploy
+app.get('/health', (req, res) => {
+    console.log('🏥 Health check solicitado');
+    res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
+    });
+});
+
+// Otro endpoint común para health checks
+app.get('/ping', (req, res) => {
+    console.log('🏓 Ping recibido');
+    res.status(200).send('pong');
+});
+
 // Routes
 
 app.use('/api/contacts', contactsRoutes);
@@ -44,6 +61,11 @@ app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes);
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
     console.log('✅ Aplicación iniciada correctamente');
+    
+    // Log periódico para monitorear si la app sigue funcionando
+    setInterval(() => {
+        console.log(`💓 App alive - uptime: ${Math.floor(process.uptime())}s - memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+    }, 30000); // cada 30 segundos
 });
 
 // Manejo de errores para debug en deploy
@@ -60,6 +82,8 @@ process.on('unhandledRejection', (reason, promise) => {
 
 process.on('SIGTERM', () => {
     console.log('🔄 SIGTERM recibido - cerrando aplicación...');
+    console.log('⏰ Tiempo de vida:', Math.floor(process.uptime()), 'segundos');
+    console.log('💾 Memoria usada:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
     process.exit(0);
 });
 
