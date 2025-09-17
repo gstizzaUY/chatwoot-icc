@@ -1198,16 +1198,89 @@ const actualizarContacto = async (req, res) => {
         }
 
         if (!existingContact) {
-            console.log(`❌ ERROR: Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}`);
-            return res.status(404).json({
-                success: false,
-                statusCode: 404,
-                error: 'Contacto no encontrado en RD Station.',
-                contact: {
+            console.log(`📝 Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}. Creando nuevo contacto...`);
+            
+            // Si no existe el contacto, crearlo
+            try {
+                // Preparar datos para crear nuevo contacto
+                const phoneToUse = contacto.phone || contacto.mobile;
+                
+                const nuevoContacto = {
                     id: contacto.id,
-                    email: email
+                    firstname: contacto.firstname,
+                    lastname: contacto.lastname,
+                    email: email,
+                    phone: phoneToUse,
+                    mobile: contacto.mobile,
+                    nickname: custom_data.nickname || contacto.nickname,
+                    cedula: custom_data.cedula || contacto.cedula,
+                    language: contacto.language,
+                    position: contacto.position,
+                    rut: custom_data.rut || contacto.rut,
+                    address1: contacto.address1,
+                    address2: contacto.address2,
+                    numero_puerta: custom_data.numero_puerta,
+                    city: contacto.city,
+                    state: contacto.state,
+                    zip: contacto.zip,
+                    country: contacto.country,
+                    Demo_Fecha_Hora: custom_data.Demo_Fecha_Hora,
+                    direccion_demo: custom_data.direccion_demo,
+                    facebook: contacto.facebook,
+                    instagram: custom_data.instagram || contacto.instagram,
+                    linkedin: contacto.linkedin,
+                    twitter: contacto.twitter,
+                    skype: contacto.skype,
+                    googlePlus: contacto.googlePlus,
+                    website: contacto.website,
+                    cf_tem_ichef: validateTieneIchef(custom_data.tiene_ichef),
+                    cf_score: parseNumber(contacto.score),
+                    cf_stage: contacto.stage,
+                    cf_owner: contacto.owner,
+                    cf_participo_sdr: custom_data.participo_SDR || '',
+                    cf_estado_sdr: custom_data.estado_sdr || '',
+                    cf_local_demo: custom_data.local_demo,
+                    cf_fecha_ag_demo: custom_data.fecha_ag_demo,
+                    cf_horario_demo: custom_data.horario_demo,
+                    cf_phone_local: custom_data.phoneLocal,
+                    cf_phone_international: custom_data.phoneInternational,
+                    cf_mobile_local: custom_data.mobileLocal,
+                    cf_mobile_international: custom_data.mobileInternational,
+                    importadoRD: "true"
+                };
+
+                // Crear el contacto usando la función createContact existente
+                const createdContact = await createContact(nuevoContacto);
+                
+                if (createdContact) {
+                    console.log(`✅ Contacto creado exitosamente en RD Station | ID=${contacto.id} | Email=${email}`);
+                    return res.status(201).json({
+                        success: true,
+                        statusCode: 201,
+                        action: 'created',
+                        message: 'Contacto creado exitosamente en RD Station.',
+                        contact: {
+                            id: contacto.id,
+                            email: email,
+                            rd_station_id: createdContact.uuid
+                        }
+                    });
+                } else {
+                    throw new Error('No se pudo crear el contacto en RD Station');
                 }
-            });
+            } catch (createError) {
+                console.log(`❌ ERROR: No se pudo crear contacto en RD Station | ID=${contacto.id} | Error=${createError.message}`);
+                return res.status(500).json({
+                    success: false,
+                    statusCode: 500,
+                    error: 'Error al crear contacto en RD Station.',
+                    details: process.env.NODE_ENV === 'development' ? createError.message : undefined,
+                    contact: {
+                        id: contacto.id,
+                        email: email
+                    }
+                });
+            }
         }
 
         // Determinar qué teléfono usar (phone o mobile)
