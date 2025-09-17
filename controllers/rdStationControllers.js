@@ -1158,15 +1158,47 @@ const importarContactos = async (req, res) => {
         let eventCreated = false;
         if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
             
-            // Validar que la fecha de demo es reciente o futura (no demos pasadas)
-            const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
-            const demoDate = new Date(demoDateStr);
-            const today = new Date();
-            const yesterday = new Date(today);
-            yesterday.setDate(today.getDate() - 1);
+            // Función para parsear fechas en diferentes formatos
+            const parseDemoDate = (dateStr) => {
+                if (!dateStr) return null;
+                
+                // Intentar diferentes formatos de fecha
+                const cleanDate = dateStr.trim();
+                
+                // Formato dd/mm/yyyy
+                if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('/');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato dd-mm-yyyy
+                if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('-');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato yyyy-mm-dd (ISO)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Intentar parsing directo como fallback
+                const fallbackDate = new Date(cleanDate);
+                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+            };
             
-            // Solo procesar si la demo es de ayer en adelante (permite demos del día anterior por diferencias de zona horaria)
-            if (demoDate >= yesterday) {
+            // Validar que la fecha de demo es actual o futura (no demos pasadas)
+            const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
+            const demoDate = parseDemoDate(demoDateStr);
+            
+            // Normalizar fechas para comparar solo día, mes y año (sin hora)
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            console.log(`📅 DEBUG: Parseando fecha de demo - Input: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
+            
+            // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
+            if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
                 console.log(`📅 DEBUG: Detectado registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
                 console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
                 console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
@@ -1196,7 +1228,11 @@ const importarContactos = async (req, res) => {
                 eventCreated = eventSuccess;
                 console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
             } else {
-                console.log(`📋 DEBUG: Demo PASADA detectada (${demoDateStr}) - NO se registra evento de conversión para evitar duplicados`);
+                if (demoDate && !isNaN(demoDate.getTime())) {
+                    console.log(`📋 DEBUG: Demo PASADA detectada (${demoDateStr}, parsed: ${demoDate.toISOString().split('T')[0]}) - NO se registra evento de conversión para evitar duplicados`);
+                } else {
+                    console.log(`📋 DEBUG: Fecha de demo INVÁLIDA detectada (${demoDateStr}) - NO se registra evento de conversión`);
+                }
             }
         } else {
             console.log(`📋 DEBUG: Contacto creado sin datos de demo válidos - NO se registra evento de conversión`);
