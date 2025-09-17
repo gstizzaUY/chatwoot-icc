@@ -73,11 +73,87 @@ const circuitBreaker = {
  * Credenciales para autenticación con RD Station API
  */
 let credenciales = {
-    "client_id": process.env.RD_STATION_CLIENT_ID,
-    "client_secret": process.env.RD_STATION_CLIENT_SECRET,
+    "client_id": process.env.RDSTATION_CLIENT_ID,
+    "client_secret": process.env.RDSTATION_CLIENT_SECRET,
     "access_token": "",
-    "refresh_token": process.env.RD_STATION_REFRESH_TOKEN
+    "refresh_token": process.env.RDSTATION_REFRESH_TOKEN
 }
+
+/**
+ * Función para validar e inicializar las credenciales de RD Station
+ * @returns {boolean} - True si las credenciales están configuradas correctamente
+ */
+const initializeCredentials = () => {
+    const missing = [];
+    const present = [];
+
+    // Verificar cada credencial
+    if (!process.env.RDSTATION_CLIENT_ID) {
+        missing.push('RDSTATION_CLIENT_ID');
+    } else {
+        present.push('RDSTATION_CLIENT_ID');
+        credenciales.client_id = process.env.RDSTATION_CLIENT_ID;
+    }
+
+    if (!process.env.RDSTATION_CLIENT_SECRET) {
+        missing.push('RDSTATION_CLIENT_SECRET');
+    } else {
+        present.push('RDSTATION_CLIENT_SECRET');
+        credenciales.client_secret = process.env.RDSTATION_CLIENT_SECRET;
+    }
+
+    if (!process.env.RDSTATION_REFRESH_TOKEN) {
+        missing.push('RDSTATION_REFRESH_TOKEN');
+    } else {
+        present.push('RDSTATION_REFRESH_TOKEN');
+        credenciales.refresh_token = process.env.RDSTATION_REFRESH_TOKEN;
+    }
+
+    if (!process.env.RDSTATION_URL) {
+        missing.push('RDSTATION_URL');
+    } else {
+        present.push('RDSTATION_URL');
+    }
+
+    // Log del estado de las credenciales
+    if (missing.length > 0) {
+        console.error('🚨 CONFIGURACIÓN INCOMPLETA DE RD STATION:');
+        console.error(`❌ Variables faltantes: ${missing.join(', ')}`);
+        if (present.length > 0) {
+            console.error(`✅ Variables presentes: ${present.join(', ')}`);
+        }
+        console.error('💡 Acción requerida: Verificar archivo .env o variables de entorno del sistema');
+        return false;
+    } else {
+        console.log('✅ Credenciales de RD Station configuradas correctamente');
+        console.log(`🔗 API URL: ${process.env.RDSTATION_URL}`);
+        // Solo mostrar los primeros y últimos caracteres por seguridad
+        const maskCredential = (str) => {
+            if (!str || str.length < 8) return '[MASKED]';
+            return str.substring(0, 4) + '...' + str.substring(str.length - 4);
+        };
+        console.log(`🔑 Client ID: ${maskCredential(credenciales.client_id)}`);
+        console.log(`🔑 Refresh Token: ${maskCredential(credenciales.refresh_token)}`);
+        return true;
+    }
+};
+
+/**
+ * Función para obtener el estado actual de las credenciales
+ * @returns {Object} - Estado de las credenciales
+ */
+const getCredentialsStatus = () => {
+    return {
+        hasClientId: !!credenciales.client_id,
+        hasClientSecret: !!credenciales.client_secret,
+        hasRefreshToken: !!credenciales.refresh_token,
+        hasAccessToken: !!credenciales.access_token,
+        apiUrl: process.env.RDSTATION_URL || 'NOT_SET'
+    };
+};
+
+// Inicializar credenciales al cargar el módulo
+const credentialsValid = initializeCredentials();
 
 /**
  * Valida si un email tiene un formato válido
@@ -335,13 +411,24 @@ const refreshAccessToken = async () => {
         }
 
         // Validar que tenemos las credenciales necesarias
-        if (!credenciales.client_id || !credenciales.client_secret || !credenciales.refresh_token) {
-            console.error('❌ REFRESH TOKEN ERROR: Credenciales incompletas', {
-                hasClientId: !!credenciales.client_id,
-                hasClientSecret: !!credenciales.client_secret,
-                hasRefreshToken: !!credenciales.refresh_token
-            });
-            return false;
+        const credStatus = getCredentialsStatus();
+        if (!credStatus.hasClientId || !credStatus.hasClientSecret || !credStatus.hasRefreshToken) {
+            console.error('❌ REFRESH TOKEN ERROR: Credenciales incompletas', credStatus);
+            console.error('🔧 Verificar variables de entorno: RDSTATION_CLIENT_ID, RDSTATION_CLIENT_SECRET, RDSTATION_REFRESH_TOKEN');
+            
+            // Re-intentar cargar credenciales por si acaso
+            const reloadSuccess = initializeCredentials();
+            if (!reloadSuccess) {
+                console.error('💥 No se pueden cargar las credenciales después de reintento');
+                return false;
+            }
+            
+            // Verificar nuevamente después del reload
+            const newCredStatus = getCredentialsStatus();
+            if (!newCredStatus.hasClientId || !newCredStatus.hasClientSecret || !newCredStatus.hasRefreshToken) {
+                console.error('❌ REFRESH TOKEN ERROR: Credenciales siguen incompletas después de reload', newCredStatus);
+                return false;
+            }
         }
 
         console.log('🔄 Intentando refrescar token de acceso...');
@@ -884,6 +971,17 @@ const updateContact = async (contactUuid, contactData) => {
  */
 const importarContactos = async (req, res) => {
     try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
         const contactoImportar = req.body;
 
         // Validar estructura del objeto de entrada
@@ -1022,6 +1120,17 @@ const importarContactos = async (req, res) => {
 
 const actualizarContacto = async (req, res) => {
     try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
         // Actualiza un contacto cuando se actualiza en inconcert
         const contacto = req.body.eventData || req.body;
         const datosPersonalizados = contacto.customData;
@@ -1293,6 +1402,17 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
  */
 const registrarDemo = async (req, res) => {
     try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
         const demoData = req.body;
 
         console.log('📩 Demo recibido:', {
@@ -1480,6 +1600,8 @@ export {
     createConversionEvent,
     registrarDemo,
     getCircuitBreakerStatus,
-    resetCircuitBreaker
+    resetCircuitBreaker,
+    getCredentialsStatus,
+    initializeCredentials
 
 };
