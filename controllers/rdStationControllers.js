@@ -159,28 +159,6 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
             throw error;
         }
 
-        // Manejar token expirado con refresh automático
-        if (isTokenExpired) {
-            console.log(`🔑 Token expirado detectado, intentando refresh... | ID=${contactData.id} | Intento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES}`);
-            
-            const refreshSuccess = await refreshAccessToken();
-            if (!refreshSuccess) {
-                console.log(`❌ Fallo al refrescar token en intento ${retryCount + 1} | ID=${contactData.id}`);
-                
-                // Si es el último intento, no seguir reintentando
-                if (retryCount >= RETRY_CONFIG.MAX_RETRIES - 1) {
-                    throw new Error('TOKEN_REFRESH_FAILED: No se pudo refrescar el token después de múltiples intentos');
-                }
-                
-                // Esperar más tiempo antes del siguiente intento si falló el refresh
-                await delay(RETRY_CONFIG.RATE_LIMIT_DELAY);
-            } else {
-                console.log(`✅ Token refrescado exitosamente | ID=${contactData.id}`);
-                // Reintento inmediato con token renovado
-                return executeWithRetry(apiCall, operationName, contactData, retryCount + 1);
-            }
-        }
-
         // Calcular delay para el siguiente intento
         let delayMs = Math.min(
             RETRY_CONFIG.INITIAL_DELAY * Math.pow(RETRY_CONFIG.BACKOFF_MULTIPLIER, retryCount),
@@ -191,8 +169,8 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
         if (isRateLimit) {
             delayMs += RETRY_CONFIG.RATE_LIMIT_DELAY;
             console.log(`⏳ Rate limit detectado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
-        } else if (isServerError) {
-            console.log(`🔄 Error servidor ${error.response?.status}, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
+        } else if (isTokenExpired) {
+            console.log(`🔄 Token expirado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         } else {
             console.log(`🔄 Error ${error.response?.status}, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         }
@@ -290,28 +268,18 @@ const logContactError = (operation, contactData, error, contactUuid = null, addi
  */
 const refreshAccessToken = async () => {
     try {
-        console.log('🔄 Iniciando refresh del token...');
-        
-        // Validar que tenemos las credenciales necesarias
-        if (!credenciales.client_id || !credenciales.client_secret || !credenciales.refresh_token) {
-            console.error('❌ Credenciales incompletas para refresh token');
-            return false;
-        }
-
         const refreshResponse = await axios.post(
             'https://api.rd.services/auth/token',
             {
                 client_id: credenciales.client_id,
                 client_secret: credenciales.client_secret,
-                refresh_token: credenciales.refresh_token,
-                grant_type: 'refresh_token'
+                refresh_token: credenciales.refresh_token
             },
             {
                 headers: {
                     'accept': 'application/json',
                     'content-type': 'application/json'
-                },
-                timeout: 10000 // 10 segundos timeout
+                }
             }
         );
 
@@ -323,52 +291,15 @@ const refreshAccessToken = async () => {
                 credenciales.refresh_token = refreshResponse.data.refresh_token;
             }
 
-            console.log('✅ TOKEN REFRESHED SUCCESSFULLY');
+            console.log('TOKEN REFRESHED SUCCESSFULLY');
             return true;
         }
 
-        console.error('❌ Respuesta inesperada del servidor al refrescar token:', refreshResponse.data);
+        console.error('Respuesta inesperada del servidor al refrescar token:', refreshResponse.data);
         return false;
 
     } catch (error) {
-        const errorStatus = error.response?.status;
-        const errorMessage = error.response?.data?.message || error.message;
-        
-        console.error(`❌ Error al refrescar el token de acceso:`, {
-            status: errorStatus,
-            message: errorMessage,
-            data: error.response?.data
-        });
-
-        // Si es error 502, probablemente RD Station tiene problemas temporales
-        if (errorStatus === 502) {
-            console.error('🚨 RD Station parece tener problemas internos (502). Reintentaremos después.');
-        }
-        
-        // Si es error 400, probablemente el refresh token ha expirado
-        if (errorStatus === 400) {
-            console.error('🚨 REFRESH TOKEN EXPIRADO - Requiere reautenticación manual');
-        }
-
-        return false;
-    }
-};
-
-/**
- * Verifica si tenemos un token válido y lo refresca si es necesario
- * @returns {Promise<boolean>} - True si tenemos un token válido
- */
-const ensureValidToken = async () => {
-    try {
-        // Si no tenemos access token, intentar refrescar
-        if (!credenciales.access_token || credenciales.access_token.trim() === '') {
-            console.log('🔑 No hay access token, intentando obtener uno...');
-            return await refreshAccessToken();
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('❌ Error en ensureValidToken:', error.message);
+        console.error('Error al refrescar el token de acceso:', error.response?.data || error.message);
         return false;
     }
 };
@@ -380,19 +311,12 @@ const ensureValidToken = async () => {
  * @returns {Promise<Object|null>} - Datos del contacto si existe, null si no existe
  */
 const findContactByEmail = async (email, contactData = {}) => {
-    // Verificar que tenemos un token válido antes de hacer la llamada
-    const hasValidToken = await ensureValidToken();
-    if (!hasValidToken) {
-        throw new Error('TOKEN_UNAVAILABLE');
-    }
-
     const apiCall = async () => {
         const response = await axios.get(`${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts/email:${encodeURIComponent(email)}`, {
             headers: {
                 'Authorization': `Bearer ${credenciales.access_token}`,
                 'Content-Type': 'application/json'
-            },
-            timeout: 15000 // 15 segundos timeout
+            }
         });
         return response.data.uuid ? response.data : null;
     };
