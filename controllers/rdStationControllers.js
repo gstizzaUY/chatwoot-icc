@@ -1154,9 +1154,9 @@ const importarContactos = async (req, res) => {
         console.log(`✅ CREADO: ID=${contactInfo.id} | ${contactInfo.email}`);
 
         // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
-        // Solo registrar evento si tiene TANTO Demo_Fecha_Hora COMO source_url Y la fecha es reciente/futura
+        // Registrar evento si tiene Demo_Fecha_Hora válida Y la fecha es actual/futura
         let eventCreated = false;
-        if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
+        if (contact.Demo_Fecha_Hora && contact.Demo_Fecha_Hora.trim() !== '') {
             
             // Función para parsear fechas en diferentes formatos
             const parseDemoDate = (dateStr) => {
@@ -1182,28 +1182,36 @@ const importarContactos = async (req, res) => {
                     return new Date(cleanDate);
                 }
                 
+                // Formato ISO con hora (2025-09-30T11:00:00.000)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
+                    return new Date(cleanDate);
+                }
+                
                 // Intentar parsing directo como fallback
                 const fallbackDate = new Date(cleanDate);
                 return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
             };
             
-            // Validar que la fecha de demo es actual o futura (no demos pasadas)
-            const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
-            const demoDate = parseDemoDate(demoDateStr);
+            // Extraer la fecha (puede venir con formato ISO completo con hora)
+            const demoDateStr = contact.Demo_Fecha_Hora.includes('T') ? 
+                contact.Demo_Fecha_Hora.split('T')[0] : 
+                contact.Demo_Fecha_Hora.split(' ')[0];
+            
+            const demoDate = parseDemoDate(contact.Demo_Fecha_Hora);
             
             // Normalizar fechas para comparar solo día, mes y año (sin hora)
             const today = new Date();
             const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
             
-            console.log(`📅 DEBUG: Parseando fecha de demo - Input: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
+            console.log(`📅 DEBUG: Parseando fecha de demo - Input: "${contact.Demo_Fecha_Hora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
             
             // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
             if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
                 console.log(`📅 DEBUG: Detectado registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
                 console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
-                console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
+                console.log(`📅 DEBUG: source_url: ${contact.source_url || 'N/A'}`);
                 
-                // Determinar tipo de evento basado en la URL de origen
+                // Determinar tipo de evento basado en la URL de origen (si existe)
                 let eventName = 'demo'; // default
                 if (contact.source_url && contact.source_url.includes('demo-antel')) {
                     eventName = 'demo-antel';
@@ -1211,12 +1219,25 @@ const importarContactos = async (req, res) => {
                 
                 console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
                 
+                // Extraer fecha y hora para el evento
+                let eventDate = demoDateStr;
+                let eventTime = '';
+                
+                if (contact.Demo_Fecha_Hora.includes('T')) {
+                    // Formato ISO: 2025-09-30T11:00:00.000
+                    const dateObj = new Date(contact.Demo_Fecha_Hora);
+                    eventTime = dateObj.toTimeString().substring(0, 5); // HH:MM
+                } else if (contact.Demo_Fecha_Hora.includes(' ')) {
+                    // Formato con espacio: 2025-09-30 11:00
+                    eventTime = contact.Demo_Fecha_Hora.split(' ')[1] || '';
+                }
+                
                 const eventSuccess = await createConversionEvent(contact.email, eventName, {
                     name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
                     email: contact.email,
                     phone: contact.phone || contact.mobile,
-                    date: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[0] : '',
-                    timeslot: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[1] : '',
+                    date: eventDate,
+                    timeslot: eventTime,
                     local_demo: contact.local_demo || '',
                     direccion_demo: contact.direccion_demo || '',
                     state: contact.state || '',
@@ -1237,10 +1258,7 @@ const importarContactos = async (req, res) => {
         } else {
             console.log(`📋 DEBUG: Contacto creado sin datos de demo válidos - NO se registra evento de conversión`);
             if (!contact.Demo_Fecha_Hora || contact.Demo_Fecha_Hora.trim() === '') {
-                console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora`);
-            }
-            if (!contact.source_url || contact.source_url.trim() === '') {
-                console.log(`📋 DEBUG: - Sin source_url`);
+                console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora válida`);
             }
         }
 
@@ -1525,7 +1543,109 @@ const actualizarContacto = async (req, res) => {
             });
         }
 
-        console.log(`✅ ACTUALIZADO: ID=${contacto.id} | ${email} | UUID=${existingContact.uuid}`);
+        // Verificar si hay datos de demo para crear evento de conversión
+        let eventCreated = false;
+        if (custom_data.Demo_Fecha_Hora && custom_data.Demo_Fecha_Hora.trim() !== '') {
+            
+            // Función para parsear fechas en diferentes formatos
+            const parseDemoDate = (dateStr) => {
+                if (!dateStr) return null;
+                
+                // Intentar diferentes formatos de fecha
+                const cleanDate = dateStr.trim();
+                
+                // Formato dd/mm/yyyy
+                if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('/');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato dd-mm-yyyy
+                if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('-');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato yyyy-mm-dd (ISO)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Formato ISO con hora (2025-09-30T11:00:00.000)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Intentar parsing directo como fallback
+                const fallbackDate = new Date(cleanDate);
+                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+            };
+            
+            // Extraer la fecha (puede venir con formato ISO completo con hora)
+            const demoDateStr = custom_data.Demo_Fecha_Hora.includes('T') ? 
+                custom_data.Demo_Fecha_Hora.split('T')[0] : 
+                custom_data.Demo_Fecha_Hora.split(' ')[0];
+            
+            const demoDate = parseDemoDate(custom_data.Demo_Fecha_Hora);
+            
+            // Normalizar fechas para comparar solo día, mes y año (sin hora)
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            console.log(`📅 DEBUG: Verificando demo en actualización - Input: "${custom_data.Demo_Fecha_Hora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
+            
+            // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
+            if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
+                console.log(`📅 DEBUG: Detectado DEMO ACTUAL/FUTURO en actualización (${demoDateStr}), registrando evento de conversión...`);
+                console.log(`📅 DEBUG: Demo_Fecha_Hora: ${custom_data.Demo_Fecha_Hora}`);
+                console.log(`📅 DEBUG: local_demo: ${custom_data.local_demo || 'N/A'}`);
+                
+                // Determinar tipo de evento (por defecto demo)
+                let eventName = 'demo';
+                
+                console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${email}`);
+                
+                // Extraer fecha y hora para el evento
+                let eventDate = demoDateStr;
+                let eventTime = '';
+                
+                if (custom_data.Demo_Fecha_Hora.includes('T')) {
+                    // Formato ISO: 2025-09-30T11:00:00.000
+                    const dateObj = new Date(custom_data.Demo_Fecha_Hora);
+                    eventTime = dateObj.toTimeString().substring(0, 5); // HH:MM
+                } else if (custom_data.Demo_Fecha_Hora.includes(' ')) {
+                    // Formato con espacio: 2025-09-30 11:00
+                    eventTime = custom_data.Demo_Fecha_Hora.split(' ')[1] || '';
+                }
+                
+                const eventSuccess = await createConversionEvent(email, eventName, {
+                    name: `${contacto.firstname || ''} ${contacto.lastname || ''}`.trim(),
+                    email: email,
+                    phone: contacto.phone || contacto.mobile,
+                    date: eventDate,
+                    timeslot: eventTime,
+                    local_demo: custom_data.local_demo || '',
+                    direccion_demo: custom_data.direccion_demo || '',
+                    state: contacto.state || '',
+                    city: contacto.city || '',
+                    source_url: '', // No requerido para actualizaciones
+                    calendar_id: ''
+                });
+                
+                eventCreated = eventSuccess;
+                console.log(`📅 DEBUG: Resultado del evento en actualización: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+            } else {
+                if (demoDate && !isNaN(demoDate.getTime())) {
+                    console.log(`📋 DEBUG: Demo PASADA detectada en actualización (${demoDateStr}, parsed: ${demoDate.toISOString().split('T')[0]}) - NO se registra evento de conversión`);
+                } else {
+                    console.log(`📋 DEBUG: Fecha de demo INVÁLIDA detectada en actualización (${custom_data.Demo_Fecha_Hora}) - NO se registra evento de conversión`);
+                }
+            }
+        } else {
+            console.log(`📋 DEBUG: Contacto actualizado sin datos de demo válidos - NO se registra evento de conversión`);
+        }
+
+        console.log(`✅ ACTUALIZADO: ID=${contacto.id} | ${email} | UUID=${existingContact.uuid}${eventCreated ? ' | EVENTO CREADO' : ''}`);
         return res.status(200).json({
             success: true,
             statusCode: 200,
@@ -1534,7 +1654,8 @@ const actualizarContacto = async (req, res) => {
                 id: contacto.id,
                 email: email,
                 uuid: existingContact.uuid
-            }
+            },
+            eventCreated: eventCreated
         });
 
     } catch (error) {
