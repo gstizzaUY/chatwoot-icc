@@ -33,10 +33,11 @@ app.use('/api/deals', dealsRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes);
-
 app.use('/api/rd-station', rdStationRoutes);
 app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes);
 
+
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
+    console.log('✅ Aplicación iniciada correctamente');
 });

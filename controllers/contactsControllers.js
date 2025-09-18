@@ -8,7 +8,7 @@ const api_access_token = process.env.API_ACCESS_TOKEN;
 
 const importContacts = async (req, res) => {
     const contact = req.body.contact;
-    console.log('Importar Contacto', contact);
+    console.log('[importContacts] Contacto recibido para importar a chatwoot:', contact);
 
     // Actualizar campo tiene_ichef extraido de customData
     let tiene_ichef = '';
@@ -29,10 +29,6 @@ const importContacts = async (req, res) => {
         participo_SDR = '';
         estado_sdr = '';
     }
-
-    console.log('tiene_ichef:', tiene_ichef);
-    console.log('participo_SDR:', participo_SDR);
-    console.log('estado_sdr:', estado_sdr);
 
 
     // Extraer la etapa del contacto
@@ -189,7 +185,7 @@ const importContacts = async (req, res) => {
         }
     };
 
-    console.log('Datos del contacto a crear:', contactData);
+    console.log('[importContacts] Importar a Chatwoot:', contactData);
 
     const createNewContactImport = async () => {
         try {
@@ -199,9 +195,9 @@ const importContacts = async (req, res) => {
                     'api_access_token': api_access_token,
                 },
             });
-            console.log(`Contacto creado con id ${response.data.payload.id}`);
+            console.log(`Contacto creado en chatwoot con id ${response.data.payload.id}`);
         } catch (error) {
-            console.error(`Error al crear contacto (${error.response?.status || 'sin status'}):`, error.message);
+            console.error(`Error al crear contacto en chatwoot (${error.response?.status || 'sin status'}):`, error.message);
             if (error.response?.data) {
                 console.error('Detalles del error:', JSON.stringify(error.response.data, null, 2));
             }
@@ -357,9 +353,9 @@ const importContacts = async (req, res) => {
                     'api_access_token': api_access_token,
                 },
             });
-            console.log(`Contacto importado con id ${response.data.payload.id}`);
+            console.log(`Contacto importado a chatwoot con id ${response.data.payload.id}`);
         } catch (error) {
-            console.error(`Error al actualizar contacto:`, error.message);
+            console.error(`Error al actualizar contacto en chatwoot:`, error.message);
         };
 
         // Buscar las conversaciones del contacto
@@ -377,13 +373,11 @@ const importContacts = async (req, res) => {
                 tags: conversation.labels || []
             }));
 
-            console.log(`Conversaciones del contacto:`, conversations);
 
             conversations.forEach(async conversation => {
                 try {
                     // Filtrar las etiquetas existentes
                     const currentLabels = conversation.tags;
-                    console.log(`Etiquetas actuales:`, currentLabels);
 
                     // Remover etiquetas de oportunidad anteriores
                     const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
@@ -400,8 +394,6 @@ const importContacts = async (req, res) => {
                         updatedLabels = [...updatedLabels, 'tiene_ichef'];
                     }
 
-                    console.log(`Etiquetas actualizadas:`, updatedLabels);
-
                     const updateConversationData = {
                         "labels": updatedLabels
                     };
@@ -416,15 +408,15 @@ const importContacts = async (req, res) => {
                             },
                         }
                     );
-                    console.log(`Conversación ${conversation.id} actualizada con etiquetas:`, updatedLabels);
+                    console.log(`Conversación ${conversation.id} actualizada en chatwoot con etiquetas:`, updatedLabels);
                 }
                 catch (error) {
-                    console.error(`Error al actualizar etiquetas de la conversación:`, error.message);
+                    console.error(`Error al actualizar etiquetas de la conversación en chatwoot:`, error.message);
                 }
             });
 
         } catch (error) {
-            console.error(`Error al buscar conversaciones del contacto:`, error.message);
+            console.error(`Error al buscar conversaciones del contacto en chatwoot:`, error.message);
             res.status(500).json({ error: error.message });
         }
 
@@ -482,12 +474,13 @@ const importContacts = async (req, res) => {
 
 const createContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log('Crear Contacto', contact);
+    // console.log('[createContact] Contacto recibido para crear en chatwoot:', contact);
 
-    // Actualizar campo tiene_ichef extraido de customData
+    // Extraer campos del customData
     let tiene_ichef = '';
     let participo_SDR = '';
     let estado_sdr = '';
+    let phoneInternational = null;
 
     try {
         if (contact && contact.customData) {
@@ -496,13 +489,18 @@ const createContact = async (req, res) => {
             tiene_ichef = jsonCustomData?.tiene_ichef || '';
             participo_SDR = jsonCustomData?.participo_SDR || '';
             estado_sdr = jsonCustomData?.estado_sdr || '';
+            phoneInternational = jsonCustomData?.phoneInternational || null;
         }
     } catch (error) {
         console.error('Error al parsear customData:', error);
         tiene_ichef = '';
         participo_SDR = '';
         estado_sdr = '';
+        phoneInternational = null;
     }
+
+    // Determinar el teléfono a usar (prioridad: phoneInternational del customData, luego contact.phone)
+    const phoneToUse = phoneInternational || contact.phone;
 
 
     // Extraer la etapa del contacto
@@ -521,14 +519,14 @@ const createContact = async (req, res) => {
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
-        "inbox_id": contact.phone !== null ? 23 : 1,  
+        "inbox_id": phoneToUse ? 23 : 1,  
         "email": contact.email,
-        "phone_number": contact.phoneInternational,
+        "phone_number": phoneToUse,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
             "score": contact.score,
-            "stage": contact.stage,
+            "stage": contact.stage, 
             "language": contact.language,
             "company": contact.company,
             "position": contact.position,
@@ -661,17 +659,101 @@ const createContact = async (req, res) => {
 
     console.log('Datos del contacto a crear:', contactData);
 
+    // Validación: verificar que tenemos al menos un teléfono
+    if (!phoneToUse) {
+        console.error('❌ Error: No hay número de teléfono disponible para crear el contacto');
+        return res.status(400).json({ 
+            error: 'Número de teléfono requerido para crear contacto en Chatwoot',
+            contact: { id: contact.id, email: contact.email }
+        });
+    }
+
+    // Buscar primero si el contacto ya existe
+    const buildPayloadItem = (key, value) => {
+        if (!value) return null;
+        return {
+            attribute_key: key,
+            filter_operator: "equal_to",
+            values: [value],
+            query_operator: "OR"
+        };
+    };
+
+    const searchCriteria = [
+        { id: contact.id, key: 'id' },
+        { id: contact.email, key: 'email' },
+        { id: phoneToUse, key: 'phone_number' },
+        { id: contact.phone, key: 'phone_number' } // búsqueda adicional con phone local
+    ];
+
+    const searchPayload = {
+        payload: searchCriteria
+            .map(item => buildPayloadItem(item.key, item.id))
+            .filter(Boolean)
+            .map((item, index, array) => ({
+                ...item,
+                query_operator: index === array.length - 1 ? null : "OR"
+            }))
+    };
+
     try {
-        const response = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
+        // Buscar contacto existente
+        // console.log('🔍 Buscando contacto existente en Chatwoot...');
+        const searchResponse = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts/filter`, searchPayload, {
             headers: {
                 'Content-Type': 'application/json',
                 'api_access_token': api_access_token,
             },
         });
-        console.log(`Contacto creado: ${response.data.payload}`);
-        res.status(200).json({ payload: response.data.payload });
+
+        if (searchResponse.data.meta.count > 0) {
+            // Contacto encontrado - actualizarlo
+            const existingContactId = searchResponse.data.payload[0].id;
+            console.log(`✅ Contacto encontrado en Chatwoot con ID: ${existingContactId}. Actualizando...`);
+            
+            try {
+                const updateResponse = await axios.put(`${chatwoot_url}/api/v1/accounts/2/contacts/${existingContactId}`, contactData, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'api_access_token': api_access_token,
+                    },
+                });
+                console.log(`✅ Contacto actualizado en Chatwoot con ID: ${existingContactId}`);
+                res.status(200).json({ 
+                    payload: updateResponse.data.payload || updateResponse.data,
+                    action: 'updated',
+                    message: 'Contacto actualizado exitosamente'
+                });
+            } catch (updateError) {
+                console.error(`❌ Error al actualizar contacto en Chatwoot:`, updateError.message);
+                if (updateError.response?.data) {
+                    console.error('Detalles del error:', JSON.stringify(updateError.response.data, null, 2));
+                }
+                res.status(500).json({ error: updateError.message, detalles: updateError });
+            }
+        } else {
+            // Contacto no encontrado - crear nuevo
+            console.log('📝 Contacto no encontrado. Creando nuevo contacto...');
+            const createResponse = await axios.post(`${chatwoot_url}/api/v1/accounts/2/contacts`, contactData, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api_access_token': api_access_token,
+                },
+            });
+            
+            const contactId = createResponse.data.payload?.contact?.id || 
+                           createResponse.data.payload?.id || 
+                           createResponse.data.id || 
+                           'ID no disponible';
+            console.log(`✅ Contacto creado en Chatwoot con ID: ${contactId}`);
+            res.status(201).json({ 
+                payload: createResponse.data.payload || createResponse.data,
+                action: 'created',
+                message: 'Contacto creado exitosamente'
+            });
+        }
     } catch (error) {
-        console.error(`Error al crear contacto (${error.response?.status || 'sin status'}):`, error.message);
+        console.error(`❌ Error en operación de contacto en Chatwoot (${error.response?.status || 'sin status'}):`, error.message);
         if (error.response?.data) {
             console.error('Detalles del error:', JSON.stringify(error.response.data, null, 2));
         }
@@ -684,14 +766,33 @@ const filterContacts = async (req, res) => {
 
 const updateContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log('Actualizar Contacto', contact.id);
+    // console.log('[updateContact] Contacto recibido para actualizar en chatwoot:', contact.id);
 
-    // Extraer campo tiene_ichef de customData
-    const contactCustomData = contact.customData;
-    const jsonCustomData = JSON.parse(contactCustomData);
-    const tiene_ichef = jsonCustomData.tiene_ichef;
-    const participo_SDR = jsonCustomData.participo_SDR;
-    const estado_sdr = jsonCustomData.estado_sdr;
+    // Extraer campos del customData con manejo de errores
+    let tiene_ichef = '';
+    let participo_SDR = '';
+    let estado_sdr = '';
+    let phoneInternational = null;
+
+    try {
+        if (contact && contact.customData) {
+            const contactCustomData = contact.customData;
+            const jsonCustomData = JSON.parse(contactCustomData);
+            tiene_ichef = jsonCustomData?.tiene_ichef || '';
+            participo_SDR = jsonCustomData?.participo_SDR || '';
+            estado_sdr = jsonCustomData?.estado_sdr || '';
+            phoneInternational = jsonCustomData?.phoneInternational || null;
+        }
+    } catch (error) {
+        console.error('Error al parsear customData en updateContact:', error);
+        tiene_ichef = '';
+        participo_SDR = '';
+        estado_sdr = '';
+        phoneInternational = null;
+    }
+
+    // Determinar el teléfono a usar (prioridad: phoneInternational del customData, luego contact.phone)
+    const phoneToUse = phoneInternational || contact.phone;
 
     // Extraer la etapa del contacto
     let contactStage = contact.stage;
@@ -710,7 +811,7 @@ const updateContact = async (req, res) => {
     const updateContactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "email": contact.email,
-        "phone_number": contact.phoneInternational,
+        "phone_number": phoneToUse,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -846,7 +947,18 @@ const updateContact = async (req, res) => {
         }
     };
 
-    // Buscar el contacto en Chatwoot
+    // Extraer phoneInternational del customData para búsqueda
+    let phoneInternationalForSearch = null;
+    try {
+        if (contact && contact.customData) {
+            const jsonCustomData = JSON.parse(contact.customData);
+            phoneInternationalForSearch = jsonCustomData?.phoneInternational || null;
+        }
+    } catch (error) {
+        console.error('Error al parsear customData para búsqueda:', error);
+    }
+
+    // Buscar el contacto en Chatwoot usando múltiples criterios
     const buildPayloadItem = (key, value) => {
         if (!value) return null;
         return {
@@ -857,12 +969,15 @@ const updateContact = async (req, res) => {
         };
     };
 
+    const searchCriteria = [
+        { id: contact.id, key: 'id' },
+        { id: contact.email, key: 'email' },
+        { id: contact.phone, key: 'phone_number' },
+        { id: phoneInternationalForSearch, key: 'phone_number' }
+    ];
+
     const payload = {
-        payload: [
-            { id: contact.id, key: 'id' },
-            { id: contact.email, key: 'email' },
-            { id: contact.phone, key: 'phone_number' }
-        ]
+        payload: searchCriteria
             .map(item => buildPayloadItem(item.key, item.id))
             .filter(Boolean)
             .map((item, index, array) => ({
@@ -890,10 +1005,10 @@ const updateContact = async (req, res) => {
                         'api_access_token': api_access_token,
                     },
                 });
-                console.log(`Contacto actualizado con id ${response.data.payload.id}`);
+                console.log(`Contacto actualizado en chatwoot con id ${response.data.payload.id}`);
                 // res.status(200).json(response.data);
             } catch (error) {
-                console.error(`Error al actualizar contacto:`, contactId, error.message);
+                console.error(`Error al actualizar contacto en chatwoot:`, contactId, error.message);
                 //console.log(updateContactData);
                 res.status(500).json({ error: error.message, detalles: error });
                 return;
@@ -953,20 +1068,20 @@ const updateContact = async (req, res) => {
                                 },
                             }
                         );
-                        console.log(`Conversación ${conversation.id} actualizada con etiquetas:`, updatedLabels);
+                        // console.log(`Conversación ${conversation.id} actualizada en chatwoot con etiquetas:`, updatedLabels);
                     } catch (error) {
-                        console.error(`Error al actualizar etiquetas de la conversación:`, error.message);
+                        console.error(`Error al actualizar etiquetas de la conversación en chatwoot:`, error.message);
                     }
                 });
 
             } catch (error) {
-                console.error(`Error al buscar conversaciones del contacto:`, error.message);
+                console.error(`Error al buscar conversaciones del contacto en chatwoot:`, error.message);
                 res.status(500).json({ error: error.message });
             }
-            console.log('Contacto actualizado', contact.id);
-            res.status(200).json({ message: 'Contacto actualizado' });
+            console.log('Contacto actualizado en chatwoot con id:', contact.id);
+            res.status(200).json({ message: 'Contacto actualizado en chatwoot' });
         } else {
-            console.log('Contacto no encontrado');
+            console.log('Contacto no encontrado en chatwoot para actualizar:', contact.id);
             res.status(404).json({ message: 'Contacto no encontrado' });
         }
     } catch (error) {
@@ -977,7 +1092,7 @@ const updateContact = async (req, res) => {
 
 const deleteContact = async (req, res) => {
     const contact = req.body.eventData;
-    console.log(contact);
+    console.log('[deleteContact] Contacto recibido para eliminar en chatwoot:', contact.id);
 
     // Busar el contacto en Chatwoot
 
@@ -1023,15 +1138,15 @@ const deleteContact = async (req, res) => {
                         'api_access_token': api_access_token,
                     },
                 });
-                console.log(`Contacto eliminado con id ${contactId}`);
+                console.log(`Contacto eliminado en chatwoot con id ${contactId}`);
                 res.status(200).json(response.data);
             } catch (error) {
-                console.error(` Error al eliminar contacto:`, error.message);
+                console.error(` Error al eliminar contacto en chatwoot:`, error.message);
                 res.status(500).json({ error: error.message, detalles: error });
             }
         } else {
-            console.log('Contacto no encontrado');
-            res.status(404).json({ message: 'Contacto no encontrado' });
+            console.log('Contacto no encontrado en chatwoot para eliminar:', contact.id);
+            res.status(404).json({ message: 'Contacto no encontrado en chatwoot' });
         }
 
     } catch (error) {

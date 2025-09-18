@@ -7,9 +7,6 @@ const INCONCERT_URL = process.env.INCONCERT_URL;
 const INCONCERT_CREATE_CONTACT_TOKEN = "10d76b834c3f2d48991a78a48f3f1de3";
 
 const masterSushi = async (req, res) => {
-    console.log('=== INICIO MASTERCLASS SUSHI ENDPOINT ===');
-    console.log('Headers recibidos:', req.headers);
-    console.log('Body recibido:', JSON.stringify(req.body, null, 2));
     
     try {
         const { leads } = req.body;
@@ -75,9 +72,6 @@ const masterSushi = async (req, res) => {
                 referredAtInteractionId: custom_fields.referredAtInteractionId || ''
             };
 
-            console.log('ContactData mapeado:', contactData);
-            console.log('INCONCERT_URL desde .env:', INCONCERT_URL);
-            console.log('INCONCERT_TOKEN:', INCONCERT_CREATE_CONTACT_TOKEN);
 
             // Datos del payload para Inconcert
             const data = {
@@ -101,7 +95,6 @@ const masterSushi = async (req, res) => {
             // Enviar a Inconcert
             console.log(`--- ENVIANDO A INCONCERT PARA LEAD ${lead.id} ---`);
             try {
-                console.log('Iniciando request a Inconcert...');
                 const response = await axios.post(INCONCERT_URL, data, {
                     headers: {
                         'Content-Type': 'application/json'
@@ -109,9 +102,6 @@ const masterSushi = async (req, res) => {
                     timeout: 30000 // 30 segundos timeout
                 });
                 console.log('✅ ÉXITO - Respuesta de Inconcert para lead', lead.id);
-                console.log('Status code:', response.status);
-                console.log('Response data:', response.data);
-                console.log('Response headers:', response.headers);
                 results.push({
                     leadId: lead.id,
                     status: 'success',
@@ -141,9 +131,6 @@ const masterSushi = async (req, res) => {
             }
         }
 
-        console.log('=== PROCESAMIENTO COMPLETADO ===');
-        console.log('Total leads procesados:', leads.length);
-        console.log('Resultados finales:', JSON.stringify(results, null, 2));
         res.json({
             message: 'Procesamiento completado',
             totalLeads: leads.length,

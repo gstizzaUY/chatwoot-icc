@@ -268,22 +268,23 @@ async function ProcessOutgoingMessage(message) {
 		await ChangeConversationStatus(conversationId, "open");
 		console.log(`Conversación ${conversationId} abierta.`);
 
-		const messages = await GetConversationMessages(conversationId);
-		for (let i = messages.length - 1; i >= 0; i--) {
-			const message = messages[i];
-			if (!message.sender?.phone_number) { // Mensaje saliente
-				continue;
-			}
-			if (message.content.includes("Quiero más info sobre el iChef Robot")) {
-				await AsignConversationToAgent(conversationId, "ncardozo");
-				console.log(`Conversación ${conversationId} asignada, contacto inactivo.`);
-				break;
-			} else {
-				await AsignConversationToTeam(conversationId, "ventas");
-				console.log(`Conversación ${conversationId} asignada.`);
-				break; // El contacto interactuo con el bot
-			}
-		}
+        const messages = await GetConversationMessages(conversationId);
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            if (!message.sender?.phone_number) { // Mensaje saliente
+                continue;
+            }
+            // Verificar que message.content existe y no es null antes de usar includes
+            if (message.content && message.content.includes("Quiero más info sobre el iChef Robot")) {
+                await AsignConversationToAgent(conversationId, "ncardozo");
+                console.log(`Conversación ${conversationId} asignada, contacto inactivo.`);
+                break;
+            } else {
+                await AsignConversationToTeam(conversationId, "ventas");
+                console.log(`Conversación ${conversationId} asignada.`);
+                break; // El contacto interactuo con el bot
+            }
+        }
 	}
 }
 

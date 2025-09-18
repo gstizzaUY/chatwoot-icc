@@ -1,27 +1,159 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
-import fs from 'fs';
-import path from 'path';
 
 dotenv.config();
 
-// Configuración simplificada
 const RD_STATION_CONFIG = {
-    API_BASE_URL: process.env.RD_STATION_API_BASE_URL
+    API_BASE_URL: process.env.RDSTATION_URL
+};
+
+/**
+ * Circuit breaker para evitar reintentos cuando RD Station está caído
+ */
+const circuitBreaker = {
+    isOpen: false,
+    failureCount: 0,
+    lastFailureTime: null,
+    failureThreshold: 5, // Después de 5 fallos consecutivos del servidor
+    resetTimeout: 300000, // 5 minutos en milisegundos
+    
+    /**
+     * Verifica si el circuit breaker permite hacer la petición
+     */
+    canMakeRequest() {
+        if (!this.isOpen) {
+            return true;
+        }
+        
+        // Si han pasado más de resetTimeout minutos, reiniciar el circuit breaker
+        const now = Date.now();
+        if (this.lastFailureTime && (now - this.lastFailureTime) > this.resetTimeout) {
+            console.log('🔄 Circuit breaker reseteado después de período de espera');
+            this.reset();
+            return true;
+        }
+        
+        return false;
+    },
+    
+    /**
+     * Registra un fallo del servidor (5xx)
+     */
+    recordServerFailure() {
+        this.failureCount++;
+        this.lastFailureTime = Date.now();
+        
+        if (this.failureCount >= this.failureThreshold) {
+            this.isOpen = true;
+            console.log(`🚨 Circuit breaker ABIERTO después de ${this.failureCount} fallos del servidor. Esperando ${this.resetTimeout/1000/60} minutos antes de reintentar.`);
+        }
+    },
+    
+    /**
+     * Registra un éxito y resetea el contador si es necesario
+     */
+    recordSuccess() {
+        if (this.failureCount > 0) {
+            console.log('✅ Circuit breaker: Operación exitosa, reseteando contador de fallos');
+        }
+        this.reset();
+    },
+    
+    /**
+     * Resetea el circuit breaker
+     */
+    reset() {
+        this.isOpen = false;
+        this.failureCount = 0;
+        this.lastFailureTime = null;
+    }
 };
 
 /**
  * Credenciales para autenticación con RD Station API
- * @type {Object}
- * @property {string} access_token - Token de acceso para la API
- * @property {string} refresh_token - Token de refresco para renovar el access_token
  */
 let credenciales = {
-    "client_id": process.env.RD_STATION_CLIENT_ID,
-    "client_secret": process.env.RD_STATION_CLIENT_SECRET,
+    "client_id": process.env.RDSTATION_CLIENT_ID,
+    "client_secret": process.env.RDSTATION_CLIENT_SECRET,
     "access_token": "",
-    "refresh_token": process.env.RD_STATION_REFRESH_TOKEN
+    "refresh_token": process.env.RDSTATION_REFRESH_TOKEN
 }
+
+/**
+ * Función para validar e inicializar las credenciales de RD Station
+ * @returns {boolean} - True si las credenciales están configuradas correctamente
+ */
+const initializeCredentials = () => {
+    const missing = [];
+    const present = [];
+
+    // Verificar cada credencial
+    if (!process.env.RDSTATION_CLIENT_ID) {
+        missing.push('RDSTATION_CLIENT_ID');
+    } else {
+        present.push('RDSTATION_CLIENT_ID');
+        credenciales.client_id = process.env.RDSTATION_CLIENT_ID;
+    }
+
+    if (!process.env.RDSTATION_CLIENT_SECRET) {
+        missing.push('RDSTATION_CLIENT_SECRET');
+    } else {
+        present.push('RDSTATION_CLIENT_SECRET');
+        credenciales.client_secret = process.env.RDSTATION_CLIENT_SECRET;
+    }
+
+    if (!process.env.RDSTATION_REFRESH_TOKEN) {
+        missing.push('RDSTATION_REFRESH_TOKEN');
+    } else {
+        present.push('RDSTATION_REFRESH_TOKEN');
+        credenciales.refresh_token = process.env.RDSTATION_REFRESH_TOKEN;
+    }
+
+    if (!process.env.RDSTATION_URL) {
+        missing.push('RDSTATION_URL');
+    } else {
+        present.push('RDSTATION_URL');
+    }
+
+    // Log del estado de las credenciales
+    if (missing.length > 0) {
+        console.error('🚨 CONFIGURACIÓN INCOMPLETA DE RD STATION:');
+        console.error(`❌ Variables faltantes: ${missing.join(', ')}`);
+        if (present.length > 0) {
+            console.error(`✅ Variables presentes: ${present.join(', ')}`);
+        }
+        console.error('💡 Acción requerida: Verificar archivo .env o variables de entorno del sistema');
+        return false;
+    } else {
+        // console.log('✅ Credenciales de RD Station configuradas correctamente');
+        // console.log(`🔗 API URL: ${process.env.RDSTATION_URL}`);
+        // Solo mostrar los primeros y últimos caracteres por seguridad
+        const maskCredential = (str) => {
+            if (!str || str.length < 8) return '[MASKED]';
+            return str.substring(0, 4) + '...' + str.substring(str.length - 4);
+        };
+        // console.log(`🔑 Client ID: ${maskCredential(credenciales.client_id)}`);
+        // console.log(`🔑 Refresh Token: ${maskCredential(credenciales.refresh_token)}`);
+        return true;
+    }
+};
+
+/**
+ * Función para obtener el estado actual de las credenciales
+ * @returns {Object} - Estado de las credenciales
+ */
+const getCredentialsStatus = () => {
+    return {
+        hasClientId: !!credenciales.client_id,
+        hasClientSecret: !!credenciales.client_secret,
+        hasRefreshToken: !!credenciales.refresh_token,
+        hasAccessToken: !!credenciales.access_token,
+        apiUrl: process.env.RDSTATION_URL || 'NOT_SET'
+    };
+};
+
+// Inicializar credenciales al cargar el módulo
+const credentialsValid = initializeCredentials();
 
 /**
  * Valida si un email tiene un formato válido
@@ -99,7 +231,7 @@ const validateFieldOptions = (fieldName, value) => {
     };
 
     const validOptions = fieldOptions[fieldName];
-    
+
     // Si el campo no está en la lista o es texto libre, permitir cualquier valor no vacío
     if (!validOptions) {
         return true;
@@ -117,6 +249,78 @@ const validateFieldOptions = (fieldName, value) => {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Control de concurrencia para refresh token
+ */
+let refreshTokenPromise = null;
+
+/**
+ * Wrapper que maneja automáticamente el refresh del token cuando es necesario
+ * @param {Function} apiCall - Función que hace la llamada a la API
+ * @param {string} operationName - Nombre de la operación para logging
+ * @param {Object} contactData - Datos del contacto para logging
+ * @returns {Promise<any>} - Resultado de la operación
+ */
+const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) => {
+    try {
+        // Intentar la operación original
+        const result = await apiCall();
+        return result;
+    } catch (error) {
+        const isTokenExpired = error.response?.status === 401;
+        
+        if (!isTokenExpired) {
+            // Si no es error de token, propagar el error
+            throw error;
+        }
+
+        // console.log(`🔄 Token expirado detectado en ${operationName} | ID=${contactData.id} | Intentando refresh automático...`);
+
+        // Manejar concurrencia: si ya hay un refresh en progreso, esperar a que termine
+        if (refreshTokenPromise) {
+            console.log(`⏳ Refresh ya en progreso, esperando... | ID=${contactData.id}`);
+            try {
+                await refreshTokenPromise;
+            } catch (refreshError) {
+                console.log(`❌ Refresh concurrente falló | ID=${contactData.id}`);
+                throw error; // Throw el error original
+            }
+        } else {
+            // Iniciar nuevo refresh
+            refreshTokenPromise = refreshAccessToken();
+            
+            try {
+                const refreshSuccess = await refreshTokenPromise;
+                
+                if (!refreshSuccess) {
+                    console.log(`❌ No se pudo refrescar token para ${operationName} | ID=${contactData.id}`);
+                    throw error; // Throw el error original
+                }
+                
+                console.log(`✅ Token refrescado exitosamente para ${operationName} | ID=${contactData.id}`);
+            } catch (refreshError) {
+                console.log(`❌ Error durante refresh para ${operationName} | ID=${contactData.id}`);
+                throw error; // Throw el error original
+            } finally {
+                // Limpiar la promesa de refresh
+                refreshTokenPromise = null;
+            }
+        }
+
+        // Reintentar la operación original con el token actualizado
+        // console.log(`🔄 Reintentando ${operationName} con token actualizado | ID=${contactData.id}`);
+        
+        try {
+            const result = await apiCall();
+            console.log(`✅ ${operationName} exitoso después de refresh de token | ID=${contactData.id}`);
+            return result;
+        } catch (retryError) {
+            console.log(`❌ ${operationName} falló después de refresh de token | ID=${contactData.id} | ${retryError.response?.status}`);
+            throw retryError;
+        }
+    }
+};
+
+/**
  * Configuración para manejo de rate limiting y reintentos
  */
 const RETRY_CONFIG = {
@@ -128,7 +332,7 @@ const RETRY_CONFIG = {
 };
 
 /**
- * Ejecuta una función con reintentos automáticos y manejo de rate limiting
+ * Ejecuta una función con reintentos automáticos, auto-refresh de token y manejo de rate limiting
  * @param {Function} apiCall - Función que hace la llamada a la API
  * @param {string} operationName - Nombre de la operación para logging
  * @param {Object} contactData - Datos del contacto para logging de errores
@@ -137,173 +341,203 @@ const RETRY_CONFIG = {
  */
 const executeWithRetry = async (apiCall, operationName, contactData = {}, retryCount = 0) => {
     try {
-        const result = await apiCall();
-        
+        // Usar executeWithAutoRefresh para manejar automáticamente el refresh del token
+        const result = await executeWithAutoRefresh(apiCall, operationName, contactData);
+
         // Si llegamos aquí, la operación fue exitosa
         if (retryCount > 0) {
             console.log(`✅ ${operationName} exitoso después de ${retryCount} reintentos | ID=${contactData.id}`);
         }
-        
+
         return result;
-        
+
     } catch (error) {
         const isRateLimit = error.response?.status === 429;
-        const isTokenExpired = error.response?.status === 401;
         const isServerError = error.response?.status >= 500;
-        const shouldRetry = (isRateLimit || isTokenExpired || isServerError) && retryCount < RETRY_CONFIG.MAX_RETRIES;
+        const isClientError = error.response?.status >= 400 && error.response?.status < 500;
         
+        // No reintentar para errores de cliente (400-499) excepto 429
+        // El 401 ya se maneja en executeWithAutoRefresh
+        if (isClientError && !isRateLimit) {
+            console.log(`❌ ${operationName} ERROR CLIENTE: ${error.response?.status} | ID=${contactData.id} | No se reintentará`);
+            throw error;
+        }
+
+        const shouldRetry = (isRateLimit || isServerError) && retryCount < RETRY_CONFIG.MAX_RETRIES;
+
         if (!shouldRetry) {
-            // Si no podemos reintentar más, loggear el error final
-            if (operationName === 'CREATE') {
-                logContactError('CREATE', contactData, error, null, {
-                    retryCount,
-                    finalFailure: true
-                });
+            // Log detallado del fallo final
+            if (isServerError) {
+                console.log(`❌ ${operationName} FALLO FINAL: Error del servidor (${error.response?.status}) después de ${retryCount} reintentos | ID=${contactData.id}`);
+            } else if (retryCount >= RETRY_CONFIG.MAX_RETRIES) {
+                console.log(`❌ ${operationName} FALLO FINAL: Máximo de reintentos alcanzado (${retryCount}/${RETRY_CONFIG.MAX_RETRIES}) | ID=${contactData.id}`);
             }
             throw error;
         }
-        
+
         // Calcular delay para el siguiente intento
         let delayMs = Math.min(
             RETRY_CONFIG.INITIAL_DELAY * Math.pow(RETRY_CONFIG.BACKOFF_MULTIPLIER, retryCount),
             RETRY_CONFIG.MAX_DELAY
         );
-        
+
         // Si es rate limit, agregar delay adicional
         if (isRateLimit) {
             delayMs += RETRY_CONFIG.RATE_LIMIT_DELAY;
             console.log(`⏳ Rate limit detectado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
-        } else if (isTokenExpired) {
-            console.log(`🔄 Token expirado, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         } else {
             console.log(`🔄 Error ${error.response?.status}, esperando ${delayMs}ms antes del reintento ${retryCount + 1}/${RETRY_CONFIG.MAX_RETRIES} | ID=${contactData.id}`);
         }
-        
+
         await delay(delayMs);
-        
+
         // Reintento recursivo
         return executeWithRetry(apiCall, operationName, contactData, retryCount + 1);
     }
 };
 
 /**
- * Registra únicamente los errores de contactos que NO se pudieron crear
- * @param {string} operation - Tipo de operación ('CREATE', 'VALIDATION_FAILED')
- * @param {Object} contactData - Datos del contacto que causó el error
- * @param {Object} error - Objeto de error capturado
- * @param {string} [contactUuid] - UUID del contacto (solo para actualizaciones)
- * @param {Object} [additionalInfo] - Información adicional sobre el contexto del error
- */
-const logContactError = (operation, contactData, error, contactUuid = null, additionalInfo = {}) => {
-    try {
-        // Solo loggear errores de creación fallida
-        if (operation !== 'CREATE' && operation !== 'VALIDATION_FAILED') {
-            return; // No loggear errores de UPDATE, SEARCH, etc.
-        }
-
-        const timestamp = new Date().toISOString();
-
-        // Información esencial del contacto
-        const contactInfo = {
-            id: contactData.id || 'N/A',
-            firstname: contactData.firstname || 'N/A',
-            lastname: contactData.lastname || 'N/A',
-            email: contactData.email || 'N/A',
-            phone: contactData.phone || contactData.mobile || 'N/A',
-            cedula: contactData.cedula || 'N/A'
-        };
-
-        // Información del error
-        const errorInfo = {
-            status: error.response?.status || 'N/A',
-            message: error.message || 'Error desconocido',
-            data: error.response?.data || 'N/A'
-        };
-
-        // Si el error data es HTML, simplificarlo
-        if (typeof errorInfo.data === 'string' && errorInfo.data.includes('<!DOCTYPE html>')) {
-            errorInfo.data = 'RD Station maintenance/error page';
-        }
-
-        // Crear log entry compacto - TODO EN UNA LÍNEA
-        const logEntry = {
-            timestamp,
-            operation,
-            contact: contactInfo,
-            error: errorInfo,
-            retryAttempts: additionalInfo.retryCount || 0,
-            finalFailure: additionalInfo.finalFailure !== false // Por defecto true si no se especifica
-        };
-
-        // Crear el directorio de logs si no existe - usar ruta relativa robusta
-        const currentDir = process.cwd();
-        const isInBackendDir = currentDir.endsWith('backend');
-        const logsDir = isInBackendDir
-            ? path.join(currentDir, 'logs')
-            : path.join(currentDir, 'backend', 'logs');
-
-        if (!fs.existsSync(logsDir)) {
-            console.log(`📁 Creando directorio de logs: ${logsDir}`);
-            fs.mkdirSync(logsDir, { recursive: true });
-        }
-
-        // Archivo único para errores de creación fallida
-        const logFileName = `rd-station-failed-creates-${new Date().toISOString().split('T')[0]}.log`;
-        const logFilePath = path.join(logsDir, logFileName);
-
-        // Escribir UNA LÍNEA por error (JSON compacto)
-        const logLine = JSON.stringify(logEntry) + '\n';
-        fs.appendFileSync(logFilePath, logLine);
-
-    } catch (logError) {
-        console.error('❌ Error al escribir log de contacto:', logError.message);
-        // Fallback: al menos mostrar el error en consola
-        console.error('Error original del contacto:', {
-            id: contactData?.id,
-            email: contactData?.email,
-            error: error.message
-        });
-    }
-};
-
-/**
  * Refresca el token de acceso cuando ha expirado
+ * Implementa exactamente el flujo descrito en: https://developers.rdstation.com/reference/atualizar-access-token
  * @returns {Promise<boolean>} - True si el token se refrescó exitosamente, false en caso contrario
  */
 const refreshAccessToken = async () => {
     try {
+        // Verificar circuit breaker antes de intentar
+        if (!circuitBreaker.canMakeRequest()) {
+            const timeToWait = Math.ceil((circuitBreaker.resetTimeout - (Date.now() - circuitBreaker.lastFailureTime)) / 1000 / 60);
+            console.error(`🚨 REFRESH TOKEN BLOQUEADO: Circuit breaker abierto. Intenta en ${timeToWait} minutos.`);
+            return false;
+        }
+
+        // Validar que tenemos las credenciales necesarias
+        const credStatus = getCredentialsStatus();
+        if (!credStatus.hasClientId || !credStatus.hasClientSecret || !credStatus.hasRefreshToken) {
+            console.error('❌ REFRESH TOKEN ERROR: Credenciales incompletas', credStatus);
+            console.error('🔧 Verificar variables de entorno: RDSTATION_CLIENT_ID, RDSTATION_CLIENT_SECRET, RDSTATION_REFRESH_TOKEN');
+            
+            // Re-intentar cargar credenciales por si acaso
+            const reloadSuccess = initializeCredentials();
+            if (!reloadSuccess) {
+                console.error('💥 No se pueden cargar las credenciales después de reintento');
+                return false;
+            }
+            
+            // Verificar nuevamente después del reload
+            const newCredStatus = getCredentialsStatus();
+            if (!newCredStatus.hasClientId || !newCredStatus.hasClientSecret || !newCredStatus.hasRefreshToken) {
+                console.error('❌ REFRESH TOKEN ERROR: Credenciales siguen incompletas después de reload', newCredStatus);
+                return false;
+            }
+        }
+
+        console.log('🔄 Intentando refrescar token de acceso...');
+
+        // Construir el payload exactamente como especifica la documentación
+        const requestBody = {
+            client_id: credenciales.client_id,
+            client_secret: credenciales.client_secret,
+            refresh_token: credenciales.refresh_token,
+            grant_type: 'refresh_token' // Este campo es obligatorio según la documentación
+        };
+
+        console.log('🔗 Enviando request a RD Station auth endpoint...');
+
         const refreshResponse = await axios.post(
             'https://api.rd.services/auth/token',
-            {
-                client_id: credenciales.client_id,
-                client_secret: credenciales.client_secret,
-                refresh_token: credenciales.refresh_token
-            },
+            requestBody,
             {
                 headers: {
                     'accept': 'application/json',
                     'content-type': 'application/json'
-                }
+                },
+                timeout: 15000 // 15 segundos de timeout
             }
         );
 
-        if (refreshResponse.data && refreshResponse.data.access_token) {
-            credenciales.access_token = refreshResponse.data.access_token;
-
-            // También actualizamos el refresh_token si viene en la respuesta
-            if (refreshResponse.data.refresh_token) {
-                credenciales.refresh_token = refreshResponse.data.refresh_token;
-            }
-
-            console.log('TOKEN REFRESHED SUCCESSFULLY');
-            return true;
+        // Verificar que la respuesta contiene los datos esperados
+        if (!refreshResponse.data) {
+            console.error('❌ REFRESH TOKEN ERROR: Respuesta vacía del servidor');
+            return false;
         }
 
-        console.error('Respuesta inesperada del servidor al refrescar token:', refreshResponse.data);
-        return false;
+        const { access_token, refresh_token, expires_in } = refreshResponse.data;
+
+        if (!access_token) {
+            console.error('❌ REFRESH TOKEN ERROR: No se recibió access_token en la respuesta', refreshResponse.data);
+            return false;
+        }
+
+        // Actualizar las credenciales
+        credenciales.access_token = access_token;
+
+        // Actualizar refresh_token si se proporciona uno nuevo
+        if (refresh_token) {
+            credenciales.refresh_token = refresh_token;
+            console.log('🔄 Refresh token actualizado');
+        }
+
+        // Log información sobre expiración si está disponible
+        if (expires_in) {
+            const expirationTime = new Date(Date.now() + (expires_in * 1000));
+            // console.log(`⏰ Nuevo token expira en ${expires_in} segundos (${expirationTime.toLocaleString()})`);
+        }
+
+        // Registrar éxito en circuit breaker
+        circuitBreaker.recordSuccess();
+        console.log('✅ TOKEN REFRESHED SUCCESSFULLY');
+        return true;
 
     } catch (error) {
-        console.error('Error al refrescar el token de acceso:', error.response?.data || error.message);
+        const status = error.response?.status;
+        const errorData = error.response?.data;
+        const errorMessage = error.message;
+
+        // Registrar fallos del servidor en el circuit breaker
+        if (status >= 500 && status < 600) {
+            circuitBreaker.recordServerFailure();
+        }
+
+        // Logging detallado según el tipo de error
+        if (status >= 500 && status < 600) {
+            console.error(`❌ REFRESH TOKEN ERROR: Error del servidor de RD Station (${status})`, {
+                status,
+                message: errorMessage,
+                data: errorData,
+                circuitBreakerFailures: circuitBreaker.failureCount
+            });
+            console.error('🚨 El servidor de RD Station está experimentando problemas. Intenta más tarde.');
+        } else if (status === 401) {
+            console.error('❌ REFRESH TOKEN ERROR: Credenciales inválidas (401)', {
+                message: errorMessage,
+                data: errorData
+            });
+            console.error('🔑 El refresh_token puede haber expirado o las credenciales son incorrectas.');
+            console.error('💡 Acción requerida: Verificar refresh_token, client_id y client_secret en variables de entorno.');
+        } else if (status === 400) {
+            console.error('❌ REFRESH TOKEN ERROR: Request inválido (400)', {
+                message: errorMessage,
+                data: errorData
+            });
+            console.error('📝 Verificar que el formato del request sea correcto según la documentación.');
+        } else if (error.code === 'ECONNABORTED') {
+            console.error('❌ REFRESH TOKEN ERROR: Timeout al conectar con RD Station', {
+                message: errorMessage
+            });
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+            console.error('❌ REFRESH TOKEN ERROR: No se puede conectar con RD Station', {
+                code: error.code,
+                message: errorMessage
+            });
+        } else {
+            console.error('❌ REFRESH TOKEN ERROR: Error desconocido', {
+                status,
+                code: error.code,
+                message: errorMessage,
+                data: errorData
+            });
+        }
+
         return false;
     }
 };
@@ -514,7 +748,7 @@ const createContact = async (contactData) => {
         }
 
         const response = await axios.post(
-            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts`, 
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts`,
             payload,
             {
                 headers: {
@@ -696,7 +930,7 @@ const updateContact = async (contactUuid, contactData) => {
         }
 
         const response = await axios.patch(
-            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts/uuid:${contactUuid}`, 
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/contacts/uuid:${contactUuid}`,
             updateData,
             {
                 headers: {
@@ -737,6 +971,17 @@ const updateContact = async (contactUuid, contactData) => {
  */
 const importarContactos = async (req, res) => {
     try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
         const contactoImportar = req.body;
 
         // Validar estructura del objeto de entrada
@@ -751,6 +996,18 @@ const importarContactos = async (req, res) => {
         }
 
         const { contact } = contactoImportar;
+
+        // Extraer datos personalizados del customData si existe
+        let custom_data = {};
+        try {
+            if (contact.customData && typeof contact.customData === 'string') {
+                custom_data = JSON.parse(contact.customData);
+                console.log('📋 DEBUG: Custom Data extraído:', custom_data);
+            }
+        } catch (error) {
+            console.log('⚠️ WARN: Error al parsear customData:', error.message);
+            custom_data = {};
+        }
 
         // Log mínimo de contacto recibido
         const contactInfo = {
@@ -767,25 +1024,6 @@ const importarContactos = async (req, res) => {
             // Verificar teléfono principal o móvil
             const phoneToValidate = contact.phone || contact.mobile;
             if (!isValidPhone(phoneToValidate)) {
-                // Crear un error simulado para el logging
-                const validationError = {
-                    response: {
-                        status: 400,
-                        statusText: 'Bad Request',
-                        data: {
-                            message: 'Contacto sin email válido ni teléfono válido',
-                            validation_details: {
-                                email: contact.email || 'vacío',
-                                phone: contact.phone || 'null',
-                                mobile: contact.mobile || 'null'
-                            }
-                        }
-                    },
-                    message: 'Validación fallida: El contacto debe tener un email válido o un número de teléfono válido'
-                };
-
-                // Registrar el error de validación en el log
-                logContactError('VALIDATION_FAILED', contact, validationError);
                 console.log(`❌ VALIDACIÓN FALLIDA: ID=${contactInfo.id} | Sin email ni teléfono válido`);
 
                 return res.status(400).json({
@@ -807,48 +1045,17 @@ const importarContactos = async (req, res) => {
 
         // Buscar el contacto en RD Station
         let existingContact = null;
-        let tokenRefreshed = false;
 
         try {
             existingContact = await findContactByEmail(contact.email, contact);
         } catch (error) {
-            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
-                console.log(`🔄 Token expirado, refrescando... | ID=${contactInfo.id}`);
-
-                const refreshSuccess = await refreshAccessToken();
-                if (!refreshSuccess) {
-                    console.log(`❌ ERROR: No se pudo refrescar token | ID=${contactInfo.id}`);
-                    return res.status(401).json({
-                        success: false,
-                        statusCode: 401,
-                        error: 'No se pudo refrescar el token de acceso.',
-                        details: 'Token expirado y no se pudo renovar. Verificar credenciales.'
-                    });
-                }
-
-                tokenRefreshed = true;
-
-                // Reintentar búsqueda con token renovado
-                try {
-                    existingContact = await findContactByEmail(contact.email, contact);
-                } catch (retryError) {
-                    console.log(`❌ ERROR: Segundo intento fallido | ID=${contactInfo.id} | ${retryError.message}`);
-                    return res.status(500).json({
-                        success: false,
-                        statusCode: 500,
-                        error: 'Error al verificar existencia del contacto en RD Station después de refrescar token.',
-                        details: process.env.NODE_ENV === 'development' ? retryError.message : undefined
-                    });
-                }
-            } else {
-                console.log(`❌ ERROR: Búsqueda fallida | ID=${contactInfo.id} | ${error.message}`);
-                return res.status(500).json({
-                    success: false,
-                    statusCode: 500,
-                    error: 'Error al buscar contacto en RD Station.',
-                    details: process.env.NODE_ENV === 'development' ? error.message : undefined
-                });
-            }
+            console.log(`❌ ERROR: Búsqueda fallida | ID=${contactInfo.id} | ${error.message}`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Error al buscar contacto en RD Station.',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         }
 
         // Si el contacto ya existe, actualizarlo
@@ -870,6 +1077,62 @@ const importarContactos = async (req, res) => {
             }
 
             console.log(`✅ ACTUALIZADO: ID=${contactInfo.id} | ${contactInfo.email} | UUID=${existingContact.uuid}`);
+            
+            // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
+            // Solo registrar evento si tiene TANTO Demo_Fecha_Hora COMO source_url Y la fecha es reciente/futura
+            let eventCreated = false;
+            if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
+                
+                // Validar que la fecha de demo es reciente o futura (no demos pasadas)
+                const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
+                const demoDate = new Date(demoDateStr);
+                const today = new Date();
+                const yesterday = new Date(today);
+                yesterday.setDate(today.getDate() - 1);
+                
+                // Solo procesar si la demo es de ayer en adelante (permite demos del día anterior por diferencias de zona horaria)
+                if (demoDate >= yesterday) {
+                    console.log(`📅 DEBUG: Detectado actualización por registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
+                    console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
+                    console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
+                    
+                    // Determinar tipo de evento basado en la URL de origen
+                    let eventName = 'demo'; // default
+                    if (contact.source_url && contact.source_url.includes('demo-antel')) {
+                        eventName = 'demo-antel';
+                    }
+                    
+                    console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
+                    
+                    const eventSuccess = await createConversionEvent(contact.email, eventName, {
+                        name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
+                        email: contact.email,
+                        phone: contact.phone || contact.mobile,
+                        date: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[0] : '',
+                        timeslot: contact.Demo_Fecha_Hora ? contact.Demo_Fecha_Hora.split(' ')[1] : '',
+                        local_demo: contact.local_demo || '',
+                        direccion_demo: contact.direccion_demo || '',
+                        state: contact.state || '',
+                        city: contact.city || '',
+                        source_url: contact.source_url || '',
+                        calendar_id: contact.calendar_id || ''
+                    });
+                    
+                    eventCreated = eventSuccess;
+                    console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+                } else {
+                    console.log(`📋 DEBUG: Demo PASADA detectada en actualización (${demoDateStr}) - NO se registra evento de conversión para evitar duplicados`);
+                }
+            } else {
+                console.log(`📋 DEBUG: Contacto actualizado sin datos de demo válidos - NO se registra evento de conversión`);
+                if (!contact.Demo_Fecha_Hora || contact.Demo_Fecha_Hora.trim() === '') {
+                    console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora`);
+                }
+                if (!contact.source_url || contact.source_url.trim() === '') {
+                    console.log(`📋 DEBUG: - Sin source_url`);
+                }
+            }
+            
             return res.status(200).json({
                 success: true,
                 action: 'UPDATE',
@@ -880,12 +1143,22 @@ const importarContactos = async (req, res) => {
                     email: contact.email,
                     uuid: existingContact.uuid
                 },
-                tokenRefreshed: tokenRefreshed
+                eventCreated: eventCreated
             });
         }
 
+        // Enriquecer objeto contact con datos del custom_data para createContact
+        const enrichedContact = {
+            ...contact,
+            Demo_Fecha_Hora: contact.Demo_Fecha_Hora || custom_data.Demo_Fecha_Hora,
+            local_demo: contact.local_demo || custom_data.local_demo,
+            direccion_demo: contact.direccion_demo || custom_data.direccion_demo,
+            source_url: contact.source_url || custom_data.source_url,
+            calendar_id: contact.calendar_id || custom_data.calendar_id
+        };
+
         // Si no existe, crear nuevo contacto
-        const createSuccess = await createContact(contact);
+        const createSuccess = await createContact(enrichedContact);
         if (!createSuccess) {
             console.log(`❌ ERROR CREACIÓN: ID=${contactInfo.id} | ${contactInfo.email}`);
             return res.status(500).json({
@@ -901,6 +1174,121 @@ const importarContactos = async (req, res) => {
         }
 
         console.log(`✅ CREADO: ID=${contactInfo.id} | ${contactInfo.email}`);
+
+        // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
+        // Registrar evento si tiene Demo_Fecha_Hora válida Y la fecha es actual/futura
+        let eventCreated = false;
+        
+        // Buscar Demo_Fecha_Hora en el enrichedContact
+        const demoFechaHora = enrichedContact.Demo_Fecha_Hora;
+        
+        if (demoFechaHora && demoFechaHora.trim() !== '') {
+            
+            // Función para parsear fechas en diferentes formatos
+            const parseDemoDate = (dateStr) => {
+                if (!dateStr) return null;
+                
+                // Intentar diferentes formatos de fecha
+                const cleanDate = dateStr.trim();
+                
+                // Formato dd/mm/yyyy
+                if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('/');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato dd-mm-yyyy
+                if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('-');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato yyyy-mm-dd (ISO)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Formato ISO con hora (2025-09-30T11:00:00.000)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Intentar parsing directo como fallback
+                const fallbackDate = new Date(cleanDate);
+                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+            };
+            
+            // Extraer la fecha (puede venir con formato ISO completo con hora)
+            const demoDateStr = demoFechaHora.includes('T') ? 
+                demoFechaHora.split('T')[0] : 
+                demoFechaHora.split(' ')[0];
+            
+            const demoDate = parseDemoDate(demoFechaHora);
+            
+            // Normalizar fechas para comparar solo día, mes y año (sin hora)
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            console.log(`📅 DEBUG: Parseando fecha de demo - Input: "${demoFechaHora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
+            
+            // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
+            if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
+                console.log(`📅 DEBUG: Detectado registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
+                console.log(`📅 DEBUG: Demo_Fecha_Hora: ${demoFechaHora}`);
+                console.log(`📅 DEBUG: source_url: ${enrichedContact.source_url || 'N/A'}`);
+                
+                // Determinar tipo de evento basado en la URL de origen (si existe)
+                let eventName = 'demo'; // default
+                const sourceUrl = enrichedContact.source_url;
+                if (sourceUrl && sourceUrl.includes('demo-antel')) {
+                    eventName = 'demo-antel';
+                }
+                
+                console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
+                
+                // Extraer fecha y hora para el evento
+                let eventDate = demoDateStr;
+                let eventTime = '';
+                
+                if (demoFechaHora.includes('T')) {
+                    // Formato ISO: 2025-09-30T11:00:00.000
+                    const dateObj = new Date(demoFechaHora);
+                    eventTime = dateObj.toTimeString().substring(0, 5); // HH:MM
+                } else if (demoFechaHora.includes(' ')) {
+                    // Formato con espacio: 2025-09-30 11:00
+                    eventTime = demoFechaHora.split(' ')[1] || '';
+                }
+                
+                const eventSuccess = await createConversionEvent(contact.email, eventName, {
+                    name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
+                    email: contact.email,
+                    phone: contact.phone || contact.mobile,
+                    date: eventDate,
+                    timeslot: eventTime,
+                    local_demo: enrichedContact.local_demo || '',
+                    direccion_demo: enrichedContact.direccion_demo || '',
+                    state: contact.state || '',
+                    city: contact.city || '',
+                    source_url: sourceUrl || '',
+                    calendar_id: enrichedContact.calendar_id || ''
+                });
+                
+                eventCreated = eventSuccess;
+                console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+            } else {
+                if (demoDate && !isNaN(demoDate.getTime())) {
+                    console.log(`📋 DEBUG: Demo PASADA detectada (${demoDateStr}, parsed: ${demoDate.toISOString().split('T')[0]}) - NO se registra evento de conversión para evitar duplicados`);
+                } else {
+                    console.log(`📋 DEBUG: Fecha de demo INVÁLIDA detectada (${demoDateStr}) - NO se registra evento de conversión`);
+                }
+            }
+        } else {
+            console.log(`📋 DEBUG: Contacto creado sin datos de demo válidos - NO se registra evento de conversión`);
+            if (!demoFechaHora || demoFechaHora.trim() === '') {
+                console.log(`📋 DEBUG: - Sin Demo_Fecha_Hora válida (contact: ${!!contact.Demo_Fecha_Hora}, custom_data: ${!!custom_data.Demo_Fecha_Hora})`);
+            }
+        }
+
         return res.status(201).json({
             success: true,
             action: 'CREATE',
@@ -910,7 +1298,7 @@ const importarContactos = async (req, res) => {
                 id: contactInfo.id,
                 email: contact.email
             },
-            tokenRefreshed: tokenRefreshed
+            eventCreated: eventCreated
         });
 
     } catch (error) {
@@ -927,11 +1315,22 @@ const importarContactos = async (req, res) => {
 
 const actualizarContacto = async (req, res) => {
     try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
         // Actualiza un contacto cuando se actualiza en inconcert
         const contacto = req.body.eventData || req.body;
         const datosPersonalizados = contacto.customData;
         const custom_data = JSON.parse(datosPersonalizados || '{}');
-        
+
         console.log('Actualizar un Contacto', contacto);
         console.log('Custom Data', custom_data);
 
@@ -980,61 +1379,103 @@ const actualizarContacto = async (req, res) => {
 
         // Buscar el contacto en RD Station
         let existingContact = null;
-        let tokenRefreshed = false;
 
         try {
             existingContact = await findContactByEmail(email, contacto);
         } catch (error) {
-            if (error.message === 'TOKEN_EXPIRED' && !tokenRefreshed) {
-                console.log(`🔄 Token expirado, refrescando... | ID=${contacto.id}`);
-
-                const refreshSuccess = await refreshAccessToken();
-                if (!refreshSuccess) {
-                    console.log(`❌ ERROR: No se pudo refrescar token | ID=${contacto.id}`);
-                    return res.status(401).json({
-                        success: false,
-                        statusCode: 401,
-                        error: 'No se pudo refrescar el token de acceso.',
-                        details: 'Token expirado y no se pudo renovar. Verificar credenciales.'
-                    });
-                }
-
-                tokenRefreshed = true;
-
-                // Reintentar búsqueda con token renovado
-                try {
-                    existingContact = await findContactByEmail(email, contacto);
-                } catch (retryError) {
-                    console.log(`❌ ERROR: Segundo intento fallido | ID=${contacto.id} | ${retryError.message}`);
-                    return res.status(500).json({
-                        success: false,
-                        statusCode: 500,
-                        error: 'Error al verificar existencia del contacto en RD Station después de refrescar token.',
-                        details: process.env.NODE_ENV === 'development' ? retryError.message : undefined
-                    });
-                }
-            } else {
-                console.log(`❌ ERROR: Búsqueda fallida | ID=${contacto.id} | ${error.message}`);
-                return res.status(500).json({
-                    success: false,
-                    statusCode: 500,
-                    error: 'Error al buscar contacto en RD Station.',
-                    details: process.env.NODE_ENV === 'development' ? error.message : undefined
-                });
-            }
+            console.log(`❌ ERROR: Búsqueda fallida | ID=${contacto.id} | ${error.message}`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Error al buscar contacto en RD Station.',
+                details: process.env.NODE_ENV === 'development' ? error.message : undefined
+            });
         }
 
         if (!existingContact) {
-            console.log(`❌ ERROR: Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}`);
-            return res.status(404).json({
-                success: false,
-                statusCode: 404,
-                error: 'Contacto no encontrado en RD Station.',
-                contact: {
+            console.log(`📝 Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}. Creando nuevo contacto...`);
+            
+            // Si no existe el contacto, crearlo
+            try {
+                // Preparar datos para crear nuevo contacto
+                const phoneToUse = contacto.phone || contacto.mobile;
+                
+                const nuevoContacto = {
                     id: contacto.id,
-                    email: email
+                    firstname: contacto.firstname,
+                    lastname: contacto.lastname,
+                    email: email,
+                    phone: phoneToUse,
+                    mobile: contacto.mobile,
+                    nickname: custom_data.nickname || contacto.nickname,
+                    cedula: custom_data.cedula || contacto.cedula,
+                    language: contacto.language,
+                    position: contacto.position,
+                    rut: custom_data.rut || contacto.rut,
+                    address1: contacto.address1,
+                    address2: contacto.address2,
+                    numero_puerta: custom_data.numero_puerta,
+                    city: contacto.city,
+                    state: contacto.state,
+                    zip: contacto.zip,
+                    country: contacto.country,
+                    Demo_Fecha_Hora: custom_data.Demo_Fecha_Hora,
+                    direccion_demo: custom_data.direccion_demo,
+                    facebook: contacto.facebook,
+                    instagram: custom_data.instagram || contacto.instagram,
+                    linkedin: contacto.linkedin,
+                    twitter: contacto.twitter,
+                    skype: contacto.skype,
+                    googlePlus: contacto.googlePlus,
+                    website: contacto.website,
+                    cf_tem_ichef: validateTieneIchef(custom_data.tiene_ichef),
+                    cf_score: parseNumber(contacto.score),
+                    cf_stage: contacto.stage,
+                    cf_owner: contacto.owner,
+                    cf_participo_sdr: custom_data.participo_SDR || '',
+                    cf_estado_sdr: custom_data.estado_sdr || '',
+                    cf_local_demo: custom_data.local_demo,
+                    cf_fecha_ag_demo: custom_data.fecha_ag_demo,
+                    cf_horario_demo: custom_data.horario_demo,
+                    cf_phone_local: custom_data.phoneLocal,
+                    cf_phone_international: custom_data.phoneInternational,
+                    cf_mobile_local: custom_data.mobileLocal,
+                    cf_mobile_international: custom_data.mobileInternational,
+                    importadoRD: "true"
+                };
+
+                // Crear el contacto usando la función createContact existente
+                const createdContact = await createContact(nuevoContacto);
+                
+                if (createdContact) {
+                    console.log(`✅ Contacto creado exitosamente en RD Station | ID=${contacto.id} | Email=${email}`);
+                    return res.status(201).json({
+                        success: true,
+                        statusCode: 201,
+                        action: 'created',
+                        message: 'Contacto creado exitosamente en RD Station.',
+                        contact: {
+                            id: contacto.id,
+                            email: email,
+                            rd_station_id: createdContact.uuid
+                        }
+                    });
+                } else {
+                    throw new Error('No se pudo crear el contacto en RD Station');
                 }
-            });
+            } catch (createError) {
+                console.log(`❌ ERROR: No se pudo crear contacto en RD Station | ID=${contacto.id} | Error=${createError.message}`);
+                return res.status(500).json({
+                    success: false,
+                    statusCode: 500,
+                    error: 'Error al crear contacto en RD Station.',
+                    details: process.env.NODE_ENV === 'development' ? createError.message : undefined,
+                    contact: {
+                        id: contacto.id,
+                        email: email 
+                    }
+                });
+            }
         }
 
         // Determinar qué teléfono usar (phone o mobile)
@@ -1129,7 +1570,109 @@ const actualizarContacto = async (req, res) => {
             });
         }
 
-        console.log(`✅ ACTUALIZADO: ID=${contacto.id} | ${email} | UUID=${existingContact.uuid}`);
+        // Verificar si hay datos de demo para crear evento de conversión
+        let eventCreated = false;
+        if (custom_data.Demo_Fecha_Hora && custom_data.Demo_Fecha_Hora.trim() !== '') {
+            
+            // Función para parsear fechas en diferentes formatos
+            const parseDemoDate = (dateStr) => {
+                if (!dateStr) return null;
+                
+                // Intentar diferentes formatos de fecha
+                const cleanDate = dateStr.trim();
+                
+                // Formato dd/mm/yyyy
+                if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('/');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato dd-mm-yyyy
+                if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
+                    const [day, month, year] = cleanDate.split('-');
+                    return new Date(year, month - 1, day); // month es 0-indexed
+                }
+                
+                // Formato yyyy-mm-dd (ISO)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Formato ISO con hora (2025-09-30T11:00:00.000)
+                if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
+                    return new Date(cleanDate);
+                }
+                
+                // Intentar parsing directo como fallback
+                const fallbackDate = new Date(cleanDate);
+                return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+            };
+            
+            // Extraer la fecha (puede venir con formato ISO completo con hora)
+            const demoDateStr = custom_data.Demo_Fecha_Hora.includes('T') ? 
+                custom_data.Demo_Fecha_Hora.split('T')[0] : 
+                custom_data.Demo_Fecha_Hora.split(' ')[0];
+            
+            const demoDate = parseDemoDate(custom_data.Demo_Fecha_Hora);
+            
+            // Normalizar fechas para comparar solo día, mes y año (sin hora)
+            const today = new Date();
+            const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+            
+            console.log(`📅 DEBUG: Verificando demo en actualización - Input: "${custom_data.Demo_Fecha_Hora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
+            
+            // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
+            if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
+                console.log(`📅 DEBUG: Detectado DEMO ACTUAL/FUTURO en actualización (${demoDateStr}), registrando evento de conversión...`);
+                console.log(`📅 DEBUG: Demo_Fecha_Hora: ${custom_data.Demo_Fecha_Hora}`);
+                console.log(`📅 DEBUG: local_demo: ${custom_data.local_demo || 'N/A'}`);
+                
+                // Determinar tipo de evento (por defecto demo)
+                let eventName = 'demo';
+                
+                console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${email}`);
+                
+                // Extraer fecha y hora para el evento
+                let eventDate = demoDateStr;
+                let eventTime = '';
+                
+                if (custom_data.Demo_Fecha_Hora.includes('T')) {
+                    // Formato ISO: 2025-09-30T11:00:00.000
+                    const dateObj = new Date(custom_data.Demo_Fecha_Hora);
+                    eventTime = dateObj.toTimeString().substring(0, 5); // HH:MM
+                } else if (custom_data.Demo_Fecha_Hora.includes(' ')) {
+                    // Formato con espacio: 2025-09-30 11:00
+                    eventTime = custom_data.Demo_Fecha_Hora.split(' ')[1] || '';
+                }
+                
+                const eventSuccess = await createConversionEvent(email, eventName, {
+                    name: `${contacto.firstname || ''} ${contacto.lastname || ''}`.trim(),
+                    email: email,
+                    phone: contacto.phone || contacto.mobile,
+                    date: eventDate,
+                    timeslot: eventTime,
+                    local_demo: custom_data.local_demo || '',
+                    direccion_demo: custom_data.direccion_demo || '',
+                    state: contacto.state || '',
+                    city: contacto.city || '',
+                    source_url: '', // No requerido para actualizaciones
+                    calendar_id: ''
+                });
+                
+                eventCreated = eventSuccess;
+                console.log(`📅 DEBUG: Resultado del evento en actualización: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+            } else {
+                if (demoDate && !isNaN(demoDate.getTime())) {
+                    console.log(`📋 DEBUG: Demo PASADA detectada en actualización (${demoDateStr}, parsed: ${demoDate.toISOString().split('T')[0]}) - NO se registra evento de conversión`);
+                } else {
+                    console.log(`📋 DEBUG: Fecha de demo INVÁLIDA detectada en actualización (${custom_data.Demo_Fecha_Hora}) - NO se registra evento de conversión`);
+                }
+            }
+        } else {
+            console.log(`📋 DEBUG: Contacto actualizado sin datos de demo válidos - NO se registra evento de conversión`);
+        }
+
+        console.log(`✅ ACTUALIZADO: ID=${contacto.id} | ${email} | UUID=${existingContact.uuid}${eventCreated ? ' | EVENTO CREADO' : ''}`);
         return res.status(200).json({
             success: true,
             statusCode: 200,
@@ -1139,7 +1682,7 @@ const actualizarContacto = async (req, res) => {
                 email: email,
                 uuid: existingContact.uuid
             },
-            tokenRefreshed: tokenRefreshed
+            eventCreated: eventCreated
         });
 
     } catch (error) {
@@ -1154,6 +1697,377 @@ const actualizarContacto = async (req, res) => {
 };
 
 
+/**
+ * Crea un evento de conversión en RD Station
+ * @param {string} email - Email del contacto
+ * @param {string} eventName - Nombre del evento (demo, demo-antel, etc.)
+ * @param {Object} eventData - Datos adicionales del evento
+ * @returns {Promise<boolean>} - True si el evento se creó exitosamente
+ */
+const createConversionEvent = async (email, eventName, eventData = {}) => {
+    console.log(`🔧 DEBUG: Iniciando createConversionEvent`);
+    console.log(`📧 Email: ${email}`);
+    console.log(`🎯 Event Name: ${eventName}`);
+    console.log(`📊 Event Data:`, JSON.stringify(eventData, null, 2));
+
+    // Verificar credenciales antes de proceder
+    if (!credentialsValid) {
+        console.error(`❌ DEBUG: Credenciales de RD Station no válidas`);
+        return false;
+    }
+
+    if (!credenciales.access_token) {
+        console.log(`⚠️ DEBUG: Access token no disponible, intentando renovar...`);
+        
+        try {
+            const refreshSuccess = await refreshAccessToken();
+            if (!refreshSuccess) {
+                console.error(`❌ DEBUG: No se pudo renovar el access token`);
+                return false;
+            }
+            console.log(`✅ DEBUG: Access token renovado exitosamente`);
+        } catch (error) {
+            console.error(`❌ DEBUG: Error al renovar access token:`, error.message);
+            return false;
+        }
+    }
+
+    const apiCall = async () => {
+        // Estructura correcta según la documentación oficial de RD Station
+        const payload = {
+            conversion_identifier: eventName,
+            name: eventData.name || '',
+            email: email,
+            personal_phone: eventData.phone || '',
+            mobile_phone: eventData.phone || '',
+            state: eventData.state || '',
+            city: eventData.city || '',
+            // Campos personalizados del demo
+            cf_fecha_demo: eventData.date || '',
+            cf_horario_demo: eventData.timeslot || '',
+            cf_local_demo: eventData.local_demo || '',
+            cf_direccion_demo: eventData.direccion_demo || '',
+            cf_source_url: eventData.source_url || '',
+            cf_calendar_id: eventData.calendar_id || '',
+            // Campos adicionales recomendados
+            available_for_mailing: true,
+            traffic_source: eventData.source_url || '',
+            // Bases legales de consentimiento
+            legal_bases: [
+                {
+                    category: "communications",
+                    type: "consent", 
+                    status: "granted"
+                }
+            ]
+        };
+
+        console.log(`🚀 DEBUG: Enviando payload a RD Station:`);
+        console.log(`📡 URL: ${RD_STATION_CONFIG.API_BASE_URL}/platform/events`);
+        console.log(`📦 Payload:`, JSON.stringify({
+            event_type: "CONVERSION",
+            event_family: "CDP",
+            payload: payload
+        }, null, 2));
+        console.log(`🔑 Token presente:`, !!credenciales.access_token);
+        console.log(`🔑 Token (primeros 10 chars):`, credenciales.access_token?.substring(0, 10) + '...');
+
+        // URL correcta según documentación (sin query parameters)
+        const response = await axios.post(
+            `${RD_STATION_CONFIG.API_BASE_URL}/platform/events`,
+            {
+                event_type: "CONVERSION",
+                event_family: "CDP",
+                payload: payload
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${credenciales.access_token}`,
+                    'Content-Type': 'application/json',
+                    'accept': 'application/json'
+                }
+            }
+        );
+
+        console.log(`✅ DEBUG: Respuesta de RD Station:`, {
+            status: response.status,
+            statusText: response.statusText,
+            data: response.data
+        });
+
+        return response.data;
+    };
+
+    try {
+        const result = await executeWithRetry(apiCall, 'CONVERSION_EVENT', { email, eventName });
+        console.log(`✅ Evento de conversión creado exitosamente: ${eventName} para ${email}`);
+        return true;
+    } catch (error) {
+        console.error(`❌ Error al crear evento de conversión | Email=${email} | Evento=${eventName}`);
+        console.error(`❌ Status: ${error.response?.status} | Data:`, error.response?.data);
+        console.error(`❌ Message: ${error.message}`);
+        console.error(`❌ Full error:`, error);
+        return false;
+    }
+};
+
+/**
+ * Registra un demo desde el sistema de agendamiento
+ * Busca o crea el contacto y registra el evento de conversión correspondiente
+ * @param {Object} req - Objeto de solicitud de Express
+ * @param {Object} res - Objeto de respuesta de Express
+ */
+const registrarDemo = async (req, res) => {
+    try {
+        // Verificar credenciales antes de procesar
+        if (!credentialsValid) {
+            console.log(`❌ ERROR: Credenciales de RD Station no configuradas`);
+            return res.status(500).json({
+                success: false,
+                statusCode: 500,
+                error: 'Configuración de RD Station incompleta. Verificar variables de entorno.',
+                credentialsStatus: getCredentialsStatus()
+            });
+        }
+
+        const demoData = req.body;
+
+        console.log('📩 Demo recibido:', {
+            email: demoData.email,
+            name: demoData.name,
+            date: demoData.date,
+            timeslot: demoData.timeslot,
+            source_url: demoData.source_url
+        });
+
+        // Validar datos requeridos
+        if (!demoData.email || !demoData.name || !demoData.date) {
+            return res.status(400).json({
+                success: false,
+                statusCode: 400,
+                error: 'Faltan datos requeridos: email, name y date son obligatorios.'
+            });
+        }
+
+        // Determinar el tipo de evento basado en la URL
+        let eventName = 'demo'; // default
+        if (demoData.source_url && demoData.source_url.includes('demo-antel')) {
+            eventName = 'demo-antel';
+        }
+
+        console.log(`📋 Evento determinado: ${eventName}`);
+
+        // Preparar datos del contacto para buscar/crear
+        const contactData = {
+            email: cleanEmail(demoData.email),
+            firstname: demoData.name,
+            lastname: demoData.lastname || '',
+            phone: demoData.phone,
+            state: demoData.state,
+            city: demoData.city,
+            Demo_Fecha_Hora: `${demoData.date} ${demoData.timeslot}`,
+            direccion_demo: demoData.direccion_demo
+        };
+
+        let existingContact = null;
+        let tokenRefreshed = false;
+        let emailToUse = contactData.email;
+
+        // Validar email principal
+        if (!isValidEmail(contactData.email)) {
+            console.log(`⚠️ Email inválido: ${contactData.email}`);
+
+            // Si hay teléfono, generar email ficticio
+            if (isValidPhone(contactData.phone)) {
+                emailToUse = generateEmailFromPhone(contactData.phone);
+                contactData.email = emailToUse;
+                console.log(`🔄 Email generado desde teléfono: ${emailToUse}`);
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    statusCode: 400,
+                    error: 'Email inválido y no se puede generar desde teléfono.'
+                });
+            }
+        }
+
+        // Buscar contacto existente
+        try {
+            existingContact = await findContactByEmail(emailToUse, contactData);
+        } catch (error) {
+            console.log(`❌ Error en búsqueda de contacto: ${error.message}`);
+            // Continuar con la creación si no se puede buscar
+        }
+
+        let contactAction = '';
+
+        // Actualizar o crear contacto
+        if (existingContact) {
+            const updateSuccess = await updateContact(existingContact.uuid, contactData);
+            if (updateSuccess) {
+                console.log(`✅ CONTACTO ACTUALIZADO: ${emailToUse}`);
+                contactAction = 'UPDATED';
+            } else {
+                console.log(`⚠️ Error al actualizar contacto: ${emailToUse}`);
+                contactAction = 'UPDATE_FAILED';
+            }
+        } else {
+            const createSuccess = await createContact(contactData);
+            if (createSuccess) {
+                console.log(`✅ CONTACTO CREADO: ${emailToUse}`);
+                contactAction = 'CREATED';
+            } else {
+                console.log(`❌ Error al crear contacto: ${emailToUse}`);
+                return res.status(500).json({
+                    success: false,
+                    statusCode: 500,
+                    error: 'No se pudo crear el contacto en RD Station.'
+                });
+            }
+        }
+
+        // Crear evento de conversión
+        console.log(`📅 DEBUG: Iniciando creación de evento de conversión`);
+        console.log(`📅 DEBUG: eventName=${eventName}`);
+        console.log(`📅 DEBUG: emailToUse=${emailToUse}`);
+        console.log(`📅 DEBUG: contactAction=${contactAction}`);
+        
+        const eventSuccess = await createConversionEvent(emailToUse, eventName, {
+            name: `${demoData.name} ${demoData.lastname || ''}`.trim(),
+            email: emailToUse,
+            phone: demoData.phone,
+            date: demoData.date,
+            timeslot: demoData.timeslot,
+            local_demo: demoData.local_demo,
+            direccion_demo: demoData.direccion_demo,
+            state: demoData.state,
+            city: demoData.city,
+            source_url: demoData.source_url,
+            calendar_id: demoData.calendar_id
+        });
+
+        console.log(`📅 DEBUG: Resultado del evento de conversión: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
+
+        const responseData = {
+            success: true,
+            statusCode: 200,
+            message: 'Demo registrado exitosamente.',
+            data: {
+                email: emailToUse,
+                contactAction: contactAction,
+                eventName: eventName,
+                eventCreated: eventSuccess
+            }
+        };
+
+        // Si el evento falló pero el contacto se procesó bien, aún considerarlo exitoso pero con advertencia
+        if (!eventSuccess) {
+            console.log(`⚠️ ADVERTENCIA: Contacto procesado pero evento falló: ${eventName} para ${emailToUse}`);
+            responseData.message = 'Contacto procesado exitosamente, pero hubo un problema al registrar el evento de conversión.';
+            responseData.warning = 'El evento de conversión no se pudo crear. Revisar configuración de eventos en RD Station.';
+        } else {
+            console.log(`✅ DEMO COMPLETAMENTE REGISTRADO: Contacto ${contactAction} + Evento ${eventName} para ${emailToUse}`);
+        }
+
+        return res.status(200).json(responseData);
+
+    } catch (error) {
+        console.error('Error inesperado en registrarDemo:', error);
+        return res.status(500).json({
+            success: false,
+            statusCode: 500,
+            error: 'Error interno del servidor.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+
+/**
+ * Función para obtener el estado del circuit breaker (útil para debugging)
+ * @returns {Object} - Estado actual del circuit breaker
+ */
+const getCircuitBreakerStatus = () => {
+    const now = Date.now();
+    const timeToReset = circuitBreaker.lastFailureTime ? 
+        Math.max(0, circuitBreaker.resetTimeout - (now - circuitBreaker.lastFailureTime)) : 0;
+    
+    return {
+        isOpen: circuitBreaker.isOpen,
+        failureCount: circuitBreaker.failureCount,
+        lastFailureTime: circuitBreaker.lastFailureTime,
+        timeToResetMs: timeToReset,
+        timeToResetMinutes: Math.ceil(timeToReset / 1000 / 60),
+        canMakeRequest: circuitBreaker.canMakeRequest()
+    };
+};
+
+/**
+ * Función para resetear manualmente el circuit breaker (útil para testing/debugging)
+ */
+const resetCircuitBreaker = () => {
+    console.log('🔄 Circuit breaker reseteado manualmente');
+    circuitBreaker.reset();
+};
+
+/**
+ * Función de test para el endpoint de eventos de conversión
+ * @param {Object} req - Objeto de solicitud de Express
+ * @param {Object} res - Objeto de respuesta de Express
+ */
+const testConversionEvent = async (req, res) => {
+    try {
+        console.log('🧪 TEST: Iniciando prueba de evento de conversión');
+
+        // Datos de prueba
+        const testEmail = 'test@rdstation.com';
+        const testEventName = 'demo-test';
+        const testEventData = {
+            name: 'Usuario de Prueba',
+            phone: '+59899123456',
+            date: '2025-01-15',
+            timeslot: '14:00',
+            source_url: 'https://test.com/demo',
+            state: 'Montevideo',
+            city: 'Montevideo'
+        };
+
+        console.log('🧪 TEST: Verificando credenciales...');
+        const credStatus = getCredentialsStatus();
+        console.log('🧪 TEST: Estado de credenciales:', credStatus);
+
+        if (!credentialsValid) {
+            return res.status(500).json({
+                success: false,
+                error: 'Credenciales no válidas',
+                credentialsStatus: credStatus
+            });
+        }
+
+        console.log('🧪 TEST: Llamando a createConversionEvent...');
+        const result = await createConversionEvent(testEmail, testEventName, testEventData);
+
+        return res.status(200).json({
+            success: true,
+            message: 'Test de evento de conversión completado',
+            result: result,
+            testData: {
+                email: testEmail,
+                eventName: testEventName,
+                eventData: testEventData
+            }
+        });
+
+    } catch (error) {
+        console.error('🧪 TEST: Error durante la prueba:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Error durante el test',
+            details: error.message
+        });
+    }
+};
+
 export {
     importarContactos,
     isValidEmail,
@@ -1164,5 +2078,12 @@ export {
     createContact,
     updateContact,
     actualizarContacto,
-    logContactError
+    createConversionEvent,
+    registrarDemo,
+    getCircuitBreakerStatus,
+    resetCircuitBreaker,
+    getCredentialsStatus,
+    initializeCredentials,
+    testConversionEvent
+
 };
