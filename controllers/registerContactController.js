@@ -38,6 +38,25 @@ function GenerateContactId(phone) {
 	return encodeURIComponent(`${phone.replace(/\D/g, "")}@email.com`);
 }
 
+async function SendEvent(email, event_name) {
+	try {
+		const response = await rdstation.post("/platform/events?event_type=conversion", {
+			event_type: "CONVERSION",
+			event_family: "CDP",
+			payload: {
+				conversion_identifier: event_name,
+				email: email
+			}
+		});
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
+		if (error.response && error.response.status === 404) return null;
+		console.error("Error al enviar evento", error.message);
+		return null;
+	}
+}
+
 async function GetContact(email) {
 	try {
 		const response = await rdstation.get(`/platform/contacts/email:${email}`);
@@ -125,15 +144,6 @@ async function HandleNewContact(contact, do_update) {
 	}
 }
 
-async function OnNewContact(req, res) {
-	const message = req.body;
-	if (message.event === "automation_event.conversation_created") {
-		const contact = message.meta.sender;
-		HandleNewContact(contact, false); // do not await
-	}
-	return res.status(200).send("Event received");
-}
-
 async function FetchContact(phone, email) {
 	if (email) {
 		const contact = await GetContact(email);
@@ -163,9 +173,19 @@ async function GetContactRD(req, res) {
 	return res.status(404).send("Contact not found");
 }
 
+async function OnNewContact(req, res) {
+	const message = req.body;
+	if (message.event === "automation_event.conversation_created") {
+		const contact = message.meta.sender;
+		HandleNewContact(contact, false); // do not await
+	}
+	return res.status(200).send("Event received");
+}
+
 async function RegisterContact(req, res) {
 	const contact = req.body;
 	HandleNewContact(contact, true); // do not await
+	SendEvent(contact.email || GenerateContactId(contact.phone), "registro-portal"); // do not await
 	return res.status(200).send("Event received");
 }
 
