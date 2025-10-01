@@ -189,4 +189,33 @@ async function RegisterContact(req, res) {
 	return res.status(200).send("Event received");
 }
 
-export { OnNewContact, GetContactRD, RegisterContact };
+async function UpdateContactExtended(contactData) {
+	const email = contactData.email || GenerateContactId(contactData.phone);
+	try {
+		const response = await rdstation.patch(`/platform/contacts/email:${email}`, contactData);
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
+		console.error("Error al actualizar contacto", contactData, error.message);
+		return null;
+	}
+}
+
+async function UpdateContactRD(req, res) {
+	const contact = req.body;
+	try {
+		const updated_contact = await UpdateContactExtended(contact);
+		if (updated_contact) return res.status(200).json(updated_contact);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			const updated_contact = await UpdateContactExtended(contact);
+			if (updated_contact) return res.status(200).json(updated_contact);
+		}
+	}
+	return res.status(400).send("Error updating contact");
+}
+
+export { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact };
