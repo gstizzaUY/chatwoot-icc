@@ -35,7 +35,7 @@ async function UpdateAccessToken() {
 }
 
 function GenerateContactId(phone) {
-	return encodeURIComponent(`${phone.replace(/\D/g, "")}@email.com`);
+	return `${phone.replace(/\D/g, "")}@email.com`;
 }
 
 async function SendEvent(email, event_name) {
@@ -59,7 +59,7 @@ async function SendEvent(email, event_name) {
 
 async function GetContact(email) {
 	try {
-		const response = await rdstation.get(`/platform/contacts/email:${email}`);
+		const response = await rdstation.get(`/platform/contacts/email:${encodeURIComponent(email)}`);
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
@@ -97,7 +97,7 @@ async function UpdateContact(email, contact) {
 		cf_tiene_ichef: contact.serial ? "Sí" : "No"
 	};
 	try {
-		const response = await rdstation.patch(`/platform/contacts/email:${email}`, contactData);
+		const response = await rdstation.patch(`/platform/contacts/email:${encodeURIComponent(email)}`, contactData);
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
@@ -189,29 +189,30 @@ async function RegisterContact(req, res) {
 	return res.status(200).send("Event received");
 }
 
-async function UpdateContactExtended(contactData) {
-	const email = contactData.email || GenerateContactId(contactData.phone);
+async function UpdateContactExtended(email, contactData) {
 	try {
-		const response = await rdstation.patch(`/platform/contacts/email:${email}`, contactData);
+		const response = await rdstation.patch(`/platform/contacts/email:${encodeURIComponent(email)}`, contactData);
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
-		console.error("Error al actualizar contacto", contactData, error.message);
+		console.error("Error al actualizar contacto", JSON.stringify(contactData), error.message);
 		return null;
 	}
 }
 
 async function UpdateContactRD(req, res) {
 	const contact = req.body;
+	const email = contact.email || GenerateContactId(contact.phone);
+	const contactData = { ...Object.fromEntries(Object.entries(contact).filter(([key]) => !["email"].includes(key))) };
 	try {
-		const updated_contact = await UpdateContactExtended(contact);
+		const updated_contact = await UpdateContactExtended(email, contactData);
 		if (updated_contact) return res.status(200).json(updated_contact);
 	} catch (error) {
 		if (error.message === "INVALID_TOKEN") {
 			console.log("Generando nuevo token");
 			const token = await UpdateAccessToken();
 			SetAccessToken(token);
-			const updated_contact = await UpdateContactExtended(contact);
+			const updated_contact = await UpdateContactExtended(email, contactData);
 			if (updated_contact) return res.status(200).json(updated_contact);
 		}
 	}
