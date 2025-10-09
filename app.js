@@ -32,7 +32,7 @@ app.use('/api/custom_atributes', customAtributesRoutes);
 app.use('/api/deals', dealsRoutes);
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/cns-conversations', CNS_ConversationsRoutes);
-app.use('/api/inconcert', inconcertRoutes);
+app.use('/api/inconcert', inconcertRoutes); // Rutas de InConcert
 app.use('/api/rd-station', rdStationRoutes);
 app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes);
 

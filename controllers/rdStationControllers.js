@@ -1762,17 +1762,8 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
             ]
         };
 
-        console.log(`🚀 DEBUG: Enviando payload a RD Station:`);
-        console.log(`📡 URL: ${RD_STATION_CONFIG.API_BASE_URL}/platform/events`);
-        console.log(`📦 Payload:`, JSON.stringify({
-            event_type: "CONVERSION",
-            event_family: "CDP",
-            payload: payload
-        }, null, 2));
-        console.log(`🔑 Token presente:`, !!credenciales.access_token);
-        console.log(`🔑 Token (primeros 10 chars):`, credenciales.access_token?.substring(0, 10) + '...');
 
-        // URL correcta según documentación (sin query parameters)
+        // URL correcta según documentación
         const response = await axios.post(
             `${RD_STATION_CONFIG.API_BASE_URL}/platform/events`,
             {

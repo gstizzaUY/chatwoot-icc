@@ -6,6 +6,49 @@ dotenv.config();
 const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;
 
+/**
+ * Convierte un número de teléfono al formato E164 requerido por Chatwoot
+ * @param {string} phone - Número de teléfono
+ * @param {string} country - Código de país (opcional)
+ * @returns {string|null} - Número en formato E164 o null si no es válido
+ */
+const formatPhoneToE164 = (phone, country = 'UY') => {
+    if (!phone || typeof phone !== 'string') return null;
+    
+    // Si ya tiene el formato E164 (empieza con +), devolverlo tal como está
+    if (phone.startsWith('+')) return phone;
+    
+    // Limpiar el número de espacios, guiones y otros caracteres
+    const cleanPhone = phone.replace(/[\s\-\(\)]/g, '');
+    
+    // Si no es un número válido, retornar null
+    if (!/^\d+$/.test(cleanPhone)) return null;
+    
+    // Mapeo de códigos de país comunes
+    const countryPrefixes = {
+        'UY': '598',
+        'AR': '54',
+        'BR': '55',
+        'CL': '56',
+        'CO': '57',
+        'PE': '51',
+        'EC': '593',
+        'BO': '591',
+        'PY': '595',
+        'VE': '58'
+    };
+    
+    const countryCode = countryPrefixes[country] || '598'; // Default a Uruguay
+    
+    // Si el número ya incluye el código de país, agregarlo solo con +
+    if (cleanPhone.startsWith(countryCode)) {
+        return `+${cleanPhone}`;
+    }
+    
+    // Si es un número local, agregar el código de país
+    return `+${countryCode}${cleanPhone}`;
+};
+
 const importContacts = async (req, res) => {
     const contact = req.body.contact;
     console.log('[importContacts] Contacto recibido para importar a chatwoot:', contact);
@@ -45,11 +88,15 @@ const importContacts = async (req, res) => {
         contactStage = 'cliente';
     }
 
+    // Formatear el teléfono al formato E164
+    const formattedPhone = formatPhoneToE164(contact.phoneInternational || contact.phone, contact.country);
+    console.log(`[importContacts] Formateo de teléfono: Original="${contact.phoneInternational || contact.phone}" -> E164="${formattedPhone}"`);
+
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
-        "inbox_id": contact.phone !== null ? 23 : 1,
+        "inbox_id": formattedPhone ? 23 : 1,
         "email": contact.email,
-        "phone_number": contact.phoneInternational,
+        "phone_number": formattedPhone,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -437,6 +484,8 @@ const importContacts = async (req, res) => {
         payload: [
             { id: contact.id, key: 'id' },
             { id: contact.email, key: 'email' },
+            { id: formattedPhone, key: 'phone_number' },
+            { id: contact.phoneInternational, key: 'phone_number' },
             { id: contact.phone, key: 'phone_number' }
         ]
             .map(item => buildPayloadItem(item.key, item.id))
@@ -501,6 +550,11 @@ const createContact = async (req, res) => {
 
     // Determinar el teléfono a usar (prioridad: phoneInternational del customData, luego contact.phone)
     const phoneToUse = phoneInternational || contact.phone;
+    
+    // Formatear el teléfono al formato E164 requerido por Chatwoot
+    const formattedPhone = formatPhoneToE164(phoneToUse, contact.country);
+    
+    console.log(`[createContact] Formateo de teléfono: Original="${phoneToUse}" -> E164="${formattedPhone}"`);
 
 
     // Extraer la etapa del contacto
@@ -519,9 +573,9 @@ const createContact = async (req, res) => {
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
-        "inbox_id": phoneToUse ? 23 : 1,  
+        "inbox_id": formattedPhone ? 23 : 1,  
         "email": contact.email,
-        "phone_number": phoneToUse,
+        "phone_number": formattedPhone,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
@@ -659,12 +713,12 @@ const createContact = async (req, res) => {
 
     console.log('Datos del contacto a crear:', contactData);
 
-    // Validación: verificar que tenemos al menos un teléfono
-    if (!phoneToUse) {
-        console.error('❌ Error: No hay número de teléfono disponible para crear el contacto');
+    // Validación: verificar que tenemos al menos un teléfono válido en formato E164
+    if (!formattedPhone) {
+        console.error('❌ Error: No se pudo formatear el teléfono al formato E164');
         return res.status(400).json({ 
-            error: 'Número de teléfono requerido para crear contacto en Chatwoot',
-            contact: { id: contact.id, email: contact.email }
+            error: 'Teléfono inválido - no se pudo convertir al formato E164 requerido',
+            contact: { id: contact.id, email: contact.email, originalPhone: phoneToUse }
         });
     }
 
@@ -682,7 +736,8 @@ const createContact = async (req, res) => {
     const searchCriteria = [
         { id: contact.id, key: 'id' },
         { id: contact.email, key: 'email' },
-        { id: phoneToUse, key: 'phone_number' },
+        { id: formattedPhone, key: 'phone_number' },
+        { id: phoneToUse, key: 'phone_number' }, // búsqueda adicional con phone original
         { id: contact.phone, key: 'phone_number' } // búsqueda adicional con phone local
     ];
 
@@ -793,6 +848,11 @@ const updateContact = async (req, res) => {
 
     // Determinar el teléfono a usar (prioridad: phoneInternational del customData, luego contact.phone)
     const phoneToUse = phoneInternational || contact.phone;
+    
+    // Formatear el teléfono al formato E164 requerido por Chatwoot
+    const formattedPhone = formatPhoneToE164(phoneToUse, contact.country);
+    
+    console.log(`[updateContact] Formateo de teléfono: Original="${phoneToUse}" -> E164="${formattedPhone}"`);
 
     // Extraer la etapa del contacto
     let contactStage = contact.stage;
@@ -811,7 +871,7 @@ const updateContact = async (req, res) => {
     const updateContactData = {
         "name": contact.firstname + ' ' + contact.lastname,
         "email": contact.email,
-        "phone_number": phoneToUse,
+        "phone_number": formattedPhone,
         "custom_attributes": {
             "firstname": contact.firstname,
             "lastname": contact.lastname,
