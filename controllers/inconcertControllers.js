@@ -330,11 +330,12 @@ const chatwootCampaignUltimasVentas = async (req, res) => {
         });
         if (response.data.meta.count > 0) {
             const conversationData = {
-                inbox_id: contactData.inbox_id || "21",
+                inbox_id: contactData.inbox_id || "14",
                 source_id: response.data.payload[0].custom_attributes.id,
                 contact_id: response.data.payload[0].id,
                 status: 'open',
-                team_id: 3,
+                assignee_id: '19',
+                team_id: 4,
                 message: {
                     content: contactData.system_message || '',
                 }
@@ -365,10 +366,4 @@ const chatwootCampaignUltimasVentas = async (req, res) => {
 
 
 
-const chatwootOnboarding = async (req, res) => {
-    const contactData = req.body;
-    console.log('Datos recibidos en onboarding:', contactData);
-};
-
-
-export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba, chatwootCampaignCreatedExpoBebe2025, chatwootCampaignUltimasVentas, chatwootOnboarding };
+export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba, chatwootCampaignCreatedExpoBebe2025, chatwootCampaignUltimasVentas };

@@ -8,6 +8,7 @@ import {
     initializeCredentials,
     testConversionEvent
 } from '../controllers/rdStationControllers.js';
+import onboarding from '../controllers/onboardingController.js';
 
 const router = express.Router();
 
@@ -75,5 +76,7 @@ router.post('/reload-credentials', (req, res) => {
         });
     }
 });
+
+router.post('/onboarding/:etapa', onboarding);
 
 export default router;
