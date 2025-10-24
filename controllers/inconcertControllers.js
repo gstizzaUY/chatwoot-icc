@@ -8,6 +8,7 @@ const serviceToken = process.env.INCONCERT_CREATE_CONTACT_TOKEN
 const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;
 
+
 const chatwootWebhook = async (req, res) => {
     try {
         const webhook = req.body;
@@ -83,7 +84,7 @@ const validateWebhookData = (webhook) => {
 
     const requiredFields = ['name', 'email', 'phone_number'];
     const missingFields = requiredFields.filter(field => !webhook.meta.sender[field]);
-    
+
     if (missingFields.length > 0) {
         throw new Error(`Campos requeridos faltantes: ${missingFields.join(', ')}`);
     }
@@ -366,4 +367,4 @@ const chatwootCampaignUltimasVentas = async (req, res) => {
 
 
 
-export { chatwootWebhook , chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba, chatwootCampaignCreatedExpoBebe2025, chatwootCampaignUltimasVentas };
+export { chatwootWebhook, chatwootWebhookConversationCreated, chatwootCampaignCreatedSdrPrueba, chatwootCampaignCreatedExpoBebe2025, chatwootCampaignUltimasVentas };

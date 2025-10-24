@@ -25,16 +25,20 @@ app.get('/', (req, res) => {
     res.send('API funcionando');
 });
 
-// Routes
 
-app.use('/api/contacts', contactsRoutes);
-app.use('/api/custom_atributes', customAtributesRoutes);
-app.use('/api/deals', dealsRoutes);
+
+
+// Routes
+app.use('/api/contacts', contactsRoutes); // Importación masiva de contactos desde inConcert a Chatwoot, Crea Contactos Nuevos desde ICC, Actualiza y Borra Contactos en Chatwoot desde inConcert
+app.use('/api/custom_atributes', customAtributesRoutes); // Crea los Atributos Personalizados y los Lista y Borra en Chatwoot
+app.use('/api/deals', dealsRoutes); // Desde inConcert a Chatwoot: Importa masivamente las oportunidades, Crea Nuevas Oportunidades, Actualiza Oportunidades en Chatwoot
 app.use('/api/conversations', conversationsRoutes);
 app.use('/api/cns-conversations', CNS_ConversationsRoutes);
 app.use('/api/inconcert', inconcertRoutes); // Rutas de InConcert
-app.use('/api/rd-station', rdStationRoutes);
-app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes);
+
+
+app.use('/api/rd-station', rdStationRoutes); // Importación masiva desde InConcert a RD Station, Actualiza Contactos en RD Station, Registra Demos en RD Station
+app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes); // Crea los Contactos en inConcert desde RD Station
 
 
 app.listen(port, () => {

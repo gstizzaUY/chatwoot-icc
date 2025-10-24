@@ -3,11 +3,11 @@ import { createContact, importContacts, filterContacts, updateContact, deleteCon
 
 const router = express.Router();
 
-router.post('/import', importContacts);
-router.post('/create', createContact);
-router.post('/filter', filterContacts);
-router.post('/update', updateContact);
-router.post('/delete', deleteContact);
+router.post('/import', importContacts); // Importación masiva de contactos desde inConcert a Chatwoot
+router.post('/create', createContact); // Crea Contactos Nuevos desde ICC
+router.post('/filter', filterContacts); // Filtra Contactos en Chatwoot
+router.post('/update', updateContact); // Actualiza Contactos en Chatwoot desde inConcert
+router.post('/delete', deleteContact); // Borra Contactos en Chatwoot desde inConcert
 
 
 export default router;
