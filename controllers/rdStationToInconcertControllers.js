@@ -166,25 +166,46 @@ const demoOnline = async (req, res) => {
             console.log('Custom fields:', custom_fields);
 
             // Separar nombre y apellido
-            const fullName = lead.name || '';
-            const lastName = custom_fields.lastname || '';
+            const fullName = (lead.name || '').trim();
+            let lastName = (custom_fields.lastname || '').trim();
             let firstName = '';
 
             console.log(`Separando nombre: fullName="${fullName}", lastName="${lastName}"`);
 
-            if (fullName && lastName) {
-                firstName = fullName.replace(lastName, '').trim();
-                console.log(`Método 1 - firstName: "${firstName}", lastName: "${lastName}"`);
-            } else {
-                // Si no hay lastname, asumir que el último nombre es apellido
-                const nameParts = fullName.split(' ');
-                if (nameParts.length > 1) {
-                    firstName = nameParts.slice(0, -1).join(' ');
-                    const extractedLastName = nameParts[nameParts.length - 1];
-                    console.log(`Método 2 - firstName: "${firstName}", lastName: "${extractedLastName}"`);
+            // helper para escapar regex
+            const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+            if (fullName) {
+                if (lastName) {
+                    // si lastName existe, intentar removerlo del final de fullName (case-insensitive)
+                    const pattern = new RegExp(`\\s*${escapeRegExp(lastName)}\\s*$`, 'i');
+                    if (pattern.test(fullName)) {
+                        firstName = fullName.replace(pattern, '').trim();
+                        console.log(`Apellido provisto coincide al final. firstName="${firstName}", lastName="${lastName}"`);
+                    } else {
+                        // apellido provisto no coincide exactamente con el final => fallback por split
+                        const parts = fullName.split(/\s+/);
+                        if (parts.length > 1) {
+                            lastName = parts.pop();
+                            firstName = parts.join(' ');
+                            console.log(`Apellido provisto no coincide, usando split. firstName="${firstName}", lastName="${lastName}"`);
+                        } else {
+                            firstName = fullName;
+                            console.log(`Solo un nombre en fullName. firstName="${firstName}", lastName="${lastName}"`);
+                        }
+                    }
                 } else {
-                    firstName = fullName;
-                    console.log(`Método 3 - solo firstName: "${firstName}"`);
+                    // no hay lastName en custom_fields => extraer último token como apellido
+                    const parts = fullName.split(/\s+/);
+                    if (parts.length > 1) {
+                        lastName = parts.pop();
+                        firstName = parts.join(' ');
+                        console.log(`Sin apellido en custom_fields, extraido. firstName="${firstName}", lastName="${lastName}"`);
+                    } else {
+                        firstName = fullName;
+                        lastName = '';
+                        console.log(`Solo nombre simple. firstName="${firstName}"`);
+                    }
                 }
             }
 
