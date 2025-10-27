@@ -65,11 +65,12 @@ async function GetOpportunityRD(req, res) {
 }
 
 async function UpdateOpportunityStage(req, res) {
-	const { dealId, stageId, localDemo } = req.body;
+	const { dealId, stageId, localDemo, state } = req.body;
 
 	const body = {
 		deal_stage_id: stageId,
 		deal: {
+			win: state === "won" ? true : (state === "lost" ? false : null),
 			deal_custom_fields: [
 				{
 					custom_field_id: "68ff4443002ff90016120b66",
