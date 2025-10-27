@@ -2,7 +2,7 @@ import express from "express";
 import { NotifyOutgoingMessage } from "../controllers/conversationsControllers.js";
 import { OnOutgoingWppMessage, OnSolvedWppConversation } from "../controllers/chatbotControllers.js";
 import { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact } from "../controllers/registerContactController.js";
-import { GetOpportunityRD } from "../controllers/rdOpportunityController.js";
+import { GetOpportunityRD, UpdateOpportunityStage } from "../controllers/rdOpportunityController.js";
 
 const router = express.Router();
 
@@ -14,5 +14,6 @@ router.get("/get-contact", GetContactRD); // Proxy obtener contacto RD Station
 router.get("/get-opportunity", GetOpportunityRD); // Obtener oportunidad RD Station
 router.post("/update-contact", UpdateContactRD); // Actualizar contacto RD Station
 router.post("/register-contact", RegisterContact); // Registrar usuario iChef
+router.post("/update-opportunity-stage", UpdateOpportunityStage); // Actualizar etapa de oportunidad
 
 export default router;

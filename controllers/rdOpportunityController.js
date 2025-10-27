@@ -64,4 +64,28 @@ async function GetOpportunityRD(req, res) {
 	return res.status(404).send("Opportunity not found");
 }
 
-export { GetOpportunityRD };
+async function UpdateOpportunityStage(req, res) {
+	const { dealId, stageId, localDemo } = req.body;
+
+	const body = {
+		deal_stage_id: stageId,
+		deal: {
+			deal_custom_fields: [
+				{
+					custom_field_id: "68ff4443002ff90016120b66",
+					value: localDemo
+				}
+			]
+		}
+	};
+
+	try {
+		const response = await rdstation.put(`/api/v1/deals/${dealId}`, body);
+		return res.status(200).json(response.data);
+	} catch (error) {
+		console.error("Error al actualizar etapa de oportunidad en crm", error.message);
+		return res.status(500).send("Error al actualizar etapa de oportunidad");
+	}
+}
+
+export { GetOpportunityRD, UpdateOpportunityStage };
