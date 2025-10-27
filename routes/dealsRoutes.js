@@ -4,8 +4,8 @@ import { importDeals, createDeal, updateDeal } from '../controllers/dealsControl
 
 const router = express.Router();
 
-router.post('/import', importDeals);
-router.post('/create', createDeal);
-router.post('/update', updateDeal);
+router.post('/import', importDeals); // Importa Negocios (Deals) desde inConcert a Chatwoot
+router.post('/create', createDeal); // Crea Nuevos Negocios (Deals) en Chatwoot
+router.post('/update', updateDeal); // Actualiza Negocios (Deals) en Chatwoot
 
 export default router;
