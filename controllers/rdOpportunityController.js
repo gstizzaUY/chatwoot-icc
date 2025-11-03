@@ -24,14 +24,12 @@ async function GetContactCRM(phone, email) {
 		if (email) {
 			const filter = encodeURIComponent(`${email}`);
 			const response = await rdstation.get(`/api/v1/contacts?email=${filter}`);
-			if (response.data.total > 0)
-				return response.data.contacts[0];
+			if (response.data.total > 0) return response.data.contacts[0];
 		}
 		const email2 = GenerateContactId(phone);
 		const filter = encodeURIComponent(`${email2}`);
 		const response = await rdstation.get(`/api/v1/contacts?email=${filter}`);
-		if (response.data.total > 0)
-			return response.data.contacts[0];
+		if (response.data.total > 0) return response.data.contacts[0];
 	} catch (error) {
 		console.error("Error al obtener contacto en crm", error.message);
 		return null;
@@ -70,7 +68,7 @@ async function UpdateOpportunityStage(req, res) {
 	const body = {
 		deal_stage_id: stageId,
 		deal: {
-			win: state === "won" ? true : (state === "lost" ? false : null),
+			win: state === "won" ? true : state === "lost" ? false : null,
 			deal_custom_fields: [
 				{
 					custom_field_id: "68ff4443002ff90016120b66",
@@ -89,4 +87,48 @@ async function UpdateOpportunityStage(req, res) {
 	}
 }
 
-export { GetOpportunityRD, UpdateOpportunityStage };
+async function CreateOpportunity(req, res) {
+	const { contact, stageId, localDemo } = req.body;
+
+	const body = {
+		campaign: {
+			_id: "68cb06c75243470001ea5a30"
+		},
+		contacts: [
+			{
+				name: contact.name,
+				emails: [
+					{
+						email: contact.email
+					}
+				],
+				phones: [
+					{
+						type: "cellphone",
+						phone: contact.phone
+					}
+				]
+			}
+		],
+		deal: {
+			name: contact.name,
+			deal_stage_id: stageId,
+			deal_custom_fields: [
+				{
+					custom_field_id: "68ff4443002ff90016120b66",
+					value: localDemo
+				}
+			]
+		}
+	};
+
+	try {
+		const response = await rdstation.post("/api/v1/deals", body);
+		return res.status(200).json(response.data);
+	} catch (error) {
+		console.error("Error al crear oportunidad en crm", error.message);
+		return res.status(500).send("Error al crear oportunidad");
+	}
+}
+
+export { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity };
