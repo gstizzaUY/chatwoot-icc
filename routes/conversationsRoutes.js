@@ -3,6 +3,7 @@ import { NotifyOutgoingMessage } from "../controllers/conversationsControllers.j
 import { OnOutgoingWppMessage, OnSolvedWppConversation } from "../controllers/chatbotControllers.js";
 import { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact } from "../controllers/registerContactController.js";
 import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity } from "../controllers/rdOpportunityController.js";
+import { MigrateOpportunity } from "../controllers/migrateOpportunityController.js";
 
 const router = express.Router();
 
@@ -16,5 +17,7 @@ router.post("/update-contact", UpdateContactRD); // Actualizar contacto RD Stati
 router.post("/register-contact", RegisterContact); // Registrar usuario iChef
 router.post("/update-opportunity-stage", UpdateOpportunityStage); // Actualizar etapa de oportunidad
 router.post("/create-opportunity", CreateOpportunity); // Crear oportunidad
+
+router.post("/migrate/:stage", MigrateOpportunity);
 
 export default router;
