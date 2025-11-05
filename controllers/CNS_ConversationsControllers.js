@@ -55,7 +55,8 @@ async function GetWppInboxId(phoneNumberId) {
 				inbox.provider_config &&
 				inbox.provider_config.phone_number_id === phoneNumberId
 		);
-		INBOX_CACHE[phoneNumberId] = inbox.id;
+		if (inbox && inbox.id)
+			INBOX_CACHE[phoneNumberId] = inbox.id;
 	}
 	return INBOX_CACHE[phoneNumberId];
 }

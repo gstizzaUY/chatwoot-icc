@@ -6,7 +6,7 @@ dotenv.config();
 const RDSTATION_CRM_URL = process.env.RDSTATION_CRM_URL;
 const RDSTATION_USER_TOKEN = process.env.RDSTATION_USER_TOKEN;
 
-const rdstation = axios.create({
+const rdstation_crm = axios.create({
 	baseURL: RDSTATION_CRM_URL,
 	params: { token: RDSTATION_USER_TOKEN },
 	headers: {
@@ -14,9 +14,32 @@ const rdstation = axios.create({
 	}
 });
 
+const RDSTATION_URL = process.env.RDSTATION_URL;
+const RDSTATION_CLIENT_ID = process.env.RDSTATION_CLIENT_ID;
+const RDSTATION_CLIENT_SECRET = process.env.RDSTATION_CLIENT_SECRET;
+const RDSTATION_REFRESH_TOKEN = process.env.RDSTATION_REFRESH_TOKEN;
+
+const rdstation_mkt = axios.create({
+	baseURL: RDSTATION_URL,
+	headers: {
+		"Content-Type": "application/json"
+	}
+});
+
+async function UpdateAccessToken() {
+	const credentials = {
+		client_id: RDSTATION_CLIENT_ID,
+		client_secret: RDSTATION_CLIENT_SECRET,
+		refresh_token: RDSTATION_REFRESH_TOKEN
+	};
+	const response = await rdstation_mkt.post("/auth/token", credentials);
+	const token = response.data.access_token;
+	rdstation_mkt.defaults.headers["Authorization"] = `Bearer ${token}`;
+}
+
 async function GetCRMContact(email) {
-	const filter = encodeURIComponent(`${email.toLowerCase()}`);
-	const response = await rdstation.get(`/api/v1/contacts?email=${filter}`);
+	const filter = encodeURIComponent(email);
+	const response = await rdstation_crm.get(`/api/v1/contacts?email=${filter}`);
 	if (response.data.total > 0) return response.data.contacts[0];
 	return null;
 }
@@ -40,7 +63,7 @@ async function CreateCRMContact(name, phone, email) {
 			}
 		]
 	};
-	const response = await rdstation.post("/api/v1/contacts", body);
+	const response = await rdstation_crm.post("/api/v1/contacts", body);
 	return response.data;
 }
 
@@ -72,7 +95,7 @@ async function CreateDeal(name, stage) {
 			]
 		}
 	};
-	const response = await rdstation.post("/api/v1/deals", body);
+	const response = await rdstation_crm.post("/api/v1/deals", body);
 	return response.data;
 }
 
@@ -92,7 +115,7 @@ async function UpdateContactDeal(dealId, stage) {
 		},
 		deal_stage_id: stageInfo.token
 	};
-	const response = await rdstation.put(`/api/v1/deals/${dealId}`, body);
+	const response = await rdstation_crm.put(`/api/v1/deals/${dealId}`, body);
 	return response.data;
 }
 
@@ -100,22 +123,70 @@ async function SetContactDeal(contactId, dealId) {
 	const body = {
 		deal_ids: [dealId]
 	};
-	const response = await rdstation.put(`/api/v1/contacts/${contactId}`, body);
+	const response = await rdstation_crm.put(`/api/v1/contacts/${contactId}`, body);
+	return response.data;
+}
+
+async function GetMKTContact(email) {
+	const filter = encodeURIComponent(email);
+	const response = await rdstation_mkt.get(`/platform/contacts/email:${filter}`);
+	return response.data;
+}
+
+async function CreateMKTContact(name, phone, email) {
+	const body = {
+		name: name,
+		email: email,
+		mobile_phone: phone,
+		personal_phone: phone,
+		cf_stage: "opportunity"
+	};
+	const response = await rdstation_crm.post("/api/v1/contacts", body);
+	return response.data;
+}
+
+async function MarkMKTOpportunity(email) {
+	const body = {
+		event_type: "OPPORTUNITY",
+		event_family: "CDP",
+		payload: {
+			email: email,
+			funnel_name: "default"
+		}
+	};
+	const response = await rdstation_mkt.post("/platform/events?event_type=opportunity", body);
 	return response.data;
 }
 
 async function ProcessOpportunity(stage, opportunityData) {
 	const name = `${opportunityData.firstname || ""} ${opportunityData.lastname || ""}`.trim();
-	const phone = opportunityData.phoneInternational || "";
-	const email = opportunityData.email || GenerateContactId(opportunityData.phoneInternational);
+	const phone = opportunityData.phoneInternational?.replace(/\D/g, "") || "";
+	const email = opportunityData.email?.toLowerCase() || GenerateContactId(opportunityData.phoneInternational);
 	if (!email) {
 		console.error("Contacto sin email ni teléfono válido");
 		return;
 	}
 
+	var contact_mkt = null;
+	try {
+		contact_mkt = await GetMKTContact(email);
+	} catch (error) {
+		if (error.response && error.response.status === 401) {
+			console.info("Token MKT inválido, actualizando...");
+			await UpdateAccessToken();
+			contact_mkt = await GetMKTContact(email);
+		} else console.error("Error al obtener contacto MKT", error.message);
+	}
+
+	if (!contact_mkt) {
+		console.info(`No se encontró el contacto en MKT, con email: ${email}`);
+		contact_mkt = await CreateMKTContact(name, phone, email);
+	}
+	await MarkMKTOpportunity(email);
+
 	var contact = await GetCRMContact(email);
 	if (!contact) {
-		console.info(`No se encontró el contacto, con email: ${email}`);
+		console.info(`No se encontró el contacto en CRM, con email: ${email}`);
 		contact = await CreateCRMContact(name, phone, email);
 	}
 
