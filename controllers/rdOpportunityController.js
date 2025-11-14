@@ -63,18 +63,12 @@ async function GetOpportunityRD(req, res) {
 }
 
 async function UpdateOpportunityStage(req, res) {
-	const { dealId, stageId, localDemo, state } = req.body;
+	const { dealId, stageId, state } = req.body;
 
 	const body = {
 		deal_stage_id: stageId,
 		deal: {
-			win: state === "won" ? true : state === "lost" ? false : null,
-			deal_custom_fields: [
-				{
-					custom_field_id: "68ff4443002ff90016120b66",
-					value: localDemo
-				}
-			]
+			win: state === "won" ? true : state === "lost" ? false : null
 		}
 	};
 
@@ -88,7 +82,7 @@ async function UpdateOpportunityStage(req, res) {
 }
 
 async function CreateOpportunity(req, res) {
-	const { contact, stageId, localDemo } = req.body;
+	const { contact, stageId } = req.body;
 
 	const body = {
 		campaign: {
@@ -112,13 +106,7 @@ async function CreateOpportunity(req, res) {
 		],
 		deal: {
 			name: contact.name,
-			deal_stage_id: stageId,
-			deal_custom_fields: [
-				{
-					custom_field_id: "68ff4443002ff90016120b66",
-					value: localDemo
-				}
-			]
+			deal_stage_id: stageId
 		}
 	};
 

@@ -87,13 +87,7 @@ async function CreateDeal(name, stage) {
 		},
 		deal: {
 			name: name,
-			deal_stage_id: stageInfo.stage_id,
-			deal_custom_fields: [
-				{
-					custom_field_id: "68ff4443002ff90016120b66",
-					value: "iChef Center"
-				}
-			]
+			deal_stage_id: stageInfo.stage_id
 		}
 	};
 	const response = await rdstation_crm.post("/api/v1/deals", body);
@@ -106,13 +100,7 @@ async function UpdateContactDeal(dealId, stage) {
 
 	const body = {
 		deal: {
-			win: state,
-			deal_custom_fields: [
-				{
-					custom_field_id: "68ff4443002ff90016120b66",
-					value: "iChef Center"
-				}
-			]
+			win: state
 		},
 		deal_stage_id: stageInfo.stage_id
 	};
