@@ -68,16 +68,18 @@ async function CreateCRMContact(name, phone, email) {
 }
 
 const DEAL_STAGES = [
-	{ id: 1, token: "68d14bbd5a3017001e7e3a0e", name: "Iniciar Agendamiento" },
-	{ id: 2, token: "68d14bbd5a3017001e7e3a0f", name: "Agendar Demo" },
-	{ id: 5, token: "68d14bbd5a3017001e7e3a10", name: "Demo Agendada" },
-	{ id: 25, token: "68d14bbd5a3017001e7e3a11", name: "Demo Realizada" },
-	{ id: 40, token: "68d14bbd5a3017001e7e3a12", name: "Negociación Comercial" }
+	{ index: 1, stage_id: "68d14bbd5a3017001e7e3a0e", name: "Iniciar Agendamiento" },
+	{ index: 2, stage_id: "68d14bbd5a3017001e7e3a0f", name: "Agendar Demo" },
+	{ index: 5, stage_id: "68d14bbd5a3017001e7e3a10", name: "Demo Agendada" },
+	{ index: 25, stage_id: "68d14bbd5a3017001e7e3a11", name: "Demo Realizada" },
+	{ index: 40, stage_id: "68d14bbd5a3017001e7e3a12", name: "Negociación Comercial" },
+
+	{ index: 0, stage_id: "69176d13cd5edb001e64c5d9", name: "Cerrada Perdida" },
+	{ index: 100, stage_id: "69176d0ad5402600168336b1", name: "Cerrada Ganada" }
 ];
 
 async function CreateDeal(name, stage) {
-	const stageInfo = DEAL_STAGES.find(s => s.id === stage) || DEAL_STAGES[0];
-	const state = stage === 100 ? true : stage === 0 ? false : null;
+	const stageInfo = DEAL_STAGES.find(s => s.index === stage) || DEAL_STAGES[0];
 
 	const body = {
 		campaign: {
@@ -85,8 +87,7 @@ async function CreateDeal(name, stage) {
 		},
 		deal: {
 			name: name,
-			win: state,
-			deal_stage_id: stageInfo.token,
+			deal_stage_id: stageInfo.stage_id,
 			deal_custom_fields: [
 				{
 					custom_field_id: "68ff4443002ff90016120b66",
@@ -100,7 +101,7 @@ async function CreateDeal(name, stage) {
 }
 
 async function UpdateContactDeal(dealId, stage) {
-	const stageInfo = DEAL_STAGES.find(s => s.id === stage) || DEAL_STAGES[0];
+	const stageInfo = DEAL_STAGES.find(s => s.index === stage) || DEAL_STAGES[0];
 	const state = stage === 100 ? true : stage === 0 ? false : null;
 
 	const body = {
@@ -113,7 +114,7 @@ async function UpdateContactDeal(dealId, stage) {
 				}
 			]
 		},
-		deal_stage_id: stageInfo.token
+		deal_stage_id: stageInfo.stage_id
 	};
 	const response = await rdstation_crm.put(`/api/v1/deals/${dealId}`, body);
 	return response.data;
