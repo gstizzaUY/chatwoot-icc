@@ -88,6 +88,7 @@ async function CreateContact(contact) {
 	}
 }
 
+// Only update from register
 async function UpdateContact(email, contact) {
 	const contactData = {
 		name: contact.name,
@@ -184,8 +185,19 @@ async function OnNewContact(req, res) {
 
 async function RegisterContact(req, res) {
 	const contact = req.body;
-	HandleNewContact(contact, true); // do not await
-	SendEvent(contact.email || GenerateContactId(contact.phone), "registro-portal"); // do not await
+	await HandleNewContact(contact, true);
+
+	const contact_id = contact.email || GenerateContactId(contact.phone);
+	try {
+		await SendEvent(contact_id, "registro-portal");
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			await SendEvent(contact_id, "registro-portal");
+		}
+	}
 	return res.status(200).send("Event received");
 }
 

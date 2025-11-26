@@ -118,8 +118,16 @@ async function SetContactDeal(contactId, dealId) {
 
 async function GetMKTContact(email) {
 	const filter = encodeURIComponent(email);
-	const response = await rdstation_mkt.get(`/platform/contacts/email:${filter}`);
-	return response.data;
+	try {
+		const response = await rdstation_mkt.get(`/platform/contacts/email:${filter}`);
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 404) {
+			return null;
+		} else {
+			throw error;
+		}
+	}
 }
 
 async function CreateMKTContact(name, phone, email) {
@@ -150,10 +158,14 @@ async function MarkMKTOpportunity(email) {
 async function ProcessOpportunity(stage, opportunityData) {
 	const name = `${opportunityData.firstname || ""} ${opportunityData.lastname || ""}`.trim();
 	const phone = opportunityData.phoneInternational?.replace(/\D/g, "") || "";
-	const email = opportunityData.email?.toLowerCase() || GenerateContactId(opportunityData.phoneInternational);
-	if (!email) {
-		console.error("Contacto sin email ni teléfono válido");
-		return;
+	var email = opportunityData.email?.toLowerCase();
+
+	if (!email || !email.includes("@")) {
+		if (!phone) {
+			console.error("Contacto sin email ni teléfono válido");
+			return;
+		}
+		email = GenerateContactId(phone);
 	}
 
 	var contact_mkt = null;
@@ -190,6 +202,28 @@ async function ProcessOpportunity(stage, opportunityData) {
 	}
 }
 
+const jobQueue = [];
+let processing = false;
+
+async function processQueue() {
+	if (processing) return;
+	processing = true;
+	while (jobQueue.length > 0) {
+		const { stage, body } = jobQueue.shift();
+		try {
+			await ProcessOpportunity(stage, body);
+		} catch (error) {
+			console.error("Error al migrar oportunidad", error.message, JSON.stringify(body));
+		}
+		await delay(1000);
+	}
+	processing = false;
+}
+
+function delay(ms) {
+	return new Promise(res => setTimeout(res, ms));
+}
+
 async function MigrateOpportunity(req, res) {
 	const { stage } = req.params;
 	const body = req.body;
@@ -200,11 +234,10 @@ async function MigrateOpportunity(req, res) {
 			opportunityData[key] = body[key];
 
 	const intStage = parseInt(stage, 10);
-	try {
-		await ProcessOpportunity(intStage, opportunityData);
-	} catch (error) {
-		console.error("Error al migrar oportunidad", error.message, JSON.stringify(opportunityData));
-	}
+
+	jobQueue.push({ stage: intStage, body: opportunityData });
+	processQueue();
+
 	return res.status(200).send("Event received");
 }
 
