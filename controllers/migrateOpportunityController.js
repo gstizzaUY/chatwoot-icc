@@ -100,7 +100,9 @@ async function UpdateContactDeal(dealId, stage) {
 
 	const body = {
 		deal: {
-			win: state
+			win: state,
+			deal_lost_reason_id: stage === 0 ? "69020a37bda35200159d6676" : null,
+			deal_lost_note: stage === 0 ? "Oportunidad perdida" : null
 		},
 		deal_stage_id: stageInfo.stage_id
 	};
