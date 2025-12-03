@@ -201,6 +201,7 @@ async function ProcessOpportunity(stage, opportunityData) {
 		const deal = await CreateDeal(name, stage);
 		await SetContactDeal(contact.id, deal.id);
 		console.log("Oportunidad creada", phone, contact.id, deal.id);
+		await UpdateContactDeal(deal.id, stage);
 	}
 }
 

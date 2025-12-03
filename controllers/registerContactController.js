@@ -35,6 +35,7 @@ async function UpdateAccessToken() {
 }
 
 function GenerateContactId(phone) {
+	if (!phone) return null;
 	return `${phone.replace(/\D/g, "")}@email.com`;
 }
 
@@ -207,15 +208,15 @@ async function UpdateContactExtended(email, contactData) {
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
-		console.error("Error al actualizar contacto", JSON.stringify(contactData), error.message);
+		console.error("Error al actualizar contacto", email, JSON.stringify(contactData), error.message);
 		return null;
 	}
 }
 
 async function UpdateContactRD(req, res) {
 	const contact = req.body;
-	const email = contact.email || GenerateContactId(contact.phone);
-	const contactData = { ...Object.fromEntries(Object.entries(contact).filter(([key]) => !["email"].includes(key))) };
+	const email = contact.email || GenerateContactId(contact.phone || contact.mobile_phone);
+	const contactData = { ...Object.fromEntries(Object.entries(contact).filter(([key]) => !["email", "phone"].includes(key))) };
 	try {
 		const updated_contact = await UpdateContactExtended(email, contactData);
 		if (updated_contact) return res.status(200).json(updated_contact);
