@@ -119,15 +119,16 @@ async function CreateIfNew(contact, do_update) {
 			}
 			return;
 		}
-	}
-	const id = GenerateContactId(contact.phone);
-	const existing_contact = await GetContact(id);
-	if (existing_contact) {
-		if (do_update) {
-			const updated_contact = await UpdateContact(id, contact);
-			console.log("Contacto actualizado por celular:", updated_contact);
+	} else {
+		const id = GenerateContactId(contact.phone);
+		const existing_contact = await GetContact(id);
+		if (existing_contact) {
+			if (do_update) {
+				const updated_contact = await UpdateContact(id, contact);
+				console.log("Contacto actualizado por celular:", updated_contact);
+			}
+			return;
 		}
-		return;
 	}
 	const new_contact = await CreateContact(contact);
 	if (new_contact) console.log("Nuevo contacto creado:", new_contact);
