@@ -177,11 +177,15 @@ async function GetContactRD(req, res) {
 
 async function OnNewContact(req, res) {
 	const message = req.body;
-	console.log("Webhook nuevo contacto creado:", message);
-	//if (message.event === "automation_event.conversation_created") {
-		const contact = message.meta.sender;
+	console.log("[Webhook] Nuevo contacto creado:", message);
+	if (message.event === "contact_created") {
+		const contact = {
+			name: message.name,
+			email: message.email,
+			phone: message.phone_number
+		}
 		HandleNewContact(contact, false); // do not await
-	//}
+	}
 	return res.status(200).send("Event received");
 }
 
