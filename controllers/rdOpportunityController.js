@@ -63,12 +63,18 @@ async function GetOpportunityRD(req, res) {
 }
 
 async function UpdateOpportunityStage(req, res) {
-	const { dealId, stageId, state } = req.body;
+	const { dealId, stageId, lostReasonId } = req.body;
+
+	var state = null;
+	if (stageId === "69176d0ad5402600168336b1") state = true // Ganada
+	else if (stageId === "69176d13cd5edb001e64c5d9") state = false // Perdida
 
 	const body = {
 		deal_stage_id: stageId,
 		deal: {
-			win: state === "won" ? true : state === "lost" ? false : null
+			win: state,
+			deal_lost_reason_id: state === false ? lostReasonId : null,
+			deal_lost_note: state === false ? "Oportunidad perdida" : null
 		}
 	};
 
