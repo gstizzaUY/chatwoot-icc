@@ -78,5 +78,6 @@ router.post('/reload-credentials', (req, res) => {
 });
 
 router.post('/onboarding/:etapa', onboarding);
+router.post('/onboarding-provisorio/:etapa', onboarding);
 
 export default router;
