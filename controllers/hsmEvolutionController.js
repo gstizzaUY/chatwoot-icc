@@ -39,7 +39,7 @@ const markAsSent = (campaignKey, leadId, number) => {
 
 const saludoFinAno2025 = async (req, res) => {
 
-    const EVOLUTION_SENDTEXT_URL = process.env.EVOLUTION_SENDTEXT_URL || 'https://evolution-evolution.5vsa59.easypanel.host/message/sendText/iChef%20Center%20Wpp';
+    const EVOLUTION_SENDMEDIA_URL = process.env.EVOLUTION_SENDMEDIA_URL || 'https://evolution-evolution.5vsa59.easypanel.host/message/sendMedia/iChef%20Center%20Wpp';
     const EVOLUTION_APIKEY = process.env.EVOLUTION_APIKEY || '49C2506BEDA7-46A6-8EC3-C8ABD1EA0551';
 
     const FIN_ANO_TEXT = '💚 Gracias por elegir iChef cada día.\n' +
@@ -48,6 +48,9 @@ const saludoFinAno2025 = async (req, res) => {
         'es una mesa larga donde siempre hay lugar para uno más.\n\n' +
         'Que este fin de año te encuentre ahí:\n' +
         'rodeado de los tuyos, compartiendo una comida como más nos gusta.';
+    
+    const VIDEO_URL = 'https://youtube.com/shorts/WydoBA7PszU';
+    const VIDEO_THUMBNAIL = 'https://img.auctiva.com/imgdata/1/5/5/1/4/3/4/webimg/1173290492_o.png';
 
     const listaLeads = req.body;
     console.log('Leads recibidos en saludoFinAno2025:', listaLeads);
@@ -145,29 +148,31 @@ const saludoFinAno2025 = async (req, res) => {
                     number,
                     reason: `Ya enviado en esta campaña hace ${Math.round(elapsed / 60000)} min`
                 });
-                // Marcar como enviado (dedupe persistente)
-                markAsSent(CAMPAIGN_KEY, leadId, number);
-                
+                continue;
             }
 
             try {
+                // Enviar imagen (poster del video) con texto + link en el caption
                 await axios.post(
-                    EVOLUTION_SENDTEXT_URL,
+                    EVOLUTION_SENDMEDIA_URL,
                     {
                         number,
-                        text: FIN_ANO_TEXT,
-                        linkPreview: false,
+                        mediatype: 'image',
+                        media: VIDEO_THUMBNAIL,
+                        caption: `${FIN_ANO_TEXT}\n\n${VIDEO_URL}`
                     },
                     {
                         headers: {
                             'Content-Type': 'application/json',
                             apikey: EVOLUTION_APIKEY
                         },
-                        timeout: 30000 // Aumentado a 30s
+                        timeout: 30000
                     }
                 );
 
-                lastSentPerNumber.set(number, Date.now());
+                // Marcar como enviado (dedupe persistente)
+                markAsSent(CAMPAIGN_KEY, leadId, number);
+                
                 results.sent += 1;
                 results.details.push({
                     leadId: lead?.id,
