@@ -9,6 +9,9 @@ import {
     testConversionEvent
 } from '../controllers/rdStationControllers.js';
 import onboarding from '../controllers/onboardingController.js';
+import onboardingHsmStarterPack from '../controllers/onboardingHsmController.js';
+import hsmWebinar from '../controllers/hsmWebinarController.js';
+import saludoFinAno2025 from '../controllers/hsmEvolutionController.js';
 
 const router = express.Router();
 
@@ -78,6 +81,12 @@ router.post('/reload-credentials', (req, res) => {
 });
 
 router.post('/onboarding/:etapa', onboarding);
+router.post('/onboarding/hsm/starter-pack', onboardingHsmStarterPack);
 router.post('/onboarding-provisorio/:etapa', onboarding);
+
+
+router.post('/hsm/webinar-vitel-tone', hsmWebinar);
+router.post('/hsm/evolution/saludo-fin-ano-2025', saludoFinAno2025);
+
 
 export default router;
