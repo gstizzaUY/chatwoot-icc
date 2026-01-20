@@ -89,7 +89,7 @@ async function CreateContact(contact) {
 	}
 }
 
-// Only update from register
+// Only updates from register
 async function UpdateContact(email, contact) {
 	const contactData = {
 		name: contact.name,
@@ -178,14 +178,26 @@ async function GetContactRD(req, res) {
 
 async function OnNewContact(req, res) {
 	const message = req.body;
-	console.log("[Webhook] Nuevo contacto creado:", message);
 	if (message.event === "contact_created") {
 		const contact = {
 			name: message.name,
 			email: message.email,
 			phone: message.phone_number
 		}
-		HandleNewContact(contact, false); // do not await
+		console.log("[contact_created]", contact);
+		await HandleNewContact(contact, false);
+
+		const contact_id = contact.email || GenerateContactId(contact.phone);
+		try {
+			await SendEvent(contact_id, "chatwoot-contacto-nuevo");
+		} catch (error) {
+			if (error.message === "INVALID_TOKEN") {
+				console.log("Generando nuevo token");
+				const token = await UpdateAccessToken();
+				SetAccessToken(token);
+				await SendEvent(contact_id, "chatwoot-contacto-nuevo");
+			}
+		}
 	}
 	return res.status(200).send("Event received");
 }
