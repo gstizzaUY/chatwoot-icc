@@ -1,10 +1,22 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 dotenv.config();
 
 const RD_STATION_CONFIG = {
     API_BASE_URL: process.env.RDSTATION_URL
+};
+
+const CHATWOOT_CONFIG = {
+    BASE_URL: process.env.CHATWOOT_URL,
+    API_TOKEN: process.env.API_ACCESS_TOKEN,
+    ACCOUNT_ID: 2
 };
 
 /**
@@ -16,7 +28,7 @@ const circuitBreaker = {
     lastFailureTime: null,
     failureThreshold: 5, // Después de 5 fallos consecutivos del servidor
     resetTimeout: 300000, // 5 minutos en milisegundos
-    
+
     /**
      * Verifica si el circuit breaker permite hacer la petición
      */
@@ -24,7 +36,7 @@ const circuitBreaker = {
         if (!this.isOpen) {
             return true;
         }
-        
+
         // Si han pasado más de resetTimeout minutos, reiniciar el circuit breaker
         const now = Date.now();
         if (this.lastFailureTime && (now - this.lastFailureTime) > this.resetTimeout) {
@@ -32,23 +44,23 @@ const circuitBreaker = {
             this.reset();
             return true;
         }
-        
+
         return false;
     },
-    
+
     /**
      * Registra un fallo del servidor (5xx)
      */
     recordServerFailure() {
         this.failureCount++;
         this.lastFailureTime = Date.now();
-        
+
         if (this.failureCount >= this.failureThreshold) {
             this.isOpen = true;
-            console.log(`🚨 Circuit breaker ABIERTO después de ${this.failureCount} fallos del servidor. Esperando ${this.resetTimeout/1000/60} minutos antes de reintentar.`);
+            console.log(`🚨 Circuit breaker ABIERTO después de ${this.failureCount} fallos del servidor. Esperando ${this.resetTimeout / 1000 / 60} minutos antes de reintentar.`);
         }
     },
-    
+
     /**
      * Registra un éxito y resetea el contador si es necesario
      */
@@ -58,7 +70,7 @@ const circuitBreaker = {
         }
         this.reset();
     },
-    
+
     /**
      * Resetea el circuit breaker
      */
@@ -249,6 +261,229 @@ const validateFieldOptions = (fieldName, value) => {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
+ * Busca un contacto en Chatwoot por ID, email o teléfono
+ * @param {Object} searchData - Datos para buscar (id, email, phone)
+ * @returns {Promise<Object|null>} - Contacto encontrado o null
+ */
+const findChatwootContact = async (searchData) => {
+    try {
+        const buildPayloadItem = (key, value) => {
+            if (!value) return null;
+            return {
+                attribute_key: key,
+                filter_operator: "equal_to",
+                values: [value],
+                query_operator: "OR"
+            };
+        };
+
+        const payload = {
+            payload: [
+                { id: searchData.id, key: 'id' },
+                { id: searchData.email, key: 'email' },
+                { id: searchData.phone, key: 'phone_number' }
+            ]
+                .map(item => buildPayloadItem(item.key, item.id))
+                .filter(Boolean)
+                .map((item, index, array) => ({
+                    ...item,
+                    query_operator: index === array.length - 1 ? null : "OR"
+                }))
+        };
+
+        const response = await axios.post(
+            `${CHATWOOT_CONFIG.BASE_URL}/api/v1/accounts/${CHATWOOT_CONFIG.ACCOUNT_ID}/contacts/filter`,
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api_access_token': CHATWOOT_CONFIG.API_TOKEN,
+                },
+            }
+        );
+
+        if (response.data.meta.count > 0) {
+            return response.data.payload[0];
+        }
+        return null;
+    } catch (error) {
+        console.error('Error al buscar contacto en Chatwoot:', error.message);
+        return null;
+    }
+};
+
+/**
+ * Crea un nuevo contacto en Chatwoot
+ * @param {Object} contactData - Datos del contacto a crear
+ * @returns {Promise<Object|null>} - Contacto creado o null si falla
+ */
+const createChatwootContact = async (contactData) => {
+    try {
+        const phoneToUse = contactData.phone || contactData.mobile;
+        const fullName = `${contactData.firstname || ''} ${contactData.lastname || ''}`.trim();
+        
+        // Validar datos mínimos requeridos
+        if (!fullName || fullName === '') {
+            console.error(`❌ Error: nombre es requerido para crear contacto en Chatwoot`);
+            return null;
+        }
+        
+        // Construir payload básico
+        const chatwootPayload = {
+            name: fullName
+        };
+        
+        // Agregar email solo si es válido
+        if (contactData.email && isValidEmail(contactData.email)) {
+            chatwootPayload.email = contactData.email;
+        }
+        
+        // Agregar teléfono solo si es válido y en formato E.164
+        if (phoneToUse && isValidPhone(phoneToUse)) {
+            const normalizedPhone = normalizeUruguayanPhone(phoneToUse);
+            if (normalizedPhone) {
+                // Chatwoot requiere formato E.164 con el signo +
+                chatwootPayload.phone_number = `+${normalizedPhone}`;
+            }
+        }
+        
+        // Construir custom_attributes solo con valores válidos
+        const customAttrs = {};
+        if (contactData.id) customAttrs.id = contactData.id;
+        if (contactData.cedula) customAttrs.cedula = contactData.cedula;
+        if (contactData.rut) customAttrs.rut = contactData.rut;
+        if (contactData.city) customAttrs.city = contactData.city;
+        if (contactData.country) customAttrs.country = contactData.country;
+        if (contactData.state) customAttrs.state = contactData.state;
+        if (contactData.address1) customAttrs.address1 = contactData.address1;
+        if (contactData.stage) customAttrs.stage = contactData.stage;
+        if (contactData.ownerName) customAttrs.owner_name = contactData.ownerName;
+        if (contactData.local_demo) customAttrs.local_demo = contactData.local_demo;
+        if (contactData.Demo_Fecha_Hora) customAttrs.demo_fecha_hora = contactData.Demo_Fecha_Hora;
+        
+        if (Object.keys(customAttrs).length > 0) {
+            chatwootPayload.custom_attributes = customAttrs;
+        }
+
+        const response = await axios.post(
+            `${CHATWOOT_CONFIG.BASE_URL}/api/v1/accounts/${CHATWOOT_CONFIG.ACCOUNT_ID}/contacts`,
+            chatwootPayload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api_access_token': CHATWOOT_CONFIG.API_TOKEN,
+                },
+            }
+        );
+
+        const identifier = contactData.id || contactData.email || phoneToUse;
+        console.log(`✅ Contacto creado en Chatwoot | Identificador=${identifier}`);
+        return response.data.payload;
+    } catch (error) {
+        const identifier = contactData.id || contactData.email || contactData.phone;
+        console.error(`❌ Error al crear contacto en Chatwoot | Identificador=${identifier}:`, error.message);
+        if (error.response?.data) {
+            console.error(`   Detalles del error:`, JSON.stringify(error.response.data));
+        }
+        return null;
+    }
+};
+
+/**
+ * Actualiza un contacto existente en Chatwoot
+ * @param {string} chatwootContactId - ID del contacto en Chatwoot
+ * @param {Object} contactData - Datos del contacto a actualizar
+ * @returns {Promise<boolean>} - True si se actualizó exitosamente
+ */
+const updateChatwootContact = async (chatwootContactId, contactData) => {
+    try {
+        const phoneToUse = contactData.phone || contactData.mobile;
+        const fullName = `${contactData.firstname || ''} ${contactData.lastname || ''}`.trim();
+        
+        // Construir payload
+        const chatwootPayload = {};
+        
+        if (fullName) chatwootPayload.name = fullName;
+        if (contactData.email && isValidEmail(contactData.email)) {
+            chatwootPayload.email = contactData.email;
+        }
+        if (phoneToUse && isValidPhone(phoneToUse)) {
+            const normalizedPhone = normalizeUruguayanPhone(phoneToUse);
+            if (normalizedPhone) {
+                // Chatwoot requiere formato E.164 con el signo +
+                chatwootPayload.phone_number = `+${normalizedPhone}`;
+            }
+        }
+        
+        // Construir custom_attributes solo con valores válidos
+        const customAttrs = {};
+        if (contactData.id) customAttrs.id = contactData.id;
+        if (contactData.cedula) customAttrs.cedula = contactData.cedula;
+        if (contactData.rut) customAttrs.rut = contactData.rut;
+        if (contactData.city) customAttrs.city = contactData.city;
+        if (contactData.country) customAttrs.country = contactData.country;
+        if (contactData.state) customAttrs.state = contactData.state;
+        if (contactData.address1) customAttrs.address1 = contactData.address1;
+        if (contactData.stage) customAttrs.stage = contactData.stage;
+        if (contactData.ownerName) customAttrs.owner_name = contactData.ownerName;
+        if (contactData.local_demo) customAttrs.local_demo = contactData.local_demo;
+        if (contactData.Demo_Fecha_Hora) customAttrs.demo_fecha_hora = contactData.Demo_Fecha_Hora;
+        
+        if (Object.keys(customAttrs).length > 0) {
+            chatwootPayload.custom_attributes = customAttrs;
+        }
+
+        await axios.put(
+            `${CHATWOOT_CONFIG.BASE_URL}/api/v1/accounts/${CHATWOOT_CONFIG.ACCOUNT_ID}/contacts/${chatwootContactId}`,
+            chatwootPayload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api_access_token': CHATWOOT_CONFIG.API_TOKEN,
+                },
+            }
+        );
+
+        const identifier = contactData.id || contactData.email || phoneToUse;
+        console.log(`✅ Contacto actualizado en Chatwoot | Identificador=${identifier} | Chatwoot ID=${chatwootContactId}`);
+        return true;
+    } catch (error) {
+        const identifier = contactData.id || contactData.email || contactData.phone;
+        console.error(`❌ Error al actualizar contacto en Chatwoot | Identificador=${identifier}:`, error.message);
+        if (error.response?.data) {
+            console.error(`   Detalles del error:`, JSON.stringify(error.response.data));
+        }
+        return false;
+    }
+};
+
+/**
+ * Sincroniza un contacto con Chatwoot (crear o actualizar)
+ * @param {Object} contactData - Datos del contacto
+ * @returns {Promise<void>}
+ */
+const syncContactToChatwoot = async (contactData) => {
+    try {
+        // Buscar si el contacto existe en Chatwoot
+        const existingContact = await findChatwootContact({
+            id: contactData.id,
+            email: contactData.email,
+            phone: contactData.phone || contactData.mobile
+        });
+
+        if (existingContact) {
+            // Actualizar contacto existente
+            await updateChatwootContact(existingContact.id, contactData);
+        } else {
+            // Crear nuevo contacto
+            await createChatwootContact(contactData);
+        }
+    } catch (error) {
+        console.error(`Error al sincronizar contacto con Chatwoot | ID=${contactData.id}:`, error.message);
+    }
+};
+
+/**
  * Control de concurrencia para refresh token
  */
 let refreshTokenPromise = null;
@@ -267,7 +502,7 @@ const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) 
         return result;
     } catch (error) {
         const isTokenExpired = error.response?.status === 401;
-        
+
         if (!isTokenExpired) {
             // Si no es error de token, propagar el error
             throw error;
@@ -287,15 +522,15 @@ const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) 
         } else {
             // Iniciar nuevo refresh
             refreshTokenPromise = refreshAccessToken();
-            
+
             try {
                 const refreshSuccess = await refreshTokenPromise;
-                
+
                 if (!refreshSuccess) {
                     console.log(`❌ No se pudo refrescar token para ${operationName} | ID=${contactData.id}`);
                     throw error; // Throw el error original
                 }
-                
+
                 console.log(`✅ Token refrescado exitosamente para ${operationName} | ID=${contactData.id}`);
             } catch (refreshError) {
                 console.log(`❌ Error durante refresh para ${operationName} | ID=${contactData.id}`);
@@ -308,7 +543,7 @@ const executeWithAutoRefresh = async (apiCall, operationName, contactData = {}) 
 
         // Reintentar la operación original con el token actualizado
         // console.log(`🔄 Reintentando ${operationName} con token actualizado | ID=${contactData.id}`);
-        
+
         try {
             const result = await apiCall();
             console.log(`✅ ${operationName} exitoso después de refresh de token | ID=${contactData.id}`);
@@ -355,7 +590,7 @@ const executeWithRetry = async (apiCall, operationName, contactData = {}, retryC
         const isRateLimit = error.response?.status === 429;
         const isServerError = error.response?.status >= 500;
         const isClientError = error.response?.status >= 400 && error.response?.status < 500;
-        
+
         // No reintentar para errores de cliente (400-499) excepto 429
         // El 401 ya se maneja en executeWithAutoRefresh
         if (isClientError && !isRateLimit) {
@@ -415,14 +650,14 @@ const refreshAccessToken = async () => {
         if (!credStatus.hasClientId || !credStatus.hasClientSecret || !credStatus.hasRefreshToken) {
             console.error('❌ REFRESH TOKEN ERROR: Credenciales incompletas', credStatus);
             console.error('🔧 Verificar variables de entorno: RDSTATION_CLIENT_ID, RDSTATION_CLIENT_SECRET, RDSTATION_REFRESH_TOKEN');
-            
+
             // Re-intentar cargar credenciales por si acaso
             const reloadSuccess = initializeCredentials();
             if (!reloadSuccess) {
                 console.error('💥 No se pueden cargar las credenciales después de reintento');
                 return false;
             }
-            
+
             // Verificar nuevamente después del reload
             const newCredStatus = getCredentialsStatus();
             if (!newCredStatus.hasClientId || !newCredStatus.hasClientSecret || !newCredStatus.hasRefreshToken) {
@@ -661,7 +896,9 @@ const createContact = async (contactData) => {
             "cf_referreddate": contactData.referredDate,
             "cf_createdbycampaignid": contactData.createdByCampaignId,
             "cf_createdbyuserid": contactData.createdByUserId,
-            "cf_createddate": contactData.createdDate
+            "cf_createddate": contactData.createdDate,
+            "cf_local_demo": contactData.local_demo,
+            "cf_demo_fecha_hora_utc": contactData.demo_fecha_hora_utc
         };
 
         // Validar y agregar campos problemáticos solo si son válidos
@@ -762,6 +999,10 @@ const createContact = async (contactData) => {
 
     try {
         await executeWithRetry(apiCall, 'CREATE', contactData);
+        
+        // Sincronizar con Chatwoot después de crear en RD Station
+        await syncContactToChatwoot(contactData);
+        
         return true;
     } catch (error) {
         // El error ya fue loggeado en executeWithRetry si fue necesario
@@ -864,7 +1105,9 @@ const updateContact = async (contactUuid, contactData) => {
             "cf_referreddate": contactData.referredDate,
             "cf_createdbycampaignid": contactData.createdByCampaignId,
             "cf_createdbyuserid": contactData.createdByUserId,
-            "cf_createddate": contactData.createdDate
+            "cf_createddate": contactData.createdDate,
+            "cf_local_demo": contactData.local_demo,
+            "cf_demo_fecha_hora_utc": contactData.demo_fecha_hora_utc
         };
 
         // Agregar email solo si es válido
@@ -944,6 +1187,10 @@ const updateContact = async (contactUuid, contactData) => {
 
     try {
         await executeWithRetry(apiCall, 'UPDATE', contactData);
+        
+        // Sincronizar con Chatwoot después de actualizar en RD Station
+        await syncContactToChatwoot(contactData);
+        
         return true;
     } catch (error) {
         console.log(`❌ Error al actualizar contacto | ID=${contactData?.id} | ${error.message}`);
@@ -1077,33 +1324,33 @@ const importarContactos = async (req, res) => {
             }
 
             console.log(`✅ ACTUALIZADO: ID=${contactInfo.id} | ${contactInfo.email} | UUID=${existingContact.uuid}`);
-            
+
             // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
             // Solo registrar evento si tiene TANTO Demo_Fecha_Hora COMO source_url Y la fecha es reciente/futura
             let eventCreated = false;
             if (contact.Demo_Fecha_Hora && contact.source_url && contact.Demo_Fecha_Hora.trim() !== '' && contact.source_url.trim() !== '') {
-                
+
                 // Validar que la fecha de demo es reciente o futura (no demos pasadas)
                 const demoDateStr = contact.Demo_Fecha_Hora.split(' ')[0]; // Extraer solo la fecha
                 const demoDate = new Date(demoDateStr);
                 const today = new Date();
                 const yesterday = new Date(today);
                 yesterday.setDate(today.getDate() - 1);
-                
+
                 // Solo procesar si la demo es de ayer en adelante (permite demos del día anterior por diferencias de zona horaria)
                 if (demoDate >= yesterday) {
                     console.log(`📅 DEBUG: Detectado actualización por registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
                     console.log(`📅 DEBUG: Demo_Fecha_Hora: ${contact.Demo_Fecha_Hora}`);
                     console.log(`📅 DEBUG: source_url: ${contact.source_url}`);
-                    
+
                     // Determinar tipo de evento basado en la URL de origen
                     let eventName = 'demo'; // default
                     if (contact.source_url && contact.source_url.includes('demo-antel')) {
                         eventName = 'demo-antel';
                     }
-                    
+
                     console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
-                    
+
                     const eventSuccess = await createConversionEvent(contact.email, eventName, {
                         name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
                         email: contact.email,
@@ -1117,7 +1364,7 @@ const importarContactos = async (req, res) => {
                         source_url: contact.source_url || '',
                         calendar_id: contact.calendar_id || ''
                     });
-                    
+
                     eventCreated = eventSuccess;
                     console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
                 } else {
@@ -1132,7 +1379,7 @@ const importarContactos = async (req, res) => {
                     console.log(`📋 DEBUG: - Sin source_url`);
                 }
             }
-            
+
             return res.status(200).json({
                 success: true,
                 action: 'UPDATE',
@@ -1178,78 +1425,78 @@ const importarContactos = async (req, res) => {
         // Verificar si este contacto viene específicamente de un registro de demo ACTUAL/FUTURO
         // Registrar evento si tiene Demo_Fecha_Hora válida Y la fecha es actual/futura
         let eventCreated = false;
-        
+
         // Buscar Demo_Fecha_Hora en el enrichedContact
         const demoFechaHora = enrichedContact.Demo_Fecha_Hora;
-        
+
         if (demoFechaHora && demoFechaHora.trim() !== '') {
-            
+
             // Función para parsear fechas en diferentes formatos
             const parseDemoDate = (dateStr) => {
                 if (!dateStr) return null;
-                
+
                 // Intentar diferentes formatos de fecha
                 const cleanDate = dateStr.trim();
-                
+
                 // Formato dd/mm/yyyy
                 if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
                     const [day, month, year] = cleanDate.split('/');
                     return new Date(year, month - 1, day); // month es 0-indexed
                 }
-                
+
                 // Formato dd-mm-yyyy
                 if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
                     const [day, month, year] = cleanDate.split('-');
                     return new Date(year, month - 1, day); // month es 0-indexed
                 }
-                
+
                 // Formato yyyy-mm-dd (ISO)
                 if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
                     return new Date(cleanDate);
                 }
-                
+
                 // Formato ISO con hora (2025-09-30T11:00:00.000)
                 if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
                     return new Date(cleanDate);
                 }
-                
+
                 // Intentar parsing directo como fallback
                 const fallbackDate = new Date(cleanDate);
                 return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
             };
-            
+
             // Extraer la fecha (puede venir con formato ISO completo con hora)
-            const demoDateStr = demoFechaHora.includes('T') ? 
-                demoFechaHora.split('T')[0] : 
+            const demoDateStr = demoFechaHora.includes('T') ?
+                demoFechaHora.split('T')[0] :
                 demoFechaHora.split(' ')[0];
-            
+
             const demoDate = parseDemoDate(demoFechaHora);
-            
+
             // Normalizar fechas para comparar solo día, mes y año (sin hora)
             const today = new Date();
             const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            
+
             console.log(`📅 DEBUG: Parseando fecha de demo - Input: "${demoFechaHora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
-            
+
             // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
             if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
                 console.log(`📅 DEBUG: Detectado registro de DEMO ACTUAL/FUTURO (${demoDateStr}), registrando evento de conversión...`);
                 console.log(`📅 DEBUG: Demo_Fecha_Hora: ${demoFechaHora}`);
                 console.log(`📅 DEBUG: source_url: ${enrichedContact.source_url || 'N/A'}`);
-                
+
                 // Determinar tipo de evento basado en la URL de origen (si existe)
                 let eventName = 'demo'; // default
                 const sourceUrl = enrichedContact.source_url;
                 if (sourceUrl && sourceUrl.includes('demo-antel')) {
                     eventName = 'demo-antel';
                 }
-                
+
                 console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${contact.email}`);
-                
+
                 // Extraer fecha y hora para el evento
                 let eventDate = demoDateStr;
                 let eventTime = '';
-                
+
                 if (demoFechaHora.includes('T')) {
                     // Formato ISO: 2025-09-30T11:00:00.000
                     const dateObj = new Date(demoFechaHora);
@@ -1258,7 +1505,7 @@ const importarContactos = async (req, res) => {
                     // Formato con espacio: 2025-09-30 11:00
                     eventTime = demoFechaHora.split(' ')[1] || '';
                 }
-                
+
                 const eventSuccess = await createConversionEvent(contact.email, eventName, {
                     name: `${contact.firstname || ''} ${contact.lastname || ''}`.trim(),
                     email: contact.email,
@@ -1272,7 +1519,7 @@ const importarContactos = async (req, res) => {
                     source_url: sourceUrl || '',
                     calendar_id: enrichedContact.calendar_id || ''
                 });
-                
+
                 eventCreated = eventSuccess;
                 console.log(`📅 DEBUG: Resultado del evento: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
             } else {
@@ -1394,12 +1641,12 @@ const actualizarContacto = async (req, res) => {
 
         if (!existingContact) {
             console.log(`📝 Contacto no encontrado en RD Station | ID=${contacto.id} | Email=${email}. Creando nuevo contacto...`);
-            
+
             // Si no existe el contacto, crearlo
             try {
                 // Preparar datos para crear nuevo contacto
                 const phoneToUse = contacto.phone || contacto.mobile;
-                
+
                 const nuevoContacto = {
                     id: contacto.id,
                     firstname: contacto.firstname,
@@ -1446,7 +1693,7 @@ const actualizarContacto = async (req, res) => {
 
                 // Crear el contacto usando la función createContact existente
                 const createdContact = await createContact(nuevoContacto);
-                
+
                 if (createdContact) {
                     console.log(`✅ Contacto creado exitosamente en RD Station | ID=${contacto.id} | Email=${email}`);
                     return res.status(201).json({
@@ -1472,7 +1719,7 @@ const actualizarContacto = async (req, res) => {
                     details: process.env.NODE_ENV === 'development' ? createError.message : undefined,
                     contact: {
                         id: contacto.id,
-                        email: email 
+                        email: email
                     }
                 });
             }
@@ -1573,69 +1820,69 @@ const actualizarContacto = async (req, res) => {
         // Verificar si hay datos de demo para crear evento de conversión
         let eventCreated = false;
         if (custom_data.Demo_Fecha_Hora && custom_data.Demo_Fecha_Hora.trim() !== '') {
-            
+
             // Función para parsear fechas en diferentes formatos
             const parseDemoDate = (dateStr) => {
                 if (!dateStr) return null;
-                
+
                 // Intentar diferentes formatos de fecha
                 const cleanDate = dateStr.trim();
-                
+
                 // Formato dd/mm/yyyy
                 if (cleanDate.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/)) {
                     const [day, month, year] = cleanDate.split('/');
                     return new Date(year, month - 1, day); // month es 0-indexed
                 }
-                
+
                 // Formato dd-mm-yyyy
                 if (cleanDate.match(/^\d{1,2}-\d{1,2}-\d{4}$/)) {
                     const [day, month, year] = cleanDate.split('-');
                     return new Date(year, month - 1, day); // month es 0-indexed
                 }
-                
+
                 // Formato yyyy-mm-dd (ISO)
                 if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}$/)) {
                     return new Date(cleanDate);
                 }
-                
+
                 // Formato ISO con hora (2025-09-30T11:00:00.000)
                 if (cleanDate.match(/^\d{4}-\d{1,2}-\d{1,2}T/)) {
                     return new Date(cleanDate);
                 }
-                
+
                 // Intentar parsing directo como fallback
                 const fallbackDate = new Date(cleanDate);
                 return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
             };
-            
+
             // Extraer la fecha (puede venir con formato ISO completo con hora)
-            const demoDateStr = custom_data.Demo_Fecha_Hora.includes('T') ? 
-                custom_data.Demo_Fecha_Hora.split('T')[0] : 
+            const demoDateStr = custom_data.Demo_Fecha_Hora.includes('T') ?
+                custom_data.Demo_Fecha_Hora.split('T')[0] :
                 custom_data.Demo_Fecha_Hora.split(' ')[0];
-            
+
             const demoDate = parseDemoDate(custom_data.Demo_Fecha_Hora);
-            
+
             // Normalizar fechas para comparar solo día, mes y año (sin hora)
             const today = new Date();
             const todayNormalized = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-            
+
             console.log(`📅 DEBUG: Verificando demo en actualización - Input: "${custom_data.Demo_Fecha_Hora}", Extracted date: "${demoDateStr}", Parsed: ${demoDate}, Valid: ${demoDate !== null && !isNaN(demoDate.getTime())}`);
-            
+
             // Solo procesar si la demo es de HOY en adelante (no permitir fechas pasadas)
             if (demoDate && !isNaN(demoDate.getTime()) && demoDate >= todayNormalized) {
                 console.log(`📅 DEBUG: Detectado DEMO ACTUAL/FUTURO en actualización (${demoDateStr}), registrando evento de conversión...`);
                 console.log(`📅 DEBUG: Demo_Fecha_Hora: ${custom_data.Demo_Fecha_Hora}`);
                 console.log(`📅 DEBUG: local_demo: ${custom_data.local_demo || 'N/A'}`);
-                
+
                 // Determinar tipo de evento (por defecto demo)
                 let eventName = 'demo';
-                
+
                 console.log(`📅 DEBUG: Registrando evento: ${eventName} para ${email}`);
-                
+
                 // Extraer fecha y hora para el evento
                 let eventDate = demoDateStr;
                 let eventTime = '';
-                
+
                 if (custom_data.Demo_Fecha_Hora.includes('T')) {
                     // Formato ISO: 2025-09-30T11:00:00.000
                     const dateObj = new Date(custom_data.Demo_Fecha_Hora);
@@ -1644,7 +1891,7 @@ const actualizarContacto = async (req, res) => {
                     // Formato con espacio: 2025-09-30 11:00
                     eventTime = custom_data.Demo_Fecha_Hora.split(' ')[1] || '';
                 }
-                
+
                 const eventSuccess = await createConversionEvent(email, eventName, {
                     name: `${contacto.firstname || ''} ${contacto.lastname || ''}`.trim(),
                     email: email,
@@ -1658,7 +1905,7 @@ const actualizarContacto = async (req, res) => {
                     source_url: '', // No requerido para actualizaciones
                     calendar_id: ''
                 });
-                
+
                 eventCreated = eventSuccess;
                 console.log(`📅 DEBUG: Resultado del evento en actualización: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
             } else {
@@ -1718,7 +1965,7 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
 
     if (!credenciales.access_token) {
         console.log(`⚠️ DEBUG: Access token no disponible, intentando renovar...`);
-        
+
         try {
             const refreshSuccess = await refreshAccessToken();
             if (!refreshSuccess) {
@@ -1756,7 +2003,7 @@ const createConversionEvent = async (email, eventName, eventData = {}) => {
             legal_bases: [
                 {
                     category: "communications",
-                    type: "consent", 
+                    type: "consent",
                     status: "granted"
                 }
             ]
@@ -1822,13 +2069,16 @@ const registrarDemo = async (req, res) => {
         }
 
         const demoData = req.body;
+        const demo_fecha_hora_utc = demoData.Demo_Fecha_Hora || null;
 
         console.log('📩 Demo recibido:', {
             email: demoData.email,
             name: demoData.name,
             date: demoData.date,
             timeslot: demoData.timeslot,
-            source_url: demoData.source_url
+            source_url: demoData.source_url,
+            demoFechaHora: demoData.Demo_Fecha_Hora,
+            localDemo: demoData.local_demo,
         });
 
         // Validar datos requeridos
@@ -1848,6 +2098,16 @@ const registrarDemo = async (req, res) => {
 
         console.log(`📋 Evento determinado: ${eventName}`);
 
+        // Convertir demoFechaHora en formato utc a hora local Montevideo, Uruguay (UTC-3) en formato "31 de mayo de 2026 a las 15:00"
+        if (demoData.Demo_Fecha_Hora) {
+            const demoDateUtc = new Date(demoData.Demo_Fecha_Hora);
+            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Montevideo' };
+            const demoDateLocalStr = demoDateUtc.toLocaleString('es-UY', options).replace(',', ' a las');
+            demoData.Demo_Fecha_Hora = demoDateLocalStr;
+            console.log(`📅 Demo_Fecha_Hora convertida a hora local: ${demoData.Demo_Fecha_Hora}`);
+        }
+
+
         // Preparar datos del contacto para buscar/crear
         const contactData = {
             email: cleanEmail(demoData.email),
@@ -1856,8 +2116,10 @@ const registrarDemo = async (req, res) => {
             phone: demoData.phone,
             state: demoData.state,
             city: demoData.city,
-            Demo_Fecha_Hora: `${demoData.date} ${demoData.timeslot}`,
-            direccion_demo: demoData.direccion_demo
+            Demo_Fecha_Hora: demoData.Demo_Fecha_Hora,
+            demo_fecha_hora_utc: demo_fecha_hora_utc,
+            direccion_demo: demoData.direccion_demo,
+            local_demo: demoData.local_demo,
         };
 
         let existingContact = null;
@@ -1922,7 +2184,7 @@ const registrarDemo = async (req, res) => {
         console.log(`📅 DEBUG: eventName=${eventName}`);
         console.log(`📅 DEBUG: emailToUse=${emailToUse}`);
         console.log(`📅 DEBUG: contactAction=${contactAction}`);
-        
+
         const eventSuccess = await createConversionEvent(emailToUse, eventName, {
             name: `${demoData.name} ${demoData.lastname || ''}`.trim(),
             email: emailToUse,
@@ -1980,9 +2242,9 @@ const registrarDemo = async (req, res) => {
  */
 const getCircuitBreakerStatus = () => {
     const now = Date.now();
-    const timeToReset = circuitBreaker.lastFailureTime ? 
+    const timeToReset = circuitBreaker.lastFailureTime ?
         Math.max(0, circuitBreaker.resetTimeout - (now - circuitBreaker.lastFailureTime)) : 0;
-    
+
     return {
         isOpen: circuitBreaker.isOpen,
         failureCount: circuitBreaker.failureCount,
@@ -2059,6 +2321,313 @@ const testConversionEvent = async (req, res) => {
     }
 };
 
+/**
+ * Normaliza un número de teléfono uruguayo al formato internacional
+ * @param {string} phone - Número de teléfono sin formato
+ * @returns {string|null} - Número normalizado con prefijo internacional o null si es inválido
+ */
+const normalizeUruguayanPhone = (phone) => {
+    if (!phone) return null;
+
+    // Limpiar el teléfono de todo excepto dígitos
+    let cleanPhone = phone.replace(/\D/g, '');
+
+    // Si ya tiene el código de país, validar longitud
+    if (cleanPhone.startsWith('598')) {
+        // Uruguay: +598 + 8 o 9 dígitos = 11 o 12 dígitos totales
+        if (cleanPhone.length === 11 || cleanPhone.length === 12) {
+            return cleanPhone;
+        }
+        return null; // Formato inválido
+    }
+
+    // Si es un número uruguayo sin código de país
+    // Celulares: 09X XXXXXX (9 dígitos) -> +598 9X XXXXXX
+    // Fijos: 0X XXX XXXX (9 dígitos) -> +598 X XXX XXXX
+    if (cleanPhone.length === 9 && cleanPhone.startsWith('0')) {
+        return '598' + cleanPhone.substring(1); // Quitar el 0 inicial y agregar 598
+    }
+
+    // Si tiene 8 dígitos y empieza con 9 (celular sin el 0)
+    if (cleanPhone.length === 8 && cleanPhone.startsWith('9')) {
+        return '598' + cleanPhone;
+    }
+
+    // Si tiene 8 dígitos y NO empieza con 9 (fijo sin el 0)
+    if (cleanPhone.length === 8 && !cleanPhone.startsWith('9')) {
+        return '598' + cleanPhone;
+    }
+
+    // Otros casos: intentar agregar 598 si tiene una longitud razonable
+    if (cleanPhone.length >= 8 && cleanPhone.length <= 9) {
+        return '598' + cleanPhone;
+    }
+
+    console.log(`⚠️ Número de teléfono con formato no reconocido: ${phone}`);
+    return null;
+};
+
+
+const actualizacionFirmwareNh2025101735 = async (req, res) => {
+    const reqId = Math.random().toString(36).substring(7);
+
+    // --- Configuración e Identificación ---
+    const CHATWOOT_BASE_URL = process.env.CHATWOOT_URL;
+    const CHATWOOT_TOKEN = process.env.API_ACCESS_TOKEN;
+    const CHATWOOT_ACCOUNT_ID = 2;
+
+    // Procesar identificación única
+    let dataEntry = req.body;
+    if (dataEntry.leads && Array.isArray(dataEntry.leads) && dataEntry.leads.length > 0) {
+        dataEntry = dataEntry.leads[0];
+    } else if (dataEntry.contact) {
+        dataEntry = dataEntry.contact;
+    }
+
+    const rawPhone = dataEntry.mobile_phone || dataEntry.personal_phone || dataEntry.tele_movil || dataEntry.phone || dataEntry.phone_number || '';
+    const cleanPhone = normalizeUruguayanPhone(rawPhone);
+    const rawEmail = dataEntry.email || '';
+
+    // Validar que el número de teléfono sea válido
+    if (!cleanPhone) {
+        console.log(`❌ [${reqId}] Número de teléfono inválido: ${rawPhone}`);
+        return res.status(400).json({
+            success: false,
+            message: 'Número de teléfono inválido o formato no reconocido',
+            phone: rawPhone
+        });
+    }
+
+    // Identificador único para el bloqueo (teléfono es lo más confiable para WhatsApp)
+    const lockKey = cleanPhone || rawEmail;
+
+    console.log(`🚀 [${reqId}] REQUEST PROCESANDO - Tel: ${rawPhone} → ${cleanPhone}`);
+
+    if (!lockKey) {
+        return res.status(400).json({ message: 'No se pudo identificar un ID único (Teléfono o Email)' });
+    }
+
+    // --- NIVEL 1: BLOQUEO ATÓMICO DE SISTEMA DE ARCHIVOS (File System Lock) ---
+    // Este bloqueo funciona entre procesos y reinicios, mucho más robusto que la memoria RAM.
+    const locksDir = path.join(__dirname, '../locks_temp');
+    if (!fs.existsSync(locksDir)) {
+        try { fs.mkdirSync(locksDir, { recursive: true }); } catch (e) { }
+    }
+
+    const lockFilePath = path.join(locksDir, `lock_${lockKey}.lock`);
+    let hasLock = false;
+    let keepLock = false; // Flag para mantener el lock en caso de éxito
+
+    try {
+        // 'wx' flag = Open file for writing. The file is created (if it does not exist) or fails (if it exists).
+        // Esta operación es ATÓMICA en el sistema operativo.
+        fs.writeFileSync(lockFilePath, JSON.stringify({ pid: process.pid, time: Date.now() }), { flag: 'wx' });
+        hasLock = true;
+        console.log(`🔒 [${reqId}] Lock de archivo adquirido exitosamente.`);
+    } catch (err) {
+        if (err.code === 'EEXIST') {
+            // El archivo ya existe. Verificar si es viejo (stale lock).
+            try {
+                const stats = fs.statSync(lockFilePath);
+                const now = Date.now();
+                const lockAge = now - stats.mtimeMs;
+
+                // AUMENTADO A 60 MINUTOS (3600000 ms) para evitar reintentos de webhook
+                if (lockAge > 3600000) {
+                    console.warn(`♻️ [${reqId}] Lock expirado (${Math.round(lockAge / 60000)}min). Reclamando...`);
+                    try {
+                        fs.unlinkSync(lockFilePath); // Borrar
+                        fs.writeFileSync(lockFilePath, JSON.stringify({ pid: process.pid, time: Date.now() }), { flag: 'wx' }); // Re-escribir
+                        hasLock = true;
+                    } catch (retryErr) {
+                        console.warn(`⚠️ [${reqId}] Falló reclamo de lock: ${retryErr.message}`);
+                        return res.status(200).json({ success: true, message: 'Procesado concurrentemente (race lost on retry).', skipped: true });
+                    }
+                } else {
+                    console.warn(`🔒 [BLOCK FS] [${reqId}] Proceso bloqueado por archivo lock existente (${Math.round(lockAge / 1000)}s old).`);
+                    return res.status(200).json({ success: true, message: 'Solicitud bloqueada por concurrencia (File Lock).', skipped: true });
+                }
+            } catch (statErr) {
+                // Error leyendo stat, asumimos bloqueado para seguridad
+                return res.status(200).json({ success: true, message: 'Error verificando lock.', skipped: true });
+            }
+        } else {
+            console.error(`❌ [${reqId}] Error de sistema de archivos: ${err.message}`);
+            return res.status(500).json({ message: 'Error interno de filesystem' });
+        }
+    }
+
+    // SI LLEGAMOS AQUÍ, TENEMOS EL LOCK EXCLUSIVO 🔒
+
+    try {
+        if (!CHATWOOT_BASE_URL || !CHATWOOT_TOKEN) throw new Error('Faltan variables de entorno Chatwoot');
+
+        const chatwootApi = axios.create({
+            baseURL: `${CHATWOOT_BASE_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}`,
+            headers: { 'api_access_token': CHATWOOT_TOKEN, 'Content-Type': 'application/json' }
+        });
+
+        // 1. Buscar Contacto
+        let contact = null;
+        console.log(`🔎 [${reqId}] Buscando contacto...`);
+
+        // Búsqueda robusta (primero ID externo si existe en data, luego phone, luego email)
+        if (cleanPhone) {
+            const searchRes = await chatwootApi.get(`/contacts/search`, { params: { q: cleanPhone } });
+            if (searchRes.data.payload?.length > 0) contact = searchRes.data.payload[0];
+        }
+        if (!contact && rawEmail) {
+            const searchRes = await chatwootApi.get(`/contacts/search`, { params: { q: rawEmail } });
+            if (searchRes.data.payload?.length > 0) contact = searchRes.data.payload[0];
+        }
+
+        // Si no se encuentra, CREAR el contacto
+        if (!contact) {
+            console.log(`📝 [${reqId}] Contacto no encontrado. Creando nuevo contacto...`);
+
+            const newContactData = {
+                name: dataEntry.name || dataEntry.nombre || `Usuario ${cleanPhone}`,
+                phone_number: cleanPhone ? `+${cleanPhone}` : undefined,
+                email: rawEmail || undefined,
+                identifier: cleanPhone || rawEmail
+            };
+
+            // Eliminar campos undefined
+            Object.keys(newContactData).forEach(key =>
+                newContactData[key] === undefined && delete newContactData[key]
+            );
+
+            try {
+                const createResp = await chatwootApi.post(`/contacts`, newContactData);
+                contact = createResp.data?.payload || createResp.data;
+                console.log(`✅ [${reqId}] Contacto creado exitosamente: ID ${contact.id}`);
+            } catch (createErr) {
+                console.error(`❌ [${reqId}] Error al crear contacto: ${createErr.message}`);
+                return res.status(500).json({
+                    message: 'Error al crear contacto en Chatwoot',
+                    error: createErr.message
+                });
+            }
+        }
+
+        // 2. Verificar Etiquetas Persistentes
+        const checkContactReq = await chatwootApi.get(`/contacts/${contact.id}`);
+        const initialLabels = checkContactReq.data.payload?.labels || checkContactReq.data?.labels || [];
+
+        if (initialLabels.includes('msg_firmware_sent')) {
+            console.log(`⏭️ [${reqId}] Contacto ya tiene etiqueta 'msg_firmware_sent'.`);
+            return res.status(200).json({ success: true, message: 'Ya procesado anteriormente.', skipped: true });
+        }
+
+        // 3. Enviar WhatsApp (Evolution API)
+        const whatsappMessage = "🚀 ¡iChef se actualiza y cocina sin límites!\n\nEstamos lanzando una nueva actualización de iChef, que llegará automáticamente a tu robot en los próximos días.\nLa gran novedad: ¡ahora tendrás autonomía total de uso sin depender de internet! 🌐❌\n\n✅ Cocina donde quieras y cuando quieras.\n✅ Mejor rendimiento y mayor estabilidad.\n✅ 100% independiente.\n\n📡 ¿Qué tenés que hacer?\nSolo asegurarte de que tu robot esté conectado al Wi-Fi y no esté operando durante unos minutos.\nCuando la actualización esté disponible, aparecerá un mensaje en pantalla para instalarla.\n\n👉 Si el mensaje no aparece, ingresá en Configuración → Actualización del Sistema.\nSi allí figura una actualización disponible, presioná Actualización inmediata para comenzar la instalación.\n\n¡Liberá todo el potencial de tu cocina con iChef! 👨‍🍳🔥\n\n📞 ¿Necesitás ayuda?\nContactá a nuestro Servicio de Asistencia al Usuario: *097 107 658*";
+
+        console.log(`📤 [${reqId}] Enviando mensaje Evolution a ${cleanPhone}...`);
+        try {
+            await axios.post('https://evolution-evolution.5vsa59.easypanel.host/message/sendText/iChef%20Center%20Wpp', {
+                number: cleanPhone, text: whatsappMessage
+            }, { headers: { 'apikey': '49C2506BEDA7-46A6-8EC3-C8ABD1EA0551' } });
+            console.log(`✅ [${reqId}] Mensaje enviado.`);
+        } catch (evolutionErr) {
+            console.error(`❌ [${reqId}] Error al enviar mensaje de WhatsApp: ${evolutionErr.message}`);
+            console.error(`📞 [${reqId}] Número utilizado: ${cleanPhone}`);
+            if (evolutionErr.response?.data) {
+                console.error(`📋 [${reqId}] Respuesta de Evolution:`, JSON.stringify(evolutionErr.response.data, null, 2));
+            }
+            throw evolutionErr; // Re-lanzar para que sea manejado en el catch principal
+        }
+
+        // 4. Gestión de Conversación (Anti-Duplicados)
+        // BUSCAR primero si ya existe una conversación abierta en este inbox para no crear duplicados
+        let conversation = null;
+        try {
+            const convSearch = await chatwootApi.get(`/contacts/${contact.id}/conversations`);
+            const existingConvs = convSearch.data.payload || convSearch.data || [];
+            // Buscar una abierta en el inbox 41
+            conversation = existingConvs.find(c => c.inbox_id === 41 && c.status === 'open');
+        } catch (ignored) { }
+
+        if (conversation) {
+            console.log(`♻️ [${reqId}] Usando conversación existente ID: ${conversation.id}`);
+        } else {
+            console.log(`🆕 [${reqId}] Creando nueva conversación...`);
+            const convRes = await chatwootApi.post('/conversations', {
+                contact_id: contact.id,
+                inbox_id: 41,
+                assignee_id: 19,
+                team_id: 4,
+                status: 'open'
+            });
+            conversation = convRes.data;
+        }
+
+        // 5. Agregar mensaje interno/saliente a la conversación
+        try {
+            await chatwootApi.post(`/conversations/${conversation.id}/messages`, {
+                content: "Contactar y asistir en la actualización del firmware. Versión instalada: NH-20250415.26 Versión a actualizar: NH-20251017.35",
+                message_type: 'outgoing', // O 'private' si es nota interna
+                private: false
+            });
+        } catch (msgErr) { console.error(`⚠️ [${reqId}] Error creando mensaje: ${msgErr.message}`); }
+
+        // 6. Finalizar Etiquetas
+        // Conservar todas las etiquetas existentes y agregar solo las que faltan
+        const tagsToAdd = ['tiene_ichef', 'msg_firmware_sent'];
+        const newLabels = [...new Set([...initialLabels, ...tagsToAdd])]; // Unión sin duplicados
+
+        console.log(`🏷️ [${reqId}] Etiquetas existentes: ${initialLabels.join(', ') || 'ninguna'}`);
+        console.log(`🏷️ [${reqId}] Etiquetas finales: ${newLabels.join(', ')}`);
+
+        await chatwootApi.post(`/contacts/${contact.id}/labels`, { labels: newLabels });
+
+        // Para la conversación, solo agregar las nuevas etiquetas sin sobrescribir
+        await chatwootApi.post(`/conversations/${conversation.id}/labels`, { labels: tagsToAdd });
+
+        // Marcar éxito y programar liberación del lock después de 2 minutos
+        keepLock = true;
+        console.log(`🔒 [${reqId}] Proceso exitoso. Lock se liberará automáticamente en 2 minutos.`);
+
+        // Liberar el lock automáticamente después de 2 minutos para evitar bloqueos permanentes
+        setTimeout(() => {
+            try {
+                if (fs.existsSync(lockFilePath)) {
+                    fs.unlinkSync(lockFilePath);
+                    console.log(`🔓 [${reqId}] Lock liberado automáticamente después de timeout (2 min).`);
+                }
+            } catch (cleanupErr) {
+                console.error(`⚠️ [${reqId}] Error al liberar lock automáticamente:`, cleanupErr.message);
+            }
+        }, 120000); // 2 minutos
+
+        res.status(200).json({ success: true, contactId: contact.id });
+
+    } catch (error) {
+        console.error(`❌ [${reqId}] Error General: ${error.message}`);
+        console.error(`📋 [${reqId}] Stack:`, error.stack);
+        if (error.response) {
+            console.error(`📋 [${reqId}] Response status: ${error.response.status}`);
+            console.error(`📋 [${reqId}] Response data:`, JSON.stringify(error.response.data, null, 2));
+        }
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            details: error.response?.data
+        });
+    } finally {
+        // En el bloque finally, solo liberamos el lock si NO hubo éxito (para permitir reintentos en caso de error)
+        try {
+            if (hasLock && !keepLock && fs.existsSync(lockFilePath)) {
+                fs.unlinkSync(lockFilePath);
+                console.log(`🔓 [${reqId}] Lock de archivo liberado (ERROR o FALLO).`);
+            }
+        } catch (cleanupErr) {
+            console.error(`⚠️ [${reqId}] Error liberando lock: ${cleanupErr.message}`);
+        }
+    }
+};
+
+
+
 export {
     importarContactos,
     isValidEmail,
@@ -2075,6 +2644,7 @@ export {
     resetCircuitBreaker,
     getCredentialsStatus,
     initializeCredentials,
-    testConversionEvent
-
+    testConversionEvent,
+    actualizacionFirmwareNh2025101735,
+    normalizeUruguayanPhone
 };

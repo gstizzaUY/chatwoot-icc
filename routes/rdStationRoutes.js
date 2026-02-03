@@ -12,6 +12,7 @@ import onboarding from '../controllers/onboardingController.js';
 import onboardingHsmStarterPack from '../controllers/onboardingHsmController.js';
 import hsmWebinar from '../controllers/hsmWebinarController.js';
 import saludoFinAno2025 from '../controllers/hsmEvolutionController.js';
+import { actualizacionFirmwareNh2025101735 } from '../controllers/rdStationControllers.js';
 
 const router = express.Router();
 
@@ -87,6 +88,8 @@ router.post('/onboarding-provisorio/:etapa', onboarding);
 
 router.post('/hsm/webinar-vitel-tone', hsmWebinar);
 router.post('/hsm/evolution/saludo-fin-ano-2025', saludoFinAno2025);
+
+router.post('/nh2025101735', actualizacionFirmwareNh2025101735);
 
 
 export default router;
