@@ -2098,13 +2098,28 @@ const registrarDemo = async (req, res) => {
 
         console.log(`📋 Evento determinado: ${eventName}`);
 
-        // Convertir demoFechaHora en formato utc a hora local Montevideo, Uruguay (UTC-3) en formato "31 de mayo de 2026 a las 15:00"
+        // Formatear demoFechaHora a formato legible en español
+        // La fecha viene en hora LOCAL de Uruguay, no hacer conversión de zona horaria
         if (demoData.Demo_Fecha_Hora) {
-            const demoDateUtc = new Date(demoData.Demo_Fecha_Hora);
-            const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Montevideo' };
-            const demoDateLocalStr = demoDateUtc.toLocaleString('es-UY', options).replace(',', ' a las');
-            demoData.Demo_Fecha_Hora = demoDateLocalStr;
-            console.log(`📅 Demo_Fecha_Hora convertida a hora local: ${demoData.Demo_Fecha_Hora}`);
+            // Parsear la fecha asumiendo que ya está en hora local
+            const dateStr = demoData.Demo_Fecha_Hora;
+            const date = new Date(dateStr);
+            
+            // Extraer componentes de fecha sin conversión de zona horaria
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const day = date.getDate();
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            
+            // Nombres de meses en español
+            const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                               'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+            
+            // Formatear manualmente para evitar conversiones de zona horaria
+            const formattedDate = `${day} de ${monthNames[month]} de ${year} a las ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+            demoData.Demo_Fecha_Hora = formattedDate;
+            console.log(`📅 Demo_Fecha_Hora formateada: ${demoData.Demo_Fecha_Hora}`);
         }
 
 
