@@ -5,6 +5,8 @@ import { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact } from "..
 import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity } from "../controllers/rdOpportunityController.js";
 import { MigrateOpportunity } from "../controllers/migrateOpportunityController.js";
 
+import { ObtenerReferidos, AgregarReferido } from "../controllers/referidosController.js";
+
 const router = express.Router();
 
 router.post("/outgoing-message", NotifyOutgoingMessage); // Bot
@@ -19,5 +21,8 @@ router.post("/update-opportunity-stage", UpdateOpportunityStage); // Actualizar 
 router.post("/create-opportunity", CreateOpportunity); // Crear oportunidad
 
 router.post("/migrate/:stage", MigrateOpportunity);
+
+router.get("/referidos", ObtenerReferidos); // Obtener referidos de un contacto
+router.put("/agregar-referido", AgregarReferido); // Agregar referido a un contacto
 
 export default router;
