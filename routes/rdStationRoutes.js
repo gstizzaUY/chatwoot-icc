@@ -81,8 +81,9 @@ router.post('/reload-credentials', (req, res) => {
     }
 });
 
-router.post('/onboarding/:etapa', onboarding);
+// IMPORTANTE: Las rutas más específicas deben ir PRIMERO
 router.post('/onboarding/hsm/starter-pack', onboardingHsmStarterPack);
+router.post('/onboarding/:etapa', onboarding);
 router.post('/onboarding-provisorio/:etapa', onboarding);
 
 
