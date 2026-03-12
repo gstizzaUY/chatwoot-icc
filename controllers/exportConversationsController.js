@@ -81,29 +81,49 @@ async function fetchAgents(chatwoot) {
     return response.data;
 }
 
-async function getConversationsFromInbox(chatwoot, inboxId, page = 1, teamId = null, agentId = null) {
+/**
+ * Parsea un query param que puede ser: "14", "14,8" o un array ["14","8"] (param repetido).
+ * Devuelve un array de números. Si no hay valores válidos, devuelve null.
+ */
+function parseIds(param) {
+    if (!param) return null;
+    const raw = Array.isArray(param) ? param.join(',') : param;
+    const ids = raw.split(',').map(v => parseInt(v.trim())).filter(v => !isNaN(v));
+    return ids.length > 0 ? ids : null;
+}
+
+/**
+ * Obtiene una página de conversaciones usando arrays de IDs para cada filtro.
+ * @param {number[]} inboxIds  - IDs de inboxes (requerido)
+ * @param {number[]|null} teamIds  - IDs de equipos (opcional)
+ * @param {number[]|null} agentIds - IDs de agentes (opcional)
+ */
+async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null) {
     try {
+        const hasTeam = teamIds?.length > 0;
+        const hasAgent = agentIds?.length > 0;
+
         const filters = [
             {
                 attribute_key: 'inbox_id',
                 filter_operator: 'equal_to',
-                values: [inboxId],
-                query_operator: (teamId || agentId) ? 'and' : null
+                values: inboxIds,
+                query_operator: (hasTeam || hasAgent) ? 'and' : null
             }
         ];
-        if (teamId) {
+        if (hasTeam) {
             filters.push({
                 attribute_key: 'team_id',
                 filter_operator: 'equal_to',
-                values: [teamId],
-                query_operator: agentId ? 'and' : null
+                values: teamIds,
+                query_operator: hasAgent ? 'and' : null
             });
         }
-        if (agentId) {
+        if (hasAgent) {
             filters.push({
                 attribute_key: 'assignee_id',
                 filter_operator: 'equal_to',
-                values: [agentId],
+                values: agentIds,
                 query_operator: null
             });
         }
@@ -132,7 +152,13 @@ async function getConversationMessages(chatwoot, conversationId) {
     }
 }
 
-async function buildExportFile(chatwoot, inboxId, inboxName, teamId, agentId) {
+/**
+ * @param {number[]} inboxIds
+ * @param {string}   inboxLabel  - Texto descriptivo para el nombre del archivo
+ * @param {number[]|null} teamIds
+ * @param {number[]|null} agentIds
+ */
+async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds) {
     const conversationsData = [];
     const messagesData = [];
     const allCustomAttributeKeys = new Set();
@@ -142,7 +168,7 @@ async function buildExportFile(chatwoot, inboxId, inboxName, teamId, agentId) {
     let hasMorePages = true;
 
     while (hasMorePages) {
-        const conversations = await getConversationsFromInbox(chatwoot, inboxId, page, teamId, agentId);
+        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds);
         if (conversations.length === 0) { hasMorePages = false; break; }
 
         for (const conversation of conversations) {
@@ -326,9 +352,9 @@ async function buildExportFile(chatwoot, inboxId, inboxName, teamId, agentId) {
     if (!fs.existsSync(exportsDir)) fs.mkdirSync(exportsDir, { recursive: true });
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const teamSuffix = teamId ? `_team${teamId}` : '';
-    const agentSuffix = agentId ? `_agent${agentId}` : '';
-    const fileName = `conversaciones_${inboxName.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}_${timestamp}.xlsx`;
+    const teamSuffix  = teamIds?.length  > 0 ? `_teams${teamIds.join('-')}`   : '';
+    const agentSuffix = agentIds?.length > 0 ? `_agents${agentIds.join('-')}` : '';
+    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}_${timestamp}.xlsx`;
     const filePath = path.join(exportsDir, fileName);
 
     await workbook.xlsx.writeFile(filePath);
@@ -445,16 +471,16 @@ export async function GetAgents(req, res) {
 }
 
 /**
- * GET /api/export/conversations?accountId=2&inboxId=14&teamId=4&agentId=5
+ * GET /api/export/conversations?accountId=2&inboxId=14,8&teamId=4,7&agentId=12,5
  *
  * Headers requeridos:
  *   x-export-token: <valor de EXPORT_SECRET en .env>
  *
  * Parámetros:
- *   accountId  (requerido) - ID de cuenta Chatwoot
- *   inboxId    (requerido) - ID del inbox
- *   teamId     (opcional)  - Filtrar por equipo
- *   agentId    (opcional)  - Filtrar por agente asignado
+ *   accountId  (requerido)         - ID de cuenta Chatwoot
+ *   inboxId    (requerido)         - ID/s de inbox. Ej: 14  |  14,8  |  inboxId=14&inboxId=8
+ *   teamId     (opcional)          - ID/s de equipo. Mismos formatos que inboxId
+ *   agentId    (opcional)          - ID/s de agente. Mismos formatos que inboxId
  *
  * Responde con el archivo Excel como descarga directa.
  */
@@ -463,28 +489,37 @@ export async function ExportConversations(req, res) {
 
     const accountId = requireAccountId(req.query, res);
     if (!accountId) return;
-    const inboxId = parseInt(req.query.inboxId);
-    const teamId = req.query.teamId ? parseInt(req.query.teamId) : null;
-    const agentId = req.query.agentId ? parseInt(req.query.agentId) : null;
 
-    if (!inboxId || isNaN(inboxId)) {
-        return res.status(400).json({ error: 'Se requiere el parámetro inboxId (número).' });
+    const inboxIds = parseIds(req.query.inboxId);
+    const teamIds  = parseIds(req.query.teamId);
+    const agentIds = parseIds(req.query.agentId);
+
+    if (!inboxIds) {
+        return res.status(400).json({ error: 'Se requiere al menos un inboxId válido. Ej: inboxId=14 o inboxId=14,8' });
     }
 
     try {
         const chatwoot = makeChatwoot(accountId);
 
-        // Verificar que el inbox existe
-        const inboxes = await fetchInboxes(chatwoot);
-        const inbox = inboxes.find(i => i.id === inboxId);
-        if (!inbox) {
-            return res.status(404).json({ error: `No se encontró el inbox con ID ${inboxId} en la cuenta ${accountId}.` });
+        // Verificar que todos los inboxIds existen en la cuenta
+        const allInboxes = await fetchInboxes(chatwoot);
+        const validInboxes = allInboxes.filter(i => inboxIds.includes(i.id));
+        const notFound = inboxIds.filter(id => !allInboxes.find(i => i.id === id));
+        if (notFound.length > 0) {
+            return res.status(404).json({
+                error: `Los siguientes inboxId no existen en la cuenta ${accountId}: ${notFound.join(', ')}`
+            });
         }
+
+        // Etiqueta descriptiva para el nombre del archivo
+        const inboxLabel = validInboxes.length === 1
+            ? validInboxes[0].name
+            : `multi_inbox_${inboxIds.join('-')}`;
 
         // Inicializar token de RD Station (no bloquea si falla)
         await updateRDStationToken();
 
-        const { filePath, fileName } = await buildExportFile(chatwoot, inboxId, inbox.name, teamId, agentId);
+        const { filePath, fileName } = await buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds);
 
         // Enviar el archivo y luego eliminarlo del servidor
         res.download(filePath, fileName, (err) => {
