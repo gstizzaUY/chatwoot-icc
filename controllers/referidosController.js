@@ -112,11 +112,13 @@ async function ObtenerReferidos(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
 	const email = req.query.email;
+	const type = req.query.type;
 	try {
 		if (!email) return res.status(200).send({ cf_referidos: [] });
 		const contact = await GetContact(email);
 		if (contact) {
-			const referidos = JSON.parse(contact.cf_referidos || "[]");
+			var referidos = JSON.parse(contact.cf_referidos || "[]");
+			referidos = referidos.filter(r => !type || r.type === type);
 			return res.status(200).json(referidos);
 		}
 	} catch (error) {
@@ -125,7 +127,8 @@ async function ObtenerReferidos(req, res) {
 
 			const contact = await GetContact(email);
 			if (contact) {
-				const referidos = JSON.parse(contact.cf_referidos || "[]");
+				var referidos = JSON.parse(contact.cf_referidos || "[]");
+				referidos = referidos.filter(r => !type || r.type === type);
 				return res.status(200).json(referidos);
 			}
 		}
@@ -151,14 +154,14 @@ function RemoveIDs(contact) {
 }
 
 async function AgregarReferidoLogic(body) {
-	const { email, nombre_referido, celular_referido } = body;
+	const { email, nombre_referido, celular_referido, email_referido, type } = body;
 	if (!email || !nombre_referido || !celular_referido)
 		return [400, { message: "Faltan datos" }];
 	let referente = await GetContact(email);
 	if (!referente)
 		return [400, { message: "No se encontró el referente" }];
 
-	const emailReferido = GenerateContactId(celular_referido);
+	const emailReferido = email_referido || GenerateContactId(celular_referido);
 	const newContactData = {
 		name: nombre_referido,
 		email: emailReferido,
@@ -184,12 +187,14 @@ async function AgregarReferidoLogic(body) {
 		phone: celular_referido,
 		date: getCurrentDateTime(),
 		coupon: cupon,
-		//link: referido.enlace_compra
+		type: type || "desconocido"
 	};
 	const referidos = JSON.parse(referente.cf_referidos || "[]");
-	referidos.push(referidoData);
-	referente.cf_referidos = JSON.stringify(referidos);
-	referente = await UpdateContact(email, { cf_referidos: referente.cf_referidos });
+	if (!referidos.some(r => r.phone === celular_referido)) {
+		referidos.push(referidoData);
+		referente.cf_referidos = JSON.stringify(referidos);
+		referente = await UpdateContact(email, { cf_referidos: referente.cf_referidos });
+	}
 
 	if (!referente)
 		return [400, { message: "No se pudo actualizar el referente" }];

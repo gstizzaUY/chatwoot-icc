@@ -277,7 +277,7 @@ async function ProcessOutgoingMessage(message) {
             }
             // Verificar que message.content existe y no es null antes de usar includes
             if (message.content && message.content.includes("Quiero más info sobre el iChef Robot")) {
-                await AsignConversationToAgent(conversationId, "ncardozo");
+                await AsignConversationToAgent(conversationId, "mfulco");
                 console.log(`Conversación ${conversationId} asignada, contacto inactivo.`);
                 break;
             } else {
