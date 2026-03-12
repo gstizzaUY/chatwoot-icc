@@ -10,6 +10,7 @@ import CNS_ConversationsRoutes from './routes/CNS_ConversationsRoutes.js';
 import inconcertRoutes from './routes/inconcertRoutes.js';
 import rdStationRoutes from './routes/rdStationRoutes.js';
 import rdStationToInconcertRoutes from './routes/rdStationToInconcertRoutes.js';
+import exportConversationsRoutes from './routes/exportConversationsRoutes.js';
 
 dotenv.config();
 
@@ -41,6 +42,8 @@ app.use('/api/rd-station', rdStationRoutes); // Importación masiva desde InConc
 app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes); // Crea los Contactos en inConcert desde RD Station
 
 app.use('/api/actualizacion-firmware', rdStationRoutes); // Rutas de Actualización de Firmware')
+
+app.use('/api/export', exportConversationsRoutes); // Exportación de conversaciones a Excel
 
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
