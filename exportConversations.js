@@ -1,14 +1,24 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
-dotenv.config();
-
+// Inicializar __filename y __dirname primero
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Cargar dotenv desde backend/.env explícitamente
+dotenv.config({ path: path.join(__dirname, '.env') });
+
+console.log('¿Existe .env en backend?', fs.existsSync(path.join(__dirname, '.env')));
+console.log('CHATWOOT_URL:', process.env.CHATWOOT_URL);
+console.log('API_ACCESS_TOKEN:', process.env.API_ACCESS_TOKEN ? '***' : '(vacío)');
+console.log('RDSTATION_URL:', process.env.RDSTATION_URL);
+console.log('RDSTATION_CLIENT_ID:', process.env.RDSTATION_CLIENT_ID ? '***' : '(vacío)');
+console.log('RDSTATION_CLIENT_SECRET:', process.env.RDSTATION_CLIENT_SECRET ? '***' : '(vacío)');
+console.log('RDSTATION_REFRESH_TOKEN:', process.env.RDSTATION_REFRESH_TOKEN ? '***' : '(vacío)');
 
 const chatwoot_url = process.env.CHATWOOT_URL;
 const api_access_token = process.env.API_ACCESS_TOKEN;

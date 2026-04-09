@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -31,6 +32,21 @@ const rdstation = axios.create({
     baseURL: RDSTATION_URL,
     headers: { 'Content-Type': 'application/json' }
 });
+
+// --- Job store en memoria ---
+const jobs = new Map();
+
+// Limpiar jobs más viejos de 1 hora cada 30 minutos
+setInterval(() => {
+    const ONE_HOUR = 60 * 60 * 1000;
+    const now = Date.now();
+    for (const [jobId, job] of jobs.entries()) {
+        if (now - job.createdAt > ONE_HOUR) {
+            if (job.filePath && fs.existsSync(job.filePath)) fs.unlink(job.filePath, () => {});
+            jobs.delete(jobId);
+        }
+    }
+}, 30 * 60 * 1000);
 
 // --- Helpers internos ---
 
@@ -158,7 +174,7 @@ async function getConversationMessages(chatwoot, conversationId) {
  * @param {number[]|null} teamIds
  * @param {number[]|null} agentIds
  */
-async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds) {
+async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null) {
     const conversationsData = [];
     const messagesData = [];
     const allCustomAttributeKeys = new Set();
@@ -166,12 +182,15 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
 
     let page = 1;
     let hasMorePages = true;
+    let totalProcessed = 0;
 
     while (hasMorePages) {
         const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds);
         if (conversations.length === 0) { hasMorePages = false; break; }
 
         for (const conversation of conversations) {
+            totalProcessed++;
+            if (onProgress) onProgress(totalProcessed);
             let contact = processedContacts.get(conversation.meta.sender.id);
             if (!contact) {
                 contact = await getContactDetails(chatwoot, conversation.meta.sender.id);
@@ -471,20 +490,11 @@ export async function GetAgents(req, res) {
 }
 
 /**
- * GET /api/export/conversations?accountId=2&inboxId=14,8&teamId=4,7&agentId=12,5
- *
- * Headers requeridos:
- *   x-export-token: <valor de EXPORT_SECRET en .env>
- *
- * Parámetros:
- *   accountId  (requerido)         - ID de cuenta Chatwoot
- *   inboxId    (requerido)         - ID/s de inbox. Ej: 14  |  14,8  |  inboxId=14&inboxId=8
- *   teamId     (opcional)          - ID/s de equipo. Mismos formatos que inboxId
- *   agentId    (opcional)          - ID/s de agente. Mismos formatos que inboxId
- *
- * Responde con el archivo Excel como descarga directa.
+ * POST /api/export/conversations?accountId=2&inboxId=14&teamId=4
+ * Inicia la exportación en background y responde INMEDIATAMENTE con un jobId.
+ * No bloquea la conexión — evita el timeout 524 de Cloudflare y similares.
  */
-export async function ExportConversations(req, res) {
+export async function StartExport(req, res) {
     if (!requireToken(req, res)) return;
 
     const accountId = requireAccountId(req.query, res);
@@ -498,38 +508,101 @@ export async function ExportConversations(req, res) {
         return res.status(400).json({ error: 'Se requiere al menos un inboxId válido. Ej: inboxId=14 o inboxId=14,8' });
     }
 
-    try {
-        const chatwoot = makeChatwoot(accountId);
+    const jobId = crypto.randomUUID();
+    jobs.set(jobId, { status: 'processing', progress: 0, filePath: null, fileName: null, error: null, createdAt: Date.now() });
 
-        // Verificar que todos los inboxIds existen en la cuenta
-        const allInboxes = await fetchInboxes(chatwoot);
-        const validInboxes = allInboxes.filter(i => inboxIds.includes(i.id));
-        const notFound = inboxIds.filter(id => !allInboxes.find(i => i.id === id));
-        if (notFound.length > 0) {
-            return res.status(404).json({
-                error: `Los siguientes inboxId no existen en la cuenta ${accountId}: ${notFound.join(', ')}`
-            });
-        }
+    // Responde inmediatamente antes de iniciar el proceso pesado
+    res.status(202).json({
+        jobId,
+        status: 'processing',
+        statusUrl: `/api/export/status/${jobId}`,
+        downloadUrl: `/api/export/download/${jobId}`
+    });
 
-        // Etiqueta descriptiva para el nombre del archivo
-        const inboxLabel = validInboxes.length === 1
-            ? validInboxes[0].name
-            : `multi_inbox_${inboxIds.join('-')}`;
+    // Procesar en background sin bloquear
+    (async () => {
+        try {
+            const chatwoot = makeChatwoot(accountId);
+            const allInboxes = await fetchInboxes(chatwoot);
+            const validInboxes = allInboxes.filter(i => inboxIds.includes(i.id));
+            const notFound = inboxIds.filter(id => !allInboxes.find(i => i.id === id));
 
-        // Inicializar token de RD Station (no bloquea si falla)
-        await updateRDStationToken();
-
-        const { filePath, fileName } = await buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds);
-
-        // Enviar el archivo y luego eliminarlo del servidor
-        res.download(filePath, fileName, (err) => {
-            fs.unlink(filePath, () => {}); // limpiar archivo temporal tras la descarga
-            if (err && !res.headersSent) {
-                res.status(500).json({ error: 'Error al enviar el archivo.' });
+            if (notFound.length > 0) {
+                const job = jobs.get(jobId);
+                if (job) { job.status = 'error'; job.error = `inboxId no encontrados en la cuenta ${accountId}: ${notFound.join(', ')}`; }
+                return;
             }
+
+            const inboxLabel = validInboxes.length === 1
+                ? validInboxes[0].name
+                : `multi_inbox_${inboxIds.join('-')}`;
+
+            await updateRDStationToken();
+
+            const job = jobs.get(jobId);
+            const { filePath, fileName } = await buildExportFile(
+                chatwoot, inboxIds, inboxLabel, teamIds, agentIds,
+                (current) => { if (job) job.progress = current; }
+            );
+            if (job) { job.status = 'done'; job.filePath = filePath; job.fileName = fileName; }
+        } catch (error) {
+            const job = jobs.get(jobId);
+            if (job) { job.status = 'error'; job.error = error.message; }
+            console.error(`[Export Job ${jobId}] Error:`, error.message);
+        }
+    })();
+}
+
+/**
+ * GET /api/export/status/:jobId
+ * Devuelve el estado del job. Hacer polling cada 5-10 segundos.
+ */
+export async function GetExportStatus(req, res) {
+    if (!requireToken(req, res)) return;
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) return res.status(404).json({ error: 'Job no encontrado o expirado (máx. 1 hora).' });
+
+    res.json({
+        jobId,
+        status: job.status,
+        conversacionesProcesadas: job.progress,
+        fileName: job.status === 'done' ? job.fileName : null,
+        downloadUrl: job.status === 'done' ? `/api/export/download/${jobId}` : null,
+        error: job.error || null
+    });
+}
+
+/**
+ * GET /api/export/download/:jobId
+ * Descarga el Excel generado. Solo disponible cuando status === "done".
+ * El archivo y el job se eliminan del servidor tras la descarga.
+ */
+export async function DownloadExport(req, res) {
+    if (!requireToken(req, res)) return;
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) return res.status(404).json({ error: 'Job no encontrado o expirado (máx. 1 hora).' });
+
+    if (job.status === 'processing') {
+        return res.status(202).json({
+            status: 'processing',
+            conversacionesProcesadas: job.progress,
+            message: `Exportación en proceso. Consultá el estado en /api/export/status/${jobId}`
         });
-    } catch (error) {
-        console.error('Error en ExportConversations:', error.message);
-        res.status(500).json({ error: 'Error interno al generar la exportación.', detail: error.message });
     }
+
+    if (job.status === 'error') return res.status(500).json({ status: 'error', error: job.error });
+
+    if (!job.filePath || !fs.existsSync(job.filePath)) {
+        return res.status(404).json({ error: 'Archivo no disponible.' });
+    }
+
+    res.download(job.filePath, job.fileName, (err) => {
+        jobs.delete(jobId);
+        fs.unlink(job.filePath, () => {});
+        if (err && !res.headersSent) res.status(500).json({ error: 'Error al enviar el archivo.' });
+    });
 }
