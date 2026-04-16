@@ -113,18 +113,23 @@ function parseIds(param) {
  * @param {number[]} inboxIds  - IDs de inboxes (requerido)
  * @param {number[]|null} teamIds  - IDs de equipos (opcional)
  * @param {number[]|null} agentIds - IDs de agentes (opcional)
+ * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
+ * @param {number|null} dateTo    - Unix timestamp fin (opcional)
  */
-async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null) {
+async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null, dateFrom = null, dateTo = null) {
     try {
-        const hasTeam = teamIds?.length > 0;
-        const hasAgent = agentIds?.length > 0;
+        const hasTeam   = teamIds?.length > 0;
+        const hasAgent  = agentIds?.length > 0;
+        const hasDateFrom = dateFrom != null;
+        const hasDateTo   = dateTo   != null;
+        const hasMore = hasTeam || hasAgent || hasDateFrom || hasDateTo;
 
         const filters = [
             {
                 attribute_key: 'inbox_id',
                 filter_operator: 'equal_to',
                 values: inboxIds,
-                query_operator: (hasTeam || hasAgent) ? 'and' : null
+                query_operator: hasMore ? 'and' : null
             }
         ];
         if (hasTeam) {
@@ -132,7 +137,7 @@ async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null
                 attribute_key: 'team_id',
                 filter_operator: 'equal_to',
                 values: teamIds,
-                query_operator: hasAgent ? 'and' : null
+                query_operator: (hasAgent || hasDateFrom || hasDateTo) ? 'and' : null
             });
         }
         if (hasAgent) {
@@ -140,6 +145,22 @@ async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null
                 attribute_key: 'assignee_id',
                 filter_operator: 'equal_to',
                 values: agentIds,
+                query_operator: (hasDateFrom || hasDateTo) ? 'and' : null
+            });
+        }
+        if (hasDateFrom) {
+            filters.push({
+                attribute_key: 'created_at',
+                filter_operator: 'greater_than_equal_to',
+                values: [dateFrom],
+                query_operator: hasDateTo ? 'and' : null
+            });
+        }
+        if (hasDateTo) {
+            filters.push({
+                attribute_key: 'created_at',
+                filter_operator: 'less_than_equal_to',
+                values: [dateTo],
                 query_operator: null
             });
         }
@@ -173,8 +194,11 @@ async function getConversationMessages(chatwoot, conversationId) {
  * @param {string}   inboxLabel  - Texto descriptivo para el nombre del archivo
  * @param {number[]|null} teamIds
  * @param {number[]|null} agentIds
+ * @param {function|null} onProgress
+ * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
+ * @param {number|null} dateTo    - Unix timestamp fin (opcional)
  */
-async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null) {
+async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null, dateFrom = null, dateTo = null) {
     const conversationsData = [];
     const messagesData = [];
     const allCustomAttributeKeys = new Set();
@@ -185,7 +209,7 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
     let totalProcessed = 0;
 
     while (hasMorePages) {
-        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds);
+        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds, dateFrom, dateTo);
         if (conversations.length === 0) { hasMorePages = false; break; }
 
         for (const conversation of conversations) {
@@ -373,7 +397,10 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const teamSuffix  = teamIds?.length  > 0 ? `_teams${teamIds.join('-')}`   : '';
     const agentSuffix = agentIds?.length > 0 ? `_agents${agentIds.join('-')}` : '';
-    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}_${timestamp}.xlsx`;
+    const dateSuffix  = (dateFrom || dateTo)
+        ? `_${dateFrom ? new Date(dateFrom * 1000).toISOString().slice(0,10) : 'inicio'}_${dateTo ? new Date(dateTo * 1000).toISOString().slice(0,10) : 'hoy'}`
+        : '';
+    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}${dateSuffix}_${timestamp}.xlsx`;
     const filePath = path.join(exportsDir, fileName);
 
     await workbook.xlsx.writeFile(filePath);
@@ -500,12 +527,17 @@ export async function StartExport(req, res) {
     const accountId = requireAccountId(req.query, res);
     if (!accountId) return;
 
-    const inboxIds = parseIds(req.query.inboxId);
-    const teamIds  = parseIds(req.query.teamId);
-    const agentIds = parseIds(req.query.agentId);
+    const inboxIds  = parseIds(req.query.inboxId);
+    const teamIds   = parseIds(req.query.teamId);
+    const agentIds  = parseIds(req.query.agentId);
+    const dateFrom  = req.query.dateFrom ? Math.floor(new Date(req.query.dateFrom + 'T00:00:00').getTime() / 1000) : null;
+    const dateTo    = req.query.dateTo   ? Math.floor(new Date(req.query.dateTo   + 'T23:59:59').getTime() / 1000) : null;
 
     if (!inboxIds) {
         return res.status(400).json({ error: 'Se requiere al menos un inboxId válido. Ej: inboxId=14 o inboxId=14,8' });
+    }
+    if ((dateFrom && isNaN(dateFrom)) || (dateTo && isNaN(dateTo))) {
+        return res.status(400).json({ error: 'dateFrom y dateTo deben ser fechas válidas. Ej: 2026-01-01' });
     }
 
     const jobId = crypto.randomUUID();
@@ -542,7 +574,8 @@ export async function StartExport(req, res) {
             const job = jobs.get(jobId);
             const { filePath, fileName } = await buildExportFile(
                 chatwoot, inboxIds, inboxLabel, teamIds, agentIds,
-                (current) => { if (job) job.progress = current; }
+                (current) => { if (job) job.progress = current; },
+                dateFrom, dateTo
             );
             if (job) { job.status = 'done'; job.filePath = filePath; job.fileName = fileName; }
         } catch (error) {
