@@ -321,23 +321,23 @@ const createChatwootContact = async (contactData) => {
     try {
         const phoneToUse = contactData.phone || contactData.mobile;
         const fullName = `${contactData.firstname || ''} ${contactData.lastname || ''}`.trim();
-        
+
         // Validar datos mínimos requeridos
         if (!fullName || fullName === '') {
             console.error(`❌ Error: nombre es requerido para crear contacto en Chatwoot`);
             return null;
         }
-        
+
         // Construir payload básico
         const chatwootPayload = {
             name: fullName
         };
-        
+
         // Agregar email solo si es válido
         if (contactData.email && isValidEmail(contactData.email)) {
             chatwootPayload.email = contactData.email;
         }
-        
+
         // Agregar teléfono solo si es válido y en formato E.164
         if (phoneToUse && isValidPhone(phoneToUse)) {
             const normalizedPhone = normalizeUruguayanPhone(phoneToUse);
@@ -346,7 +346,7 @@ const createChatwootContact = async (contactData) => {
                 chatwootPayload.phone_number = `+${normalizedPhone}`;
             }
         }
-        
+
         // Construir custom_attributes solo con valores válidos
         const customAttrs = {};
         if (contactData.id) customAttrs.id = contactData.id;
@@ -360,7 +360,7 @@ const createChatwootContact = async (contactData) => {
         if (contactData.ownerName) customAttrs.owner_name = contactData.ownerName;
         if (contactData.local_demo) customAttrs.local_demo = contactData.local_demo;
         if (contactData.Demo_Fecha_Hora) customAttrs.demo_fecha_hora = contactData.Demo_Fecha_Hora;
-        
+
         if (Object.keys(customAttrs).length > 0) {
             chatwootPayload.custom_attributes = customAttrs;
         }
@@ -399,10 +399,10 @@ const updateChatwootContact = async (chatwootContactId, contactData) => {
     try {
         const phoneToUse = contactData.phone || contactData.mobile;
         const fullName = `${contactData.firstname || ''} ${contactData.lastname || ''}`.trim();
-        
+
         // Construir payload
         const chatwootPayload = {};
-        
+
         if (fullName) chatwootPayload.name = fullName;
         if (contactData.email && isValidEmail(contactData.email)) {
             chatwootPayload.email = contactData.email;
@@ -414,7 +414,7 @@ const updateChatwootContact = async (chatwootContactId, contactData) => {
                 chatwootPayload.phone_number = `+${normalizedPhone}`;
             }
         }
-        
+
         // Construir custom_attributes solo con valores válidos
         const customAttrs = {};
         if (contactData.id) customAttrs.id = contactData.id;
@@ -428,7 +428,7 @@ const updateChatwootContact = async (chatwootContactId, contactData) => {
         if (contactData.ownerName) customAttrs.owner_name = contactData.ownerName;
         if (contactData.local_demo) customAttrs.local_demo = contactData.local_demo;
         if (contactData.Demo_Fecha_Hora) customAttrs.demo_fecha_hora = contactData.Demo_Fecha_Hora;
-        
+
         if (Object.keys(customAttrs).length > 0) {
             chatwootPayload.custom_attributes = customAttrs;
         }
@@ -999,10 +999,10 @@ const createContact = async (contactData) => {
 
     try {
         await executeWithRetry(apiCall, 'CREATE', contactData);
-        
+
         // Sincronizar con Chatwoot después de crear en RD Station
         await syncContactToChatwoot(contactData);
-        
+
         return true;
     } catch (error) {
         // El error ya fue loggeado en executeWithRetry si fue necesario
@@ -1187,10 +1187,10 @@ const updateContact = async (contactUuid, contactData) => {
 
     try {
         await executeWithRetry(apiCall, 'UPDATE', contactData);
-        
+
         // Sincronizar con Chatwoot después de actualizar en RD Station
         await syncContactToChatwoot(contactData);
-        
+
         return true;
     } catch (error) {
         console.log(`❌ Error al actualizar contacto | ID=${contactData?.id} | ${error.message}`);
@@ -2104,18 +2104,18 @@ const registrarDemo = async (req, res) => {
             // Parsear la fecha asumiendo que ya está en hora local
             const dateStr = demoData.Demo_Fecha_Hora;
             const date = new Date(dateStr);
-            
+
             // Extraer componentes de fecha sin conversión de zona horaria
             const year = date.getFullYear();
             const month = date.getMonth();
             const day = date.getDate();
             const hours = date.getHours();
             const minutes = date.getMinutes();
-            
+
             // Nombres de meses en español
-            const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
-                               'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
-            
+            const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+                'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
             // Formatear manualmente para evitar conversiones de zona horaria
             const formattedDate = `${day} de ${monthNames[month]} de ${year} a las ${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
             demoData.Demo_Fecha_Hora = formattedDate;
@@ -2643,6 +2643,320 @@ const actualizacionFirmwareNh2025101735 = async (req, res) => {
 
 
 
+/**
+ * Normaliza un número de teléfono al formato internacional con doble cero y con plus
+ * Ejemplo: '+598 097 090 046' -> { doubleZero: '0059897090046', plus: '+59897090046' }
+ * @param {string} phone - Número de teléfono en cualquier formato
+ * @returns {Object|null} - Objeto con formatos { doubleZero: '00598XXXXXXXX', plus: '+598XXXXXXXX' } o null si es inválido
+ */
+const normalizePhoneToDoubleZero = (phone) => {
+    if (!phone) return null;
+
+    // Limpiar el teléfono de todo excepto dígitos
+    let cleanPhone = phone.replace(/\D/g, '');
+
+    // Si ya tiene el formato completo 00598XXXXXXXX (13 dígitos empezando con 00598)
+    if (cleanPhone.startsWith('00598') && cleanPhone.length >= 12 && cleanPhone.length <= 13) {
+        const localNumber = cleanPhone.substring(5); // Remover 00598
+        return {
+            doubleZero: cleanPhone,
+            plus: '+598' + localNumber
+        };
+    }
+
+    // Si empieza con 598 (formato internacional sin los ceros)
+    if (cleanPhone.startsWith('598')) {
+        cleanPhone = cleanPhone.substring(3); // Remover el 598
+    }
+
+    // Si empieza con 0 (formato local uruguayo)
+    if (cleanPhone.startsWith('0') && cleanPhone.length === 9) {
+        cleanPhone = cleanPhone.substring(1); // Remover el 0 inicial
+    }
+
+    // Ahora cleanPhone debería tener 8 dígitos (el número local sin prefijos)
+    // Devolver ambos formatos
+    if (cleanPhone.length === 8) {
+        return {
+            doubleZero: '00598' + cleanPhone,
+            plus: '+598' + cleanPhone
+        };
+    }
+
+    // Si tiene 9 dígitos, ya está en formato local completo (ej: 097090046)
+    if (cleanPhone.length === 9) {
+        return {
+            doubleZero: '00598' + cleanPhone,
+            plus: '+598' + cleanPhone
+        };
+    }
+
+    console.log(`⚠️ No se pudo normalizar el teléfono: ${phone} -> ${cleanPhone}`);
+    return null;
+};
+
+const expoDgusto = async (req, res) => {
+
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎯 ENDPOINT: /api/rd-station/expo-dgusto INVOCADO');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('Datos recibidos en /api/rd-station:', req.body);
+    const datos_contacto = req.body;
+
+    // Validar que existan leads
+    if (!datos_contacto.leads || !Array.isArray(datos_contacto.leads) || datos_contacto.leads.length === 0) {
+        console.error('❌ ERROR: No se encontraron leads en los datos recibidos');
+        console.error('   Body keys:', Object.keys(datos_contacto));
+        return res.status(400).json({
+            success: false,
+            error: 'No se encontraron leads en los datos recibidos'
+        });
+    }
+
+    console.log(`✅ Leads detectados: ${datos_contacto.leads.length} lead(s)`);
+
+    const lead = datos_contacto.leads[0];
+
+    // Extraer y normalizar el teléfono
+    const rawPhone = lead.mobile_phone || lead.personal_phone || lead.phone;
+    const normalizedPhones = normalizePhoneToDoubleZero(rawPhone);
+
+    console.log(`📞 Teléfono original: ${rawPhone}`);
+    if (normalizedPhones) {
+        console.log(`📞 Teléfono formato 00: ${normalizedPhones.doubleZero}`);
+        console.log(`📞 Teléfono formato +: ${normalizedPhones.plus}`);
+    }
+
+    // Log de información adicional
+    console.log('📧 Email:', lead.email);
+    console.log('👤 Nombre:', lead.name);
+    console.log('🆔 UUID:', lead.uuid);
+    console.log('first_conversion', lead.first_conversion);
+    console.log('last_conversion', lead.last_conversion);
+    console.log('custom_fields', lead.custom_fields);
+
+
+    // Procesar el lead en el portal de recetas si corresponde
+    const lastConversion = lead.last_conversion || lead.first_conversion;
+    const conversionIdentifier = lastConversion?.content?.conversion_identifier || 
+                                 lastConversion?.content?.event_identifier ||
+                                 lastConversion?.source;
+
+    console.log(`🔍 Conversion Identifier: "${conversionIdentifier}"`);
+    
+    if (conversionIdentifier !== 'ichef-portal-de-recetas-gratuito') {
+        console.log(`ℹ️  Este lead NO es del Portal de Recetas`);
+        console.log(`   No se requiere registro adicional`);
+    }
+
+    // Solo procesar si es del portal de recetas
+    if (conversionIdentifier === 'ichef-portal-de-recetas-gratuito') {
+        console.log('🍳 Lead del Portal de Recetas detectado - Iniciando registro...');
+        console.log(`📋 Lead ID: ${lead.id} | Email: ${lead.email} | UUID: ${lead.uuid}`);
+
+        if (!normalizedPhones) {
+            console.error('❌ No se pudo normalizar el teléfono para el portal de recetas');
+            console.error(`   Teléfono original: ${rawPhone}`);
+            return res.status(400).json({
+                success: false,
+                error: 'No se pudo normalizar el número de teléfono',
+                phone: rawPhone
+            });
+        }
+
+        // Dividir el nombre en nombre y apellido
+        const fullName = lead.name || '';
+        const nameParts = fullName.trim().split(' ');
+        const nombre = nameParts[0] || '';
+        const apellido = nameParts.slice(1).join(' ') || '';
+
+        console.log(`👤 Nombre completo: "${fullName}" → Nombre: "${nombre}" | Apellido: "${apellido}"`);
+
+        // Preparar los datos para la API del portal
+        // IMPORTANTE: clientId tiene un límite de 8 caracteres en el Portal
+        const clientIdOriginal = String(lead.id);
+        const clientIdTruncated = clientIdOriginal.substring(0, 8);
+        
+        const portalData = {
+            nombre: nombre,
+            apellido: apellido,
+            cellphone: normalizedPhones.plus, // Usar formato +598XXXXXXXX
+            email: lead.email,
+            clientId: clientIdTruncated
+        };
+
+        if (clientIdOriginal.length > 8) {
+            console.log(`⚠️ Client ID truncado: "${clientIdOriginal}" → "${clientIdTruncated}" (máx 8 caracteres)`);
+        }
+
+        console.log('📤 Enviando datos al Portal de Recetas:', JSON.stringify(portalData, null, 2));
+        console.log(`🔗 URL: https://www.ichef.uy:8443/ICHEF-WAR/usuarios/register_guest`);
+
+        try {
+            // Llamar a la API del portal de recetas
+            console.log(`⏳ Iniciando petición HTTP POST...`);
+            const startTime = Date.now();
+            
+            const portalResponse = await axios.post(
+                'https://www.ichef.uy:8443/ICHEF-WAR/usuarios/register_guest',
+                portalData,
+                {
+                    headers: {
+                        'Content-Type': 'application/json; charset=UTF-8'
+                    },
+                    timeout: 15000 // 15 segundos de timeout
+                }
+            );
+
+            const duration = Date.now() - startTime;
+            console.log(`✅ Respuesta recibida del Portal en ${duration}ms`);
+            console.log('📥 Status Code:', portalResponse.status);
+            console.log('📥 Respuesta del Portal de Recetas:', JSON.stringify(portalResponse.data, null, 2));
+
+            // Verificar si el registro fue exitoso
+            if (portalResponse.data.code === 200) {
+                console.log(`✅ ¡REGISTRO EXITOSO EN PORTAL DE RECETAS!`);
+                console.log(`   Lead ID: ${lead.id}`);
+                console.log(`   Email: ${lead.email}`);
+                console.log(`   User ID Portal: ${portalResponse.data.message}`);
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                // Enviar respuesta exitosa con información del portal
+                return res.status(200).json({
+                    success: true,
+                    message: 'Lead procesado y registrado en Portal de Recetas exitosamente',
+                    data: {
+                        email: lead.email,
+                        name: lead.name,
+                        phone_original: rawPhone,
+                        phone_normalized_00: normalizedPhones.doubleZero,
+                        phone_normalized_plus: normalizedPhones.plus,
+                        uuid: lead.uuid,
+                        portal_registration: {
+                            success: true,
+                            user_id: portalResponse.data.message,
+                            message: 'Usuario registrado en Portal de Recetas'
+                        }
+                    }
+                });
+            } else {
+                console.error(`⚠️ Respuesta no exitosa del Portal de Recetas`);
+                console.error(`   Code recibido: ${portalResponse.data.code}`);
+                console.error(`   Message: ${portalResponse.data.message}`);
+                console.error(`   Lead ID: ${lead.id}`);
+                console.error(`   Email: ${lead.email}`);
+                console.log('═══════════════════════════════════════════════════════════');
+                
+                // Enviar respuesta con advertencia
+                return res.status(200).json({
+                    success: true,
+                    message: 'Lead procesado pero hubo un problema al registrar en Portal de Recetas',
+                    data: {
+                        email: lead.email,
+                        name: lead.name,
+                        phone_original: rawPhone,
+                        phone_normalized_00: normalizedPhones.doubleZero,
+                        phone_normalized_plus: normalizedPhones.plus,
+                        uuid: lead.uuid,
+                        portal_registration: {
+                            success: false,
+                            code: portalResponse.data.code,
+                            message: portalResponse.data.message,
+                            errors: portalResponse.data.errors
+                        }
+                    }
+                });
+            }
+        } catch (portalError) {
+            console.error('❌ ERROR AL LLAMAR A LA API DEL PORTAL DE RECETAS');
+            console.error(`   Lead ID: ${lead.id}`);
+            console.error(`   Email: ${lead.email}`);
+            console.error(`   Teléfono: ${normalizedPhones.plus}`);
+            console.error(`   Error Message: ${portalError.message}`);
+            
+            if (portalError.response) {
+                console.error(`   HTTP Status: ${portalError.response.status}`);
+                console.error(`   Response Headers:`, portalError.response.headers);
+                console.error(`   Response Data:`, JSON.stringify(portalError.response.data, null, 2));
+                
+                // Analizar el tipo de error
+                if (portalError.response.status === 400) {
+                    console.error(`   ⚠️ Error 400 - Bad Request`);
+                    console.error(`   Posibles causas:`);
+                    console.error(`     - Email o teléfono ya registrado`);
+                    console.error(`     - Formato de datos inválido`);
+                    console.error(`     - Validación de campos fallida`);
+                } else if (portalError.response.status === 500) {
+                    console.error(`   ⚠️ Error 500 - Error del servidor del Portal`);
+                }
+            } else if (portalError.request) {
+                console.error(`   ⚠️ No se recibió respuesta del servidor`);
+                console.error(`   Request enviado pero sin respuesta`);
+            } else {
+                console.error(`   ⚠️ Error al configurar la petición`);
+            }
+
+            // A pesar del error en el portal, el lead fue recibido correctamente
+            // No fallar completamente, solo reportar el error
+            console.log('═══════════════════════════════════════════════════════════');
+            return res.status(200).json({
+                success: true,
+                message: 'Lead recibido pero error al registrar en Portal de Recetas',
+                data: {
+                    email: lead.email,
+                    name: lead.name,
+                    phone_original: rawPhone,
+                    phone_normalized_00: normalizedPhones.doubleZero,
+                    phone_normalized_plus: normalizedPhones.plus,
+                    uuid: lead.uuid,
+                    portal_registration: {
+                        success: false,
+                        error: portalError.message,
+                        status: portalError.response?.status,
+                        details: portalError.response?.data
+                    }
+                }
+            });
+        }
+    }
+
+
+
+    if (!normalizedPhones) {
+        console.error('❌ ERROR: No se pudo normalizar el teléfono');
+        console.error(`   Teléfono recibido: ${rawPhone}`);
+        return res.status(400).json({
+            success: false,
+            error: 'No se pudo normalizar el número de teléfono',
+            phone: rawPhone
+        });
+    }
+
+
+    // Enviar respuesta exitosa
+    console.log('✅ Lead procesado exitosamente (no requiere registro en Portal)');
+    console.log(`   Email: ${lead.email}`);
+    console.log(`   UUID: ${lead.uuid}`);
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    res.status(200).json({
+        success: true,
+        message: 'Datos recibidos y procesados correctamente',
+        data: {
+            email: lead.email,
+            name: lead.name,
+            phone_original: rawPhone,
+            phone_normalized_00: normalizedPhones.doubleZero,
+            phone_normalized_plus: normalizedPhones.plus,
+            uuid: lead.uuid
+        }
+    });
+};
+
+
+
+
 export {
     importarContactos,
     isValidEmail,
@@ -2661,5 +2975,7 @@ export {
     initializeCredentials,
     testConversionEvent,
     actualizacionFirmwareNh2025101735,
-    normalizeUruguayanPhone
+    normalizeUruguayanPhone,
+    normalizePhoneToDoubleZero,
+    expoDgusto
 };
