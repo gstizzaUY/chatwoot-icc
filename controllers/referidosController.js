@@ -118,7 +118,7 @@ async function ObtenerReferidos(req, res) {
 		const contact = await GetContact(email);
 		if (contact) {
 			var referidos = JSON.parse(contact.cf_referidos || "[]");
-			referidos = referidos.filter(r => !type || r.type === type);
+			referidos = referidos.filter(r => !r.type || r.type === type);
 			return res.status(200).json(referidos);
 		}
 	} catch (error) {
@@ -128,7 +128,7 @@ async function ObtenerReferidos(req, res) {
 			const contact = await GetContact(email);
 			if (contact) {
 				var referidos = JSON.parse(contact.cf_referidos || "[]");
-				referidos = referidos.filter(r => !type || r.type === type);
+				referidos = referidos.filter(r => !r.type || r.type === type);
 				return res.status(200).json(referidos);
 			}
 		}
@@ -178,9 +178,12 @@ async function AgregarReferidoLogic(body) {
 		return [400, { message: "No se pudo crear el referido" }];
 
 	await SendEvent(emailReferido, "referido-portal");
-	const cupon = await ObtenerCupon(referente, referido);
-	referido.cupon_referido = cupon;
-	referido.enlace_compra = GenerarEnlaceCompra(cupon);
+	let cupon = "";
+	if (type === "referido") {
+		cupon = await ObtenerCupon(referente, referido);
+		referido.cupon_referido = cupon;
+		referido.enlace_compra = GenerarEnlaceCompra(cupon);
+	}
 
 	const referidoData = {
 		name: nombre_referido,
