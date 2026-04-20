@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -31,6 +32,21 @@ const rdstation = axios.create({
     baseURL: RDSTATION_URL,
     headers: { 'Content-Type': 'application/json' }
 });
+
+// --- Job store en memoria ---
+const jobs = new Map();
+
+// Limpiar jobs más viejos de 1 hora cada 30 minutos
+setInterval(() => {
+    const ONE_HOUR = 60 * 60 * 1000;
+    const now = Date.now();
+    for (const [jobId, job] of jobs.entries()) {
+        if (now - job.createdAt > ONE_HOUR) {
+            if (job.filePath && fs.existsSync(job.filePath)) fs.unlink(job.filePath, () => {});
+            jobs.delete(jobId);
+        }
+    }
+}, 30 * 60 * 1000);
 
 // --- Helpers internos ---
 
@@ -97,18 +113,23 @@ function parseIds(param) {
  * @param {number[]} inboxIds  - IDs de inboxes (requerido)
  * @param {number[]|null} teamIds  - IDs de equipos (opcional)
  * @param {number[]|null} agentIds - IDs de agentes (opcional)
+ * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
+ * @param {number|null} dateTo    - Unix timestamp fin (opcional)
  */
-async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null) {
+async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null, dateFrom = null, dateTo = null) {
     try {
-        const hasTeam = teamIds?.length > 0;
-        const hasAgent = agentIds?.length > 0;
+        const hasTeam   = teamIds?.length > 0;
+        const hasAgent  = agentIds?.length > 0;
+        const hasDateFrom = dateFrom != null;
+        const hasDateTo   = dateTo   != null;
+        const hasMore = hasTeam || hasAgent || hasDateFrom || hasDateTo;
 
         const filters = [
             {
                 attribute_key: 'inbox_id',
                 filter_operator: 'equal_to',
                 values: inboxIds,
-                query_operator: (hasTeam || hasAgent) ? 'and' : null
+                query_operator: hasMore ? 'and' : null
             }
         ];
         if (hasTeam) {
@@ -116,7 +137,7 @@ async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null
                 attribute_key: 'team_id',
                 filter_operator: 'equal_to',
                 values: teamIds,
-                query_operator: hasAgent ? 'and' : null
+                query_operator: (hasAgent || hasDateFrom || hasDateTo) ? 'and' : null
             });
         }
         if (hasAgent) {
@@ -124,6 +145,22 @@ async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null
                 attribute_key: 'assignee_id',
                 filter_operator: 'equal_to',
                 values: agentIds,
+                query_operator: (hasDateFrom || hasDateTo) ? 'and' : null
+            });
+        }
+        if (hasDateFrom) {
+            filters.push({
+                attribute_key: 'created_at',
+                filter_operator: 'greater_than_equal_to',
+                values: [dateFrom],
+                query_operator: hasDateTo ? 'and' : null
+            });
+        }
+        if (hasDateTo) {
+            filters.push({
+                attribute_key: 'created_at',
+                filter_operator: 'less_than_equal_to',
+                values: [dateTo],
                 query_operator: null
             });
         }
@@ -157,8 +194,11 @@ async function getConversationMessages(chatwoot, conversationId) {
  * @param {string}   inboxLabel  - Texto descriptivo para el nombre del archivo
  * @param {number[]|null} teamIds
  * @param {number[]|null} agentIds
+ * @param {function|null} onProgress
+ * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
+ * @param {number|null} dateTo    - Unix timestamp fin (opcional)
  */
-async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds) {
+async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null, dateFrom = null, dateTo = null) {
     const conversationsData = [];
     const messagesData = [];
     const allCustomAttributeKeys = new Set();
@@ -166,12 +206,15 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
 
     let page = 1;
     let hasMorePages = true;
+    let totalProcessed = 0;
 
     while (hasMorePages) {
-        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds);
+        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds, dateFrom, dateTo);
         if (conversations.length === 0) { hasMorePages = false; break; }
 
         for (const conversation of conversations) {
+            totalProcessed++;
+            if (onProgress) onProgress(totalProcessed);
             let contact = processedContacts.get(conversation.meta.sender.id);
             if (!contact) {
                 contact = await getContactDetails(chatwoot, conversation.meta.sender.id);
@@ -354,7 +397,10 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
     const teamSuffix  = teamIds?.length  > 0 ? `_teams${teamIds.join('-')}`   : '';
     const agentSuffix = agentIds?.length > 0 ? `_agents${agentIds.join('-')}` : '';
-    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}_${timestamp}.xlsx`;
+    const dateSuffix  = (dateFrom || dateTo)
+        ? `_${dateFrom ? new Date(dateFrom * 1000).toISOString().slice(0,10) : 'inicio'}_${dateTo ? new Date(dateTo * 1000).toISOString().slice(0,10) : 'hoy'}`
+        : '';
+    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}${dateSuffix}_${timestamp}.xlsx`;
     const filePath = path.join(exportsDir, fileName);
 
     await workbook.xlsx.writeFile(filePath);
@@ -471,65 +517,125 @@ export async function GetAgents(req, res) {
 }
 
 /**
- * GET /api/export/conversations?accountId=2&inboxId=14,8&teamId=4,7&agentId=12,5
- *
- * Headers requeridos:
- *   x-export-token: <valor de EXPORT_SECRET en .env>
- *
- * Parámetros:
- *   accountId  (requerido)         - ID de cuenta Chatwoot
- *   inboxId    (requerido)         - ID/s de inbox. Ej: 14  |  14,8  |  inboxId=14&inboxId=8
- *   teamId     (opcional)          - ID/s de equipo. Mismos formatos que inboxId
- *   agentId    (opcional)          - ID/s de agente. Mismos formatos que inboxId
- *
- * Responde con el archivo Excel como descarga directa.
+ * POST /api/export/conversations?accountId=2&inboxId=14&teamId=4
+ * Inicia la exportación en background y responde INMEDIATAMENTE con un jobId.
+ * No bloquea la conexión — evita el timeout 524 de Cloudflare y similares.
  */
-export async function ExportConversations(req, res) {
+export async function StartExport(req, res) {
     if (!requireToken(req, res)) return;
 
     const accountId = requireAccountId(req.query, res);
     if (!accountId) return;
 
-    const inboxIds = parseIds(req.query.inboxId);
-    const teamIds  = parseIds(req.query.teamId);
-    const agentIds = parseIds(req.query.agentId);
+    const inboxIds  = parseIds(req.query.inboxId);
+    const teamIds   = parseIds(req.query.teamId);
+    const agentIds  = parseIds(req.query.agentId);
+    const dateFrom  = req.query.dateFrom ? Math.floor(new Date(req.query.dateFrom + 'T00:00:00').getTime() / 1000) : null;
+    const dateTo    = req.query.dateTo   ? Math.floor(new Date(req.query.dateTo   + 'T23:59:59').getTime() / 1000) : null;
 
     if (!inboxIds) {
         return res.status(400).json({ error: 'Se requiere al menos un inboxId válido. Ej: inboxId=14 o inboxId=14,8' });
     }
-
-    try {
-        const chatwoot = makeChatwoot(accountId);
-
-        // Verificar que todos los inboxIds existen en la cuenta
-        const allInboxes = await fetchInboxes(chatwoot);
-        const validInboxes = allInboxes.filter(i => inboxIds.includes(i.id));
-        const notFound = inboxIds.filter(id => !allInboxes.find(i => i.id === id));
-        if (notFound.length > 0) {
-            return res.status(404).json({
-                error: `Los siguientes inboxId no existen en la cuenta ${accountId}: ${notFound.join(', ')}`
-            });
-        }
-
-        // Etiqueta descriptiva para el nombre del archivo
-        const inboxLabel = validInboxes.length === 1
-            ? validInboxes[0].name
-            : `multi_inbox_${inboxIds.join('-')}`;
-
-        // Inicializar token de RD Station (no bloquea si falla)
-        await updateRDStationToken();
-
-        const { filePath, fileName } = await buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds);
-
-        // Enviar el archivo y luego eliminarlo del servidor
-        res.download(filePath, fileName, (err) => {
-            fs.unlink(filePath, () => {}); // limpiar archivo temporal tras la descarga
-            if (err && !res.headersSent) {
-                res.status(500).json({ error: 'Error al enviar el archivo.' });
-            }
-        });
-    } catch (error) {
-        console.error('Error en ExportConversations:', error.message);
-        res.status(500).json({ error: 'Error interno al generar la exportación.', detail: error.message });
+    if ((dateFrom && isNaN(dateFrom)) || (dateTo && isNaN(dateTo))) {
+        return res.status(400).json({ error: 'dateFrom y dateTo deben ser fechas válidas. Ej: 2026-01-01' });
     }
+
+    const jobId = crypto.randomUUID();
+    jobs.set(jobId, { status: 'processing', progress: 0, filePath: null, fileName: null, error: null, createdAt: Date.now() });
+
+    // Responde inmediatamente antes de iniciar el proceso pesado
+    res.status(202).json({
+        jobId,
+        status: 'processing',
+        statusUrl: `/api/export/status/${jobId}`,
+        downloadUrl: `/api/export/download/${jobId}`
+    });
+
+    // Procesar en background sin bloquear
+    (async () => {
+        try {
+            const chatwoot = makeChatwoot(accountId);
+            const allInboxes = await fetchInboxes(chatwoot);
+            const validInboxes = allInboxes.filter(i => inboxIds.includes(i.id));
+            const notFound = inboxIds.filter(id => !allInboxes.find(i => i.id === id));
+
+            if (notFound.length > 0) {
+                const job = jobs.get(jobId);
+                if (job) { job.status = 'error'; job.error = `inboxId no encontrados en la cuenta ${accountId}: ${notFound.join(', ')}`; }
+                return;
+            }
+
+            const inboxLabel = validInboxes.length === 1
+                ? validInboxes[0].name
+                : `multi_inbox_${inboxIds.join('-')}`;
+
+            await updateRDStationToken();
+
+            const job = jobs.get(jobId);
+            const { filePath, fileName } = await buildExportFile(
+                chatwoot, inboxIds, inboxLabel, teamIds, agentIds,
+                (current) => { if (job) job.progress = current; },
+                dateFrom, dateTo
+            );
+            if (job) { job.status = 'done'; job.filePath = filePath; job.fileName = fileName; }
+        } catch (error) {
+            const job = jobs.get(jobId);
+            if (job) { job.status = 'error'; job.error = error.message; }
+            console.error(`[Export Job ${jobId}] Error:`, error.message);
+        }
+    })();
+}
+
+/**
+ * GET /api/export/status/:jobId
+ * Devuelve el estado del job. Hacer polling cada 5-10 segundos.
+ */
+export async function GetExportStatus(req, res) {
+    if (!requireToken(req, res)) return;
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) return res.status(404).json({ error: 'Job no encontrado o expirado (máx. 1 hora).' });
+
+    res.json({
+        jobId,
+        status: job.status,
+        conversacionesProcesadas: job.progress,
+        fileName: job.status === 'done' ? job.fileName : null,
+        downloadUrl: job.status === 'done' ? `/api/export/download/${jobId}` : null,
+        error: job.error || null
+    });
+}
+
+/**
+ * GET /api/export/download/:jobId
+ * Descarga el Excel generado. Solo disponible cuando status === "done".
+ * El archivo y el job se eliminan del servidor tras la descarga.
+ */
+export async function DownloadExport(req, res) {
+    if (!requireToken(req, res)) return;
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+
+    if (!job) return res.status(404).json({ error: 'Job no encontrado o expirado (máx. 1 hora).' });
+
+    if (job.status === 'processing') {
+        return res.status(202).json({
+            status: 'processing',
+            conversacionesProcesadas: job.progress,
+            message: `Exportación en proceso. Consultá el estado en /api/export/status/${jobId}`
+        });
+    }
+
+    if (job.status === 'error') return res.status(500).json({ status: 'error', error: job.error });
+
+    if (!job.filePath || !fs.existsSync(job.filePath)) {
+        return res.status(404).json({ error: 'Archivo no disponible.' });
+    }
+
+    res.download(job.filePath, job.fileName, (err) => {
+        jobs.delete(jobId);
+        fs.unlink(job.filePath, () => {});
+        if (err && !res.headersSent) res.status(500).json({ error: 'Error al enviar el archivo.' });
+    });
 }

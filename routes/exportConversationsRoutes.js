@@ -4,7 +4,9 @@ import {
     GetInboxes,
     GetTeams,
     GetAgents,
-    ExportConversations
+    StartExport,
+    GetExportStatus,
+    DownloadExport
 } from '../controllers/exportConversationsController.js';
 
 const router = express.Router();
@@ -22,9 +24,17 @@ router.get('/teams', GetTeams);
 // GET /api/export/agents?accountId=2
 router.get('/agents', GetAgents);
 
-// --- Exportación ---
-// GET /api/export/conversations?accountId=2&inboxId=14&teamId=4&agentId=5
-// Header requerido: x-export-token: <EXPORT_SECRET>
-router.get('/conversations', ExportConversations);
+// --- Exportación asíncrona (patrón polling — no bloquea la conexión) ---
+// Paso 1: POST /api/export/conversations?accountId=2&inboxId=14&teamId=4
+//         → responde inmediatamente con { jobId, statusUrl, downloadUrl }
+router.post('/conversations', StartExport);
+
+// Paso 2: GET /api/export/status/:jobId
+//         → { status: 'processing'|'done'|'error', conversacionesProcesadas }
+router.get('/status/:jobId', GetExportStatus);
+
+// Paso 3: GET /api/export/download/:jobId
+//         → descarga el .xlsx cuando status === 'done'
+router.get('/download/:jobId', DownloadExport);
 
 export default router;

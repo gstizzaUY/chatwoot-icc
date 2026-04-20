@@ -6,7 +6,8 @@ import {
     getCredentialsStatus,
     getCircuitBreakerStatus,
     initializeCredentials,
-    testConversionEvent
+    testConversionEvent,
+    expoDgusto
 } from '../controllers/rdStationControllers.js';
 import onboarding from '../controllers/onboardingController.js';
 import onboardingHsmStarterPack from '../controllers/onboardingHsmController.js';
@@ -16,10 +17,18 @@ import { actualizacionFirmwareNh2025101735 } from '../controllers/rdStationContr
 
 const router = express.Router();
 
+router.post('/', (req, res) => {
+    console.log('datos recibidos en /api/rd-station:', req.body);
+    res.status(200).json({ success: true, message: 'Datos recibidos correctamente' });
+});
+
 // Endpoints principales
 router.post('/importar-contactos', importarContactos);
 router.post('/actualizar-contacto', actualizarContacto);
 router.post('/registro-demo', registrarDemo);
+
+// Endpoint para Expo D'Gusto
+router.post('/expo-dgusto', expoDgusto);
 
 // Endpoint de test para eventos de conversión
 router.post('/test-conversion-event', testConversionEvent);
