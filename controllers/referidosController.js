@@ -162,11 +162,13 @@ async function AgregarReferidoLogic(body) {
 		return [400, { message: "No se encontró el referente" }];
 
 	const emailReferido = email_referido || GenerateContactId(celular_referido);
+	const datosReferido = `${referente.name} (${referente.mobile_phone})`;
 	const newContactData = {
 		name: nombre_referido,
 		email: emailReferido,
 		mobile_phone: celular_referido,
-		cf_referido_por: `${referente.name} (${referente.mobile_phone})`
+		...(type === "referido" && { cf_referido_por: datosReferido }),
+		...(type === "partner" && { cf_referido_por_O: datosReferido })
 	};
 	let referido = await GetContact(emailReferido);
 	if (!referido) {
@@ -222,4 +224,23 @@ async function AgregarReferido(req, res) {
 	return res.status(400).send("No se pudo agregar el referido");
 }
 
-export { ObtenerReferidos, AgregarReferido };
+async function RegistrarEvento(req, res) {
+	res.header("Access-Control-Allow-Origin", "*");
+	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	console.log("RegistrarEvento body:", req.body);
+	const { email, event_name } = req.body;
+	if (!email) return res.status(400).send({ message: "Agrega un email a tu perfil" });
+	try {
+		const response = await SendEvent(email, event_name);
+		return res.status(200).json(response);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			await UpdateAccessToken();
+			const response = await SendEvent(email, event_name);
+			return res.status(200).json(response);
+		}
+	}
+	return res.status(400).send("Error al registrar evento");
+}
+
+export { ObtenerReferidos, AgregarReferido, RegistrarEvento };
