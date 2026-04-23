@@ -19,7 +19,7 @@ const chatwoot = axios.create({
 async function ListContacts(page) {
 	try {
 		const response = await chatwoot.get(`/contacts?page=${page}`);
-		return response.data.payload;
+		return { contacts: response.data.payload, count: response.data.meta.count };
 	} catch (error) {
 		console.error(`Failed to list contacts on page ${page}`, error.message);
 		return null;
@@ -60,12 +60,21 @@ async function MergeContacts(base, mergee) {
 	}
 }
 
+async function DeleteContact(contactId) {
+	try {
+		await chatwoot.delete(`/contacts/${contactId}`);
+	} catch (error) {
+		console.error(`Failed to delete contact ${contactId}`, error.message);
+	}
+}
+
 async function updateAllContacts() {
 	let page = 0;
+	let count = 0;
 	let contacts = [];
 	do {
-		console.log(`Processing page #${page}`);
-		contacts = await ListContacts(page);
+		({ contacts, count } = await ListContacts(page));
+		console.log(`Processing page #${page} / ${Math.ceil(count / 15)}`);
 		for (const contact of contacts) {
 			// Tech contacts don't have a listed phone
 			if (!contact.phone_number)
@@ -77,11 +86,14 @@ async function updateAllContacts() {
 				if (originalContact) {
 					console.log(`Merging contact ${contact.id} into ${originalContact.id}`);
 					const mergedContact = await MergeContacts(originalContact.id, contact.id);
-					if (mergedContact) {
+					if (mergedContact)
 						console.log(`Contacts merged: ${mergedContact.id}`);
-					}
-				} else
+					else
+						await DeleteContact(contact.id);
+				} else {
 					console.log(`No contact found for phone ${fixedPhone}`);
+					await DeleteContact(contact.id);
+				}
 				//return;
 			}
 		}
