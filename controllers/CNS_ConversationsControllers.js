@@ -179,6 +179,8 @@ async function CreateConversation(contactId, inboxId, contactPhone, messageConte
 		contact_id: contactId,
 		status: "resolved",
 		message: {
+			message_type: "outgoing",
+			private: true,
 			content: messageContent
 		}
 	};
