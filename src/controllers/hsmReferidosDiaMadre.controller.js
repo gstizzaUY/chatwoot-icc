@@ -70,10 +70,10 @@ const hsmReferidosDiaMadre = async (req, res) => {
         process.env.EVOLUTION_APIKEY || '49C2506BEDA7-46A6-8EC3-C8ABD1EA0551';
 
     const MESSAGE_TEXT =
-        '🎁 iChef Lovers, este Día de la Madre tienen un regalo esperándolos. ' +
+        '🎁 iChef Lovers, este Día de la Madre tienen un regalo esperándolos.\n\n' +
         'Si referís a un amigo y compra su iChef con la promo especial (USD 1.290), ' +
-        'vos te llevás un bolso iChef o un slicer rallador rebanador a elección (valor USD 120). ' +
-        'Es simple: compartís tu amor por iChef, tu amigo compra, vos ganás. ' +
+        'vos te llevás un bolso iChef o un slicer rallador rebanador a elección (valor USD 120).\n\n' +
+        'Es simple: compartís tu amor por iChef, tu amigo compra, vos ganás.\n\n' +
         '¡Aprovechá que es solo por esta promo!';
 
     const listaLeads = req.body;
