@@ -63,15 +63,11 @@ const normalizeWhatsappNumber = (raw) => {
 // { "leads": [ { "id", "uuid", "email", "mobile_phone", ... }, ... ] }
 // ============================================================
 const hsmReferidosDiaMadre = async (req, res) => {
-    const EVOLUTION_SENDMEDIA_URL =
-        process.env.EVOLUTION_SENDMEDIA_URL ||
-        'https://evolution-evolution.5vsa59.easypanel.host/message/sendMedia/iChef%20Center%20Wpp';
+    const EVOLUTION_SENDTEXT_URL =
+        process.env.EVOLUTION_SENDTEXT_URL ||
+        'https://evolution-evolution.5vsa59.easypanel.host/message/sendText/iChef%20Center%20Wpp';
     const EVOLUTION_APIKEY =
         process.env.EVOLUTION_APIKEY || '49C2506BEDA7-46A6-8EC3-C8ABD1EA0551';
-
-    // URL pública de la imagen (requiere BACKEND_URL configurado en .env)
-    const BACKEND_URL = (process.env.BACKEND_URL || '').replace(/\/$/, '');
-    const IMAGE_URL = `${BACKEND_URL}/assets/Wapp-Referi-y-gana.png`;
 
     const MESSAGE_TEXT =
         '🎁 iChef Lovers, este Día de la Madre tienen un regalo esperándolos. ' +
@@ -88,13 +84,6 @@ const hsmReferidosDiaMadre = async (req, res) => {
         return res.status(400).json({
             success: false,
             error: 'Body inválido: se esperaba { leads: [...] }'
-        });
-    }
-
-    if (!BACKEND_URL) {
-        return res.status(500).json({
-            success: false,
-            error: 'BACKEND_URL no configurado en variables de entorno'
         });
     }
 
@@ -167,12 +156,10 @@ const hsmReferidosDiaMadre = async (req, res) => {
 
             try {
                 await axios.post(
-                    EVOLUTION_SENDMEDIA_URL,
+                    EVOLUTION_SENDTEXT_URL,
                     {
                         number,
-                        mediatype: 'image',
-                        media: IMAGE_URL,
-                        caption: MESSAGE_TEXT
+                        text: MESSAGE_TEXT
                     },
                     {
                         headers: {
