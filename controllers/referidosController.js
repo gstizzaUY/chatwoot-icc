@@ -74,14 +74,17 @@ async function UpdateContact(email, contactData) {
 	}
 }
 
-async function SendEvent(email, event_name) {
+// hmmm
+async function SendEvent(email, userData) {
 	try {
 		const response = await rdstation.post("/platform/events?event_type=conversion", {
 			event_type: "CONVERSION",
 			event_family: "CDP",
 			payload: {
-				conversion_identifier: event_name,
-				email: email
+				conversion_identifier: userData.event_name,
+				email: email,
+				name: userData.name,
+				mobile_phone: userData.phone
 			}
 		});
 		return response.data;
@@ -179,7 +182,7 @@ async function AgregarReferidoLogic(body) {
 	if (!referido)
 		return [400, { message: "No se pudo crear el referido" }];
 
-	await SendEvent(emailReferido, "referido-portal");
+	await SendEvent(emailReferido, { event_name: "referido-portal" });
 	let cupon = "";
 	if (type === "referido") {
 		cupon = await ObtenerCupon(referente, referido);
@@ -227,16 +230,16 @@ async function AgregarReferido(req, res) {
 async function RegistrarEvento(req, res) {
 	res.header("Access-Control-Allow-Origin", "*");
 	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-	console.log("RegistrarEvento body:", req.body);
-	const { email, event_name } = req.body;
-	if (!email) return res.status(400).send({ message: "Agrega un email a tu perfil" });
+	const { phone, email } = req.body;
+	const contactEmail = email || GenerateContactId(phone);
+	if (!contactEmail) return res.status(400).send({ message: "Agrega un email a tu perfil" });
 	try {
-		const response = await SendEvent(email, event_name);
+		const response = await SendEvent(contactEmail, req.body);
 		return res.status(200).json(response);
 	} catch (error) {
 		if (error.message === "INVALID_TOKEN") {
 			await UpdateAccessToken();
-			const response = await SendEvent(email, event_name);
+			const response = await SendEvent(contactEmail, req.body);
 			return res.status(200).json(response);
 		}
 	}
