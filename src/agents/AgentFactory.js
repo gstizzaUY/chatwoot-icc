@@ -1,5 +1,6 @@
 import PreVentaAgent from './pre-venta/PreVentaAgent.js';
 import PostVentaAgent from './post-venta/PostVentaAgent.js';
+import NutridorAgent from './nutridor/NutridorAgent.js';
 import { AGENT_TYPES } from '../constants/agent.constants.js';
 
 /**
@@ -18,6 +19,7 @@ class AgentFactory {
     _initializeAgents() {
         this.agents.set(AGENT_TYPES.PRE_VENTA, new PreVentaAgent());
         this.agents.set(AGENT_TYPES.POST_VENTA, new PostVentaAgent());
+        this.agents.set(AGENT_TYPES.NUTRIDOR, new NutridorAgent());
         // AGENT_TYPES.RESUMEN se manejará de manera especial
     }
 

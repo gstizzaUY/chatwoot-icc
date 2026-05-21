@@ -26,8 +26,29 @@ export const messageCreated = async (req, res) => {
             payload.message_type === 'incoming' ||
             payload.incoming === true;
 
-        // Ignorar mensajes salientes (del agente humano)
-        if (!isIncoming) {
+        const inboxId = payload.conversation?.inbox_id;
+
+        // EXCEPCIÓN: Canal 23 (iChef Marty Wpp) - verificar si es el mensaje trigger del Nutridor
+        const isChannel23 = inboxId === 23;
+        
+        // Si es canal 23 y mensaje saliente, verificar si contiene el trigger
+        if (!isIncoming && isChannel23) {
+            const messageContent = (payload.content || '').toLowerCase();
+            const hasTrigger = messageContent.includes('como no ingresaste ninguna opción');
+            
+            if (!hasTrigger) {
+                console.log('⏭️  Mensaje saliente en canal 23 sin trigger - ignorado');
+                return res.status(200).json({
+                    success: true,
+                    message: 'Mensaje saliente sin trigger ignorado'
+                });
+            }
+            
+            console.log('📤 Mensaje trigger detectado en canal 23 - procesando...');
+        }
+
+        // Ignorar mensajes salientes (del agente humano) en otros canales
+        if (!isIncoming && !isChannel23) {
             console.log('⏭️  Mensaje saliente (del agente) - ignorado');
             return res.status(200).json({
                 success: true,
@@ -35,7 +56,9 @@ export const messageCreated = async (req, res) => {
             });
         }
 
-        console.log('✅ Mensaje del cliente - procesando...');
+        if (isIncoming) {
+            console.log('✅ Mensaje del cliente - procesando...');
+        }
 
         // Ejecutar orquestador
         const result = await agentOrchestratorService.processWebhookEvent(

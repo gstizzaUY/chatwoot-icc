@@ -6,12 +6,13 @@
 export const AGENT_TYPES = {
     PRE_VENTA: 'pre-venta',
     POST_VENTA: 'post-venta',
-    RESUMEN: 'resumen'
+    RESUMEN: 'resumen',
+    NUTRIDOR: 'nutridor'
 };
 
 // Canales de pre-venta (comerciales)
 export const PRE_VENTA_CHANNELS = [
-    23, // iChef Marty Wpp
+    23, // iChef Marty Wpp (con prioridad de Nutridor primero)
     33, // Correo Marty MKT-RD
     1,  // Correo Marty
     20, // Pre-Venta SDR
@@ -21,6 +22,11 @@ export const PRE_VENTA_CHANNELS = [
     45  // iChef Comercial Wpp
 ];
 
+// Canales de nutridor (captura de información)
+export const NUTRIDOR_CHANNELS = [
+    23  // iChef Marty Wpp (con bot pre-atendedor)
+];
+
 // Canales de post-venta
 export const POST_VENTA_CHANNELS = [
     41, // Actualizaciones Firmware
@@ -28,9 +34,10 @@ export const POST_VENTA_CHANNELS = [
 ];
 
 // Mapeo de canales a tipos de agente
+// NOTA: Canal 23 tiene configuración especial - prioridad Nutridor, luego PreVenta
 export const CHANNEL_TO_AGENT = {
     // Pre-venta
-    23: AGENT_TYPES.PRE_VENTA,
+    23: AGENT_TYPES.PRE_VENTA,  // iChef Marty Wpp (Nutridor tiene prioridad)
     33: AGENT_TYPES.PRE_VENTA,
     1: AGENT_TYPES.PRE_VENTA,
     20: AGENT_TYPES.PRE_VENTA,
@@ -59,6 +66,11 @@ export const AGENT_TRIGGERS = {
     [AGENT_TYPES.RESUMEN]: {
         events: ['conversation_status_changed'],
         status: ['resolved']            // Solo cuando se cierra la conversación
+    },
+    [AGENT_TYPES.NUTRIDOR]: {
+        events: ['message_created'],
+        triggerMessage: 'Como no ingresaste ninguna opción te derivamos con un asesor humano para una mejor atención.',
+        continueUntilHumanOrComplete: true  // Continúa hasta que humano responda o tenga suficiente info
     }
 };
 
@@ -75,6 +87,10 @@ export const AGENT_RATE_LIMITS = {
     [AGENT_TYPES.RESUMEN]: {
         maxPerConversation: 1,      // Solo 1 vez al cerrar
         cooldown: 0
+    },
+    [AGENT_TYPES.NUTRIDOR]: {
+        maxPerConversation: 15,     // Máximo 15 interacciones
+        cooldown: 30000             // 30 segundos entre mensajes
     }
 };
 
