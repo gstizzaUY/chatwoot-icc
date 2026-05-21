@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { normalizePhone } from '../utils/phone.utils.js';
 
 dotenv.config();
 
@@ -16,6 +17,30 @@ const chatwoot = axios.create({
     timeout: 30000
 });
 
+// ── Cliente RD Station con auto-refresh de token ──────────────────────────────
+const rdstation = axios.create({
+    baseURL: process.env.RDSTATION_URL || 'https://api.rd.services',
+    headers: { 'Content-Type': 'application/json' }
+});
+
+const setRdToken = (token) => {
+    rdstation.defaults.headers['Authorization'] = `Bearer ${token}`;
+};
+
+const refreshRdToken = async () => {
+    const resp = await axios.post(
+        `${process.env.RDSTATION_URL || 'https://api.rd.services'}/auth/token`,
+        {
+            client_id:     process.env.RDSTATION_CLIENT_ID,
+            client_secret: process.env.RDSTATION_CLIENT_SECRET,
+            refresh_token: process.env.RDSTATION_REFRESH_TOKEN
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+    );
+    return resp.data.access_token;
+};
+
+// ──────────────────────────────────────────────────────────────────
 // Inbox: "Experiencias iChef Wpp" (id=38)
 const INBOX_ID = 38;
 // Agente Neiff Cardozo (id=19), Team id=4
@@ -24,37 +49,66 @@ const TEAM_ID = 4;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const buildPayloadItem = (key, value) => {
-    if (!value) return null;
-    return {
-        attribute_key: key,
-        filter_operator: 'equal_to',
-        values: [value],
-        query_operator: 'OR'
-    };
+// Mapeo de nombres de país (RD Station) a código ISO para normalizePhone
+const COUNTRY_NAME_TO_ISO = {
+    'uruguay':    'UY', 'argentina':  'AR', 'brasil':    'BR',
+    'brazil':     'BR', 'chile':      'CL', 'colombia':  'CO',
+    'peru':       'PE', 'perú':       'PE', 'ecuador':   'EC',
+    'bolivia':    'BO', 'paraguay':   'PY', 'venezuela': 'VE'
+};
+
+const getCountryCode = (lead) => {
+    const raw = (lead.country || '').toLowerCase().trim();
+    return COUNTRY_NAME_TO_ISO[raw] || 'UY';
 };
 
 /**
- * Busca un contacto en Chatwoot por id RD, email o teléfono.
+ * Busca un contacto en Chatwoot: primero por email, luego por teléfono normalizado.
  * Retorna el contacto o null.
  */
 const findContact = async (lead) => {
-    const items = [
-        { key: 'id',           value: lead.id     || null },
-        { key: 'email',        value: lead.email  || null },
-        { key: 'phone_number', value: lead.personal_phone || lead.mobile_phone || lead.phone || null }
-    ]
-        .map(item => buildPayloadItem(item.key, item.value))
-        .filter(Boolean)
-        .map((item, idx, arr) => ({
-            ...item,
-            query_operator: idx === arr.length - 1 ? null : 'OR'
-        }));
+    const rawPhone  = lead.personal_phone || lead.mobile_phone || lead.phone || null;
+    const email     = lead.email || null;
+    const countryIso = getCountryCode(lead);
+    const phone     = rawPhone ? normalizePhone(rawPhone, countryIso) : null;
 
-    if (items.length === 0) return null;
+    // 1. Buscar por email
+    if (email) {
+        try {
+            const resp = await chatwoot.post('/contacts/filter', {
+                payload: [{ attribute_key: 'email', filter_operator: 'equal_to', values: [email], query_operator: null }]
+            });
+            if (resp.data.meta.count > 0) {
+                console.log(`[comunidad-lovers] Contacto encontrado por email: ${email}`);
+                return resp.data.payload[0];
+            }
+        } catch (err) {
+            console.warn(`[comunidad-lovers] Error buscando por email "${email}": ${err.message}`);
+            if (err.response?.data) console.warn('[comunidad-lovers] Detalle:', JSON.stringify(err.response.data));
+        }
+    }
 
-    const resp = await chatwoot.post('/contacts/filter', { payload: items });
-    if (resp.data.meta.count > 0) return resp.data.payload[0];
+    // 2. Buscar por teléfono normalizado (E.164)
+    if (phone) {
+        try {
+            const resp = await chatwoot.post('/contacts/filter', {
+                payload: [{ attribute_key: 'phone_number', filter_operator: 'equal_to', values: [phone], query_operator: null }]
+            });
+            if (resp.data.meta.count > 0) {
+                console.log(`[comunidad-lovers] Contacto encontrado por teléfono: ${phone}`);
+                return resp.data.payload[0];
+            }
+        } catch (err) {
+            console.warn(`[comunidad-lovers] Error buscando por teléfono "${phone}": ${err.message}`);
+            if (err.response?.data) console.warn('[comunidad-lovers] Detalle:', JSON.stringify(err.response.data));
+        }
+    }
+
+    if (!email && !phone) {
+        console.log(`[comunidad-lovers] Sin email ni teléfono para buscar: ${lead.name}`);
+    } else {
+        console.log(`[comunidad-lovers] Contacto no encontrado para: email=${email} | phone=${phone}`);
+    }
     return null;
 };
 
@@ -68,6 +122,10 @@ const createContact = async (lead) => {
         ? lead.email
         : phone ? `${phone.replace(/\D/g, '')}@email.com` : null;
 
+    if (!email && !phone) {
+        throw new Error(`Lead sin email ni teléfono: no se puede crear en Chatwoot (nombre: ${lead.name})`);
+    }
+
     const payload = { name: lead.name || 'Sin nombre' };
     if (email)  payload.email        = email;
     if (phone)  payload.phone_number = phone;
@@ -78,8 +136,11 @@ const createContact = async (lead) => {
     if (lead.country) customAttrs.country = lead.country;
     if (Object.keys(customAttrs).length > 0) payload.custom_attributes = customAttrs;
 
+    console.log(`[comunidad-lovers] Creando contacto:`, JSON.stringify(payload));
     const resp = await chatwoot.post('/contacts', payload);
-    return resp.data.payload || resp.data;
+    const contact = resp.data?.payload?.contact || resp.data?.payload || resp.data;
+    if (!contact?.id) throw new Error(`Chatwoot no retornó un contacto válido: ${JSON.stringify(resp.data)}`);
+    return contact;
 };
 
 /**
@@ -114,19 +175,54 @@ const createInternalNote = async (conversationId, content) => {
  * Formatea los datos del lead en texto legible para la nota interna.
  */
 const formatLeadData = (lead) => {
+    // cf_id_equipo puede venir plano o dentro de custom_fields
+    const robotId = lead.cf_id_equipo || lead.custom_fields?.cf_id_equipo || null;
+
     const fields = [
         ['Nombre',        lead.name],
         ['Email',         lead.email],
         ['Teléfono',      lead.personal_phone || lead.mobile_phone || lead.phone],
-        ['Ciudad',        lead.city],
         ['País',          lead.country],
         ['Empresa',       lead.company],
+        ['ID del robot',  robotId],
         ['Etapa',         lead.lead_stage],
-        ['ID RD Station', lead.id],
-        ['UUID',          lead.uuid],
     ].filter(([, v]) => v);
 
     return fields.map(([k, v]) => `• *${k}:* ${v}`).join('\n');
+};
+
+/**
+ * Actualiza tiene_ichef a "Sí" en el contacto de Chatwoot.
+ */
+const updateTieneIchefChatwoot = async (contactId) => {
+    await chatwoot.patch(`/contacts/${contactId}`, {
+        custom_attributes: { tiene_ichef: 'Sí' }
+    });
+};
+
+/**
+ * Actualiza cf_tiene_ichef a "Sí" en RD Station.
+ * Usa auto-refresh de token si recibe 401.
+ */
+const updateTieneIchefRdStation = async (email) => {
+    const doUpdate = async () => {
+        await rdstation.patch(
+            `/platform/contacts/email:${encodeURIComponent(email)}`,
+            { cf_tiene_ichef: 'Sí' }
+        );
+    };
+
+    try {
+        await doUpdate();
+    } catch (err) {
+        if (err.response?.status === 401) {
+            const newToken = await refreshRdToken();
+            setRdToken(newToken);
+            await doUpdate();
+        } else {
+            throw err;
+        }
+    }
 };
 
 // ── Handler principal ─────────────────────────────────────────────────────────
@@ -159,7 +255,7 @@ const solicitudAccesoComunidad = async (req, res) => {
 
         for (const lead of leads) {
             try {
-                console.log(`[comunidad-lovers] Procesando lead: ${lead.name} (${lead.email})`);
+                console.log(`[comunidad-lovers] --- Procesando: ${lead.name} | email: ${lead.email} | tel: ${lead.personal_phone || lead.mobile_phone || lead.phone || 'N/A'}`);
 
                 // 1. Buscar o crear contacto en Chatwoot
                 let contact = await findContact(lead);
@@ -175,6 +271,7 @@ const solicitudAccesoComunidad = async (req, res) => {
 
                 // 2. Crear conversación en "Experiencias iChef Wpp" (id=38)
                 const conversation = await createConversation(contact.id);
+                if (!conversation?.id) throw new Error(`Chatwoot no retornó conversación válida: ${JSON.stringify(conversation)}`);
                 console.log(`[comunidad-lovers] Conversación creada: ID ${conversation.id}`);
 
                 // 3. Crear nota interna con los datos del lead
@@ -185,6 +282,44 @@ const solicitudAccesoComunidad = async (req, res) => {
 
                 await createInternalNote(conversation.id, noteContent);
                 console.log(`[comunidad-lovers] ✓ Nota interna creada en conversación ${conversation.id}`);
+
+                // 4. Actualizar tiene_ichef si está vacío o en "No"
+                const tieneIchef = contact.custom_attributes?.tiene_ichef;
+                const needsUpdate = !tieneIchef || tieneIchef === 'No';
+
+                if (needsUpdate) {
+                    const email = contact.email ||
+                        `${(lead.personal_phone || lead.mobile_phone || lead.phone || '').replace(/\D/g, '')}@email.com`;
+
+                    let chatwootUpdated = false;
+                    let rdUpdated = false;
+                    const updateErrors = [];
+
+                    try {
+                        await updateTieneIchefChatwoot(contact.id);
+                        chatwootUpdated = true;
+                    } catch (e) {
+                        updateErrors.push(`Chatwoot: ${e.message}`);
+                        console.error(`[comunidad-lovers] Error actualizando tiene_ichef en Chatwoot:`, e.message);
+                    }
+
+                    try {
+                        await updateTieneIchefRdStation(email);
+                        rdUpdated = true;
+                    } catch (e) {
+                        updateErrors.push(`RD Station: ${e.message}`);
+                        console.error(`[comunidad-lovers] Error actualizando cf_tiene_ichef en RD Station:`, e.message);
+                    }
+
+                    const updateNote = chatwootUpdated || rdUpdated
+                        ? `✅ *tiene_ichef actualizado a "Sí"*\n` +
+                          `• Chatwoot: ${chatwootUpdated ? 'actualizado' : 'error - ' + updateErrors.find(e => e.startsWith('Chatwoot'))}\n` +
+                          `• RD Station: ${rdUpdated ? 'actualizado' : 'error - ' + updateErrors.find(e => e.startsWith('RD'))}`
+                        : `⚠️ No se pudo actualizar tiene_ichef: ${updateErrors.join(' | ')}`;
+
+                    await createInternalNote(conversation.id, updateNote);
+                    console.log(`[comunidad-lovers] tiene_ichef → Chatwoot:${chatwootUpdated} RD:${rdUpdated}`);
+                }
 
                 results.created += 1;
                 results.details.push({
@@ -198,23 +333,31 @@ const solicitudAccesoComunidad = async (req, res) => {
 
             } catch (err) {
                 results.errors += 1;
-                console.error(`[comunidad-lovers] ✗ Error procesando lead ${lead.id}:`, err.message);
-                if (err.response?.data) {
-                    console.error('[comunidad-lovers] Detalles:', JSON.stringify(err.response.data));
-                }
+                console.error(
+                    `[comunidad-lovers] ✗ ERROR lead "${lead.name}" (${lead.email || lead.personal_phone || lead.mobile_phone || 'sin contacto'}):`,
+                    err.message
+                );
+                if (err.response?.status)  console.error(`  HTTP ${err.response.status}`);
+                if (err.response?.data)    console.error(`  Detalle:`, JSON.stringify(err.response.data));
                 results.details.push({
                     leadId: lead.id,
+                    name:   lead.name,
                     email:  lead.email,
                     status: 'error',
-                    error:  err.message
+                    error:  err.message,
+                    httpStatus: err.response?.status
                 });
             }
+
+            // Delay entre leads para no saturar la API de Chatwoot
+            await new Promise(resolve => setTimeout(resolve, 300));
         }
 
         console.log('[comunidad-lovers] Resumen final:', {
             received: results.received,
             created:  results.created,
-            errors:   results.errors
+            errors:   results.errors,
+            errorDetails: results.details.filter(d => d.status === 'error')
         });
     });
 };
