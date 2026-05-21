@@ -68,7 +68,7 @@ const getCountryCode = (lead) => {
  */
 const findContact = async (lead) => {
     const rawPhone  = lead.personal_phone || lead.mobile_phone || lead.phone || null;
-    const email     = lead.email || null;
+    const email     = (lead.email && lead.email.includes('@')) ? lead.email : null;
     const countryIso = getCountryCode(lead);
     const phone     = rawPhone ? normalizePhone(rawPhone, countryIso) : null;
 
@@ -79,12 +79,13 @@ const findContact = async (lead) => {
                 payload: [{ attribute_key: 'email', filter_operator: 'equal_to', values: [email], query_operator: null }]
             });
             if (resp.data.meta.count > 0) {
-                console.log(`[comunidad-lovers] Contacto encontrado por email: ${email}`);
+                console.log(`[comunidad-lovers] Contacto encontrado por email: ${email} (ID ${resp.data.payload[0].id})`);
                 return resp.data.payload[0];
             }
         } catch (err) {
             console.warn(`[comunidad-lovers] Error buscando por email "${email}": ${err.message}`);
-            if (err.response?.data) console.warn('[comunidad-lovers] Detalle:', JSON.stringify(err.response.data));
+            if (err.response?.status) console.warn(`  HTTP ${err.response.status}`);
+            if (err.response?.data)   console.warn('  Detalle:', JSON.stringify(err.response.data));
         }
     }
 
@@ -95,19 +96,18 @@ const findContact = async (lead) => {
                 payload: [{ attribute_key: 'phone_number', filter_operator: 'equal_to', values: [phone], query_operator: null }]
             });
             if (resp.data.meta.count > 0) {
-                console.log(`[comunidad-lovers] Contacto encontrado por teléfono: ${phone}`);
+                console.log(`[comunidad-lovers] Contacto encontrado por teléfono: ${phone} (ID ${resp.data.payload[0].id})`);
                 return resp.data.payload[0];
             }
         } catch (err) {
             console.warn(`[comunidad-lovers] Error buscando por teléfono "${phone}": ${err.message}`);
-            if (err.response?.data) console.warn('[comunidad-lovers] Detalle:', JSON.stringify(err.response.data));
+            if (err.response?.status) console.warn(`  HTTP ${err.response.status}`);
+            if (err.response?.data)   console.warn('  Detalle:', JSON.stringify(err.response.data));
         }
     }
 
     if (!email && !phone) {
         console.log(`[comunidad-lovers] Sin email ni teléfono para buscar: ${lead.name}`);
-    } else {
-        console.log(`[comunidad-lovers] Contacto no encontrado para: email=${email} | phone=${phone}`);
     }
     return null;
 };
@@ -117,7 +117,9 @@ const findContact = async (lead) => {
  * Si no tiene email, genera uno ficticio a partir del teléfono.
  */
 const createContact = async (lead) => {
-    const phone = lead.personal_phone || lead.mobile_phone || lead.phone || null;
+    const rawPhone   = lead.personal_phone || lead.mobile_phone || lead.phone || null;
+    const countryIso = getCountryCode(lead);
+    const phone      = rawPhone ? normalizePhone(rawPhone, countryIso) : null;
     const email = (lead.email && lead.email.includes('@'))
         ? lead.email
         : phone ? `${phone.replace(/\D/g, '')}@email.com` : null;
@@ -136,11 +138,31 @@ const createContact = async (lead) => {
     if (lead.country) customAttrs.country = lead.country;
     if (Object.keys(customAttrs).length > 0) payload.custom_attributes = customAttrs;
 
-    console.log(`[comunidad-lovers] Creando contacto:`, JSON.stringify(payload));
-    const resp = await chatwoot.post('/contacts', payload);
-    const contact = resp.data?.payload?.contact || resp.data?.payload || resp.data;
-    if (!contact?.id) throw new Error(`Chatwoot no retornó un contacto válido: ${JSON.stringify(resp.data)}`);
-    return contact;
+    console.log(`[comunidad-lovers] Creando contacto: ${payload.name} | email=${payload.email} | phone=${payload.phone_number}`);
+    try {
+        const resp = await chatwoot.post('/contacts', payload);
+        const contact = resp.data?.payload?.contact || resp.data?.payload || resp.data;
+        if (!contact?.id) throw new Error(`Chatwoot no retornó un contacto válido: ${JSON.stringify(resp.data)}`);
+        return { ...contact, _wasCreated: true };
+    } catch (err) {
+        // Fallback: si el teléfono ya existe en otro contacto, buscarlo por dígitos
+        if (err.response?.status === 422 &&
+            err.response?.data?.message?.includes('Phone number has already been taken') &&
+            phone) {
+            const digits = phone.replace(/\D/g, '');
+            console.log(`[comunidad-lovers] Teléfono ${phone} ya registrado, buscando contacto existente...`);
+            const search = await chatwoot.get('/contacts/search', {
+                params: { q: digits, include_contacts: true, page: 1 }
+            });
+            const matches = search.data?.payload;
+            if (matches?.length > 0) {
+                const match = matches.find(c => (c.phone_number || '').replace(/\D/g, '') === digits) || matches[0];
+                console.log(`[comunidad-lovers] Contacto encontrado por teléfono duplicado: ID ${match.id}`);
+                return match;
+            }
+        }
+        throw err;
+    }
 };
 
 /**
@@ -155,6 +177,7 @@ const createConversation = async (contactId) => {
         team_id:     TEAM_ID
     };
 
+    console.log(`[comunidad-lovers] Creando conversación para contactId=${contactId}`);
     const resp = await chatwoot.post('/conversations', payload);
     return resp.data;
 };
@@ -175,8 +198,8 @@ const createInternalNote = async (conversationId, content) => {
  * Formatea los datos del lead en texto legible para la nota interna.
  */
 const formatLeadData = (lead) => {
-    // cf_id_equipo puede venir plano o dentro de custom_fields
-    const robotId = lead.cf_id_equipo || lead.custom_fields?.cf_id_equipo || null;
+    // id_equipo viene dentro de custom_fields en el payload de RD Station
+    const robotId = lead.custom_fields?.id_equipo || lead.cf_id_equipo || null;
 
     const fields = [
         ['Nombre',        lead.name],
@@ -237,11 +260,14 @@ const solicitudAccesoComunidad = async (req, res) => {
     const leads = req.body?.leads;
 
     if (!Array.isArray(leads) || leads.length === 0) {
+        console.error('[comunidad-lovers] Body inválido. Body recibido:', JSON.stringify(req.body));
         return res.status(400).json({
             success: false,
             error: 'Body inválido: se esperaba { leads: [...] }'
         });
     }
+
+    console.log(`[comunidad-lovers] Recibidos ${leads.length} leads`);
 
     // Responder inmediatamente (202) para evitar reintentos de RD Station
     res.status(202).json({
@@ -251,7 +277,9 @@ const solicitudAccesoComunidad = async (req, res) => {
     });
 
     setImmediate(async () => {
+        console.log('[comunidad-lovers] Iniciando procesamiento en background...');
         const results = { received: leads.length, created: 0, errors: 0, details: [] };
+        try {
 
         for (const lead of leads) {
             try {
@@ -263,8 +291,12 @@ const solicitudAccesoComunidad = async (req, res) => {
 
                 if (!contact) {
                     contact = await createContact(lead);
-                    wasCreated = true;
-                    console.log(`[comunidad-lovers] Contacto creado: ID ${contact.id}`);
+                    if (contact._wasCreated) {
+                        wasCreated = true;
+                        console.log(`[comunidad-lovers] Contacto nuevo creado: ID ${contact.id}`);
+                    } else {
+                        console.log(`[comunidad-lovers] Contacto encontrado (tel duplicado): ID ${contact.id}`);
+                    }
                 } else {
                     console.log(`[comunidad-lovers] Contacto encontrado: ID ${contact.id}`);
                 }
@@ -354,11 +386,14 @@ const solicitudAccesoComunidad = async (req, res) => {
         }
 
         console.log('[comunidad-lovers] Resumen final:', {
-            received: results.received,
-            created:  results.created,
-            errors:   results.errors,
-            errorDetails: results.details.filter(d => d.status === 'error')
-        });
+                received: results.received,
+                created:  results.created,
+                errors:   results.errors,
+                errorDetails: results.details.filter(d => d.status === 'error')
+            });
+        } catch (fatalErr) {
+            console.error('[comunidad-lovers] ERROR FATAL en background:', fatalErr.message, fatalErr.stack);
+        }
     });
 };
 
