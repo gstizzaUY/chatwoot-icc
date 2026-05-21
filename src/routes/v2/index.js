@@ -2,6 +2,7 @@ import express from 'express';
 import webhookRoutes from './webhook.routes.js';
 import debugRoutes from './debug.routes.js';
 import hsmRoutes from './hsm.routes.js';
+import comunidadLoversRoutes from './comunidadLovers.routes.js';
 // import contactRoutes from './contact.routes.js';
 // import conversationRoutes from './conversation.routes.js';
 // import dealRoutes from './deal.routes.js';
@@ -30,6 +31,9 @@ router.use('/debug', debugRoutes);
 
 // HSM - Campañas de mensajes masivos por WhatsApp (Evolution API)
 router.use('/hsm', hsmRoutes);
+
+// Comunidad iChef Lovers - Solicitudes desde el Portal de Recetas
+router.use('/comunidad-lovers', comunidadLoversRoutes);
 
 // Rutas de recursos (requieren autenticación de API Key)
 // TODO: Descomentar cuando estén implementados
