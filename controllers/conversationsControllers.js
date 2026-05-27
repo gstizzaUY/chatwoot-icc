@@ -245,6 +245,7 @@ async function ProcessOutgoingMessage(message) {
 	}
 
 	if (messageContent.includes("derivamos con un asesor")) message.in_bot = false;
+	if (messageContent.includes("Gracias por contactarte.")) message.in_bot = false;
 
 	const BOT_ACTIVE = "bot_activo";
 	let labels = await Getlabels(conversationId);
