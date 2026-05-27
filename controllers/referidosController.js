@@ -161,8 +161,13 @@ async function AgregarReferidoLogic(body) {
 	if (!email || !nombre_referido || !celular_referido)
 		return [400, { message: "Faltan datos" }];
 	let referente = await GetContact(email);
-	if (!referente)
-		return [400, { message: "No se encontró el referente" }];
+	if (!referente) {
+		referente = await CreateContact({
+			email: email,
+			name: "Referente sin nombre",
+			mobile_phone: "00000000"
+		});
+	}
 
 	const emailReferido = email_referido || GenerateContactId(celular_referido);
 	const datosReferido = `${referente.name} (${referente.mobile_phone})`;
@@ -195,7 +200,7 @@ async function AgregarReferidoLogic(body) {
 		phone: celular_referido,
 		date: getCurrentDateTime(),
 		coupon: cupon,
-		type: type || "desconocido"
+		type: type || "desconocido" // "referido", "partner"
 	};
 	const referidos = JSON.parse(referente.cf_referidos || "[]");
 	if (!referidos.some(r => r.phone === celular_referido)) {
