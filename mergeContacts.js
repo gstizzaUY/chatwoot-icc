@@ -88,8 +88,6 @@ async function updateAllContacts() {
 					const mergedContact = await MergeContacts(originalContact.id, contact.id);
 					if (mergedContact)
 						console.log(`Contacts merged: ${mergedContact.id}`);
-					else
-						await DeleteContact(contact.id);
 				} else {
 					console.log(`No contact found for phone ${fixedPhone}`);
 					await DeleteContact(contact.id);

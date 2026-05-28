@@ -84,7 +84,7 @@ async function SendEvent(email, userData) {
 				conversion_identifier: userData.event_name,
 				email: email,
 				name: userData.name,
-				mobile_phone: userData.phone
+				personal_phone: userData.phone
 			}
 		});
 		return response.data;
@@ -99,9 +99,9 @@ async function SendEvent(email, userData) {
 async function ObtenerCupon(referente, referido) {
 	const body = {
 		nombre_lover: referente.name,
-		celular_lover: referente.mobile_phone,
+		celular_lover: referente.personal_phone,
 		nombre_referido: referido.name,
-		celular_referido: referido.mobile_phone
+		celular_referido: referido.personal_phone
 	};
 	const response = await axios.post("https://ichef.com.uy", body);
 	return response.data.codigo_descuento;
@@ -164,17 +164,17 @@ async function AgregarReferidoLogic(body) {
 	if (!referente) {
 		referente = await CreateContact({
 			email: email,
-			name: "Referente sin nombre",
-			mobile_phone: "00000000"
+			name: "Referente",
+			personal_phone: ""
 		});
 	}
 
 	const emailReferido = email_referido || GenerateContactId(celular_referido);
-	const datosReferido = `${referente.name} (${referente.mobile_phone})`;
+	const datosReferido = `${referente.name} (${referente.personal_phone})`;
 	const newContactData = {
 		name: nombre_referido,
 		email: emailReferido,
-		mobile_phone: celular_referido,
+		personal_phone: celular_referido,
 		...(type === "referido" && { cf_referido_por: datosReferido }),
 		...(type === "partner" && { cf_referido_por_O: datosReferido })
 	};
@@ -194,7 +194,6 @@ async function AgregarReferidoLogic(body) {
 		referido.cupon_referido = cupon;
 		referido.enlace_compra = GenerarEnlaceCompra(cupon);
 	}
-
 	const referidoData = {
 		name: nombre_referido,
 		phone: celular_referido,
@@ -202,18 +201,19 @@ async function AgregarReferidoLogic(body) {
 		coupon: cupon,
 		type: type || "desconocido" // "referido", "partner"
 	};
-	const referidos = JSON.parse(referente.cf_referidos || "[]");
-	if (!referidos.some(r => r.phone === celular_referido)) {
-		referidos.push(referidoData);
-		referente.cf_referidos = JSON.stringify(referidos);
-		referente = await UpdateContact(email, { cf_referidos: referente.cf_referidos });
-	}
+	var referidos = JSON.parse(referente.cf_referidos || "[]");
+	//if (!referidos.some(r => r.phone === celular_referido)) {
+	referidos = referidos.filter(r => r.phone !== celular_referido);
+	referidos.push(referidoData);
+	referente.cf_referidos = JSON.stringify(referidos);
+	referente = await UpdateContact(email, { cf_referidos: referente.cf_referidos });
+	//}
+
+	console.log("Referido actualizado:", referidoData);
 
 	if (!referente)
 		return [400, { message: "No se pudo actualizar el referente" }];
-	console.log("Referente actualizado:", referente.cf_referidos);
-
-	return [200, referido];
+	return [200, referidoData];
 }
 
 async function AgregarReferido(req, res) {
