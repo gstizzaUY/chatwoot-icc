@@ -108,7 +108,7 @@ async function ObtenerCupon(referente, referido) {
 }
 
 async function GenerarEnlaceCompra(cupon) {
-	return `https://ichef.com.uy/finalizar-compra/?add-to-cart=20513&coupon_code=${cupon}`;
+	return `https://ichef.com.uy/finalizar-compra/?add-to-cart=24631&coupon_code=${cupon}`;
 }
 
 async function ObtenerReferidos(req, res) {
