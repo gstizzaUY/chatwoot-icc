@@ -211,6 +211,7 @@ const processLead = async (lead, etapa) => {
         team_id: 4,
         message: {
             content: contactData.system_message,
+            private: true,
         }
     };
 
