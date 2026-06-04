@@ -10,7 +10,7 @@ dotenv.config();
 const sentRegistry = new Map(); // key: "campaña:leadId:number" -> timestamp
 const DEDUPE_TTL_MS = Number(process.env.HSM_DEDUPE_TTL_MS || 24 * 60 * 60 * 1000); // 24h
 
-const CAMPAIGN_KEY = 'ciber-lunes-2026';
+const CAMPAIGN_KEY = 'ciberlunes_2026_lovers';
 
 const SAILBOT_API_URL =
     'https://app.sailbot.biz/Bot-Server/api/messages/whatsapp-template';
@@ -19,7 +19,7 @@ const SAILBOT_AUTH = 'Basic aWNoZWZAbWFpbC5jb206c2FpbGJvdDIwMjA=';
 // WhatsApp Business account "from" (número de origen fijo en Sailbot)
 const SAILBOT_FROM = '587863384414365';
 
-const TEMPLATE_NAME = 'ciber_lunes_2026';
+const TEMPLATE_NAME = 'ciberlunes_2026_lovers';
 const TEMPLATE_VARIABLES = [
     {
         header_image:
