@@ -21,7 +21,7 @@ const TEMPLATE_NAME = 'ciberlunes_melany';
 const TEMPLATE_VARIABLES = [
     {
         header_image:
-            'https://img.auctiva.com/imgdata/1/5/5/1/4/3/4/webimg/1179416611_o.jpg'
+            'https://img.auctiva.com/imgdata/1/5/5/1/4/3/4/webimg/1179417276_o.png'
     }
 ];
 
