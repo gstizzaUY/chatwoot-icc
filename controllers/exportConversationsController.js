@@ -21,7 +21,7 @@ const RDSTATION_CLIENT_SECRET = process.env.RDSTATION_CLIENT_SECRET;
 const RDSTATION_REFRESH_TOKEN = process.env.RDSTATION_REFRESH_TOKEN;
 
 /** Crea un cliente Chatwoot para la cuenta indicada */
-function makeChatwoot(accountId) {
+export function makeChatwoot(accountId) {
     return axios.create({
         baseURL: `${chatwoot_url}/api/v1/accounts/${accountId}`,
         headers: { 'Content-Type': 'application/json', 'api_access_token': api_access_token }
@@ -36,12 +36,12 @@ const rdstation = axios.create({
 // --- Job store en memoria ---
 const jobs = new Map();
 
-// Limpiar jobs más viejos de 1 hora cada 30 minutos
+// Limpiar jobs más viejos de 4 horas cada 30 minutos
 setInterval(() => {
-    const ONE_HOUR = 60 * 60 * 1000;
+    const FOUR_HOURS = 4 * 60 * 60 * 1000;
     const now = Date.now();
     for (const [jobId, job] of jobs.entries()) {
-        if (now - job.createdAt > ONE_HOUR) {
+        if (now - job.createdAt > FOUR_HOURS) {
             if (job.filePath && fs.existsSync(job.filePath)) fs.unlink(job.filePath, () => {});
             jobs.delete(jobId);
         }
@@ -113,8 +113,8 @@ function parseIds(param) {
  * @param {number[]} inboxIds  - IDs de inboxes (requerido)
  * @param {number[]|null} teamIds  - IDs de equipos (opcional)
  * @param {number[]|null} agentIds - IDs de agentes (opcional)
- * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
- * @param {number|null} dateTo    - Unix timestamp fin (opcional)
+ * @param {string|null} dateFrom  - Fecha inicio en formato 'YYYY-MM-DD' (opcional)
+ * @param {string|null} dateTo    - Fecha fin en formato 'YYYY-MM-DD' (opcional)
  */
 async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null, agentIds = null, dateFrom = null, dateTo = null) {
     try {
@@ -151,15 +151,15 @@ async function getConversationsPage(chatwoot, inboxIds, page = 1, teamIds = null
         if (hasDateFrom) {
             filters.push({
                 attribute_key: 'created_at',
-                filter_operator: 'greater_than_equal_to',
+                filter_operator: 'is_greater_than',
                 values: [dateFrom],
-                query_operator: hasDateTo ? 'and' : null
+                query_operator: hasDateTo ? 'AND' : null
             });
         }
         if (hasDateTo) {
             filters.push({
                 attribute_key: 'created_at',
-                filter_operator: 'less_than_equal_to',
+                filter_operator: 'is_less_than',
                 values: [dateTo],
                 query_operator: null
             });
@@ -195,25 +195,28 @@ async function getConversationMessages(chatwoot, conversationId) {
  * @param {number[]|null} teamIds
  * @param {number[]|null} agentIds
  * @param {function|null} onProgress
- * @param {number|null} dateFrom  - Unix timestamp inicio (opcional)
- * @param {number|null} dateTo    - Unix timestamp fin (opcional)
+ * @param {string|null} dateFrom  - Fecha inicio en formato 'YYYY-MM-DD' (opcional)
+ * @param {string|null} dateTo    - Fecha fin en formato 'YYYY-MM-DD' (opcional)
  */
-async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null, dateFrom = null, dateTo = null) {
+export async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds, onProgress = null, dateFrom = null, dateTo = null) {
     const conversationsData = [];
     const messagesData = [];
     const allCustomAttributeKeys = new Set();
     const processedContacts = new Map();
 
-    let page = 1;
-    let hasMorePages = true;
     let totalProcessed = 0;
+    const processedCids = new Set();
 
-    while (hasMorePages) {
-        const conversations = await getConversationsPage(chatwoot, inboxIds, page, teamIds, agentIds, dateFrom, dateTo);
-        if (conversations.length === 0) { hasMorePages = false; break; }
+    for (const inboxId of inboxIds) {
+        let inboxPage = 1;
+        while (true) {
+            const conversations = await getConversationsPage(chatwoot, [inboxId], inboxPage, teamIds, agentIds, dateFrom, dateTo);
+            if (conversations.length === 0) break;
 
-        for (const conversation of conversations) {
-            totalProcessed++;
+            for (const conversation of conversations) {
+                if (processedCids.has(conversation.id)) continue;
+                processedCids.add(conversation.id);
+                totalProcessed++;
             if (onProgress) onProgress(totalProcessed);
             let contact = processedContacts.get(conversation.meta.sender.id);
             if (!contact) {
@@ -297,12 +300,14 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
                     contactIdentifier: contact?.identifier || '',
                     customAttributes: rdCustomAttrs
                 });
-            }
-        }
+            } // end for messages
 
-        page++;
-        await new Promise(resolve => setTimeout(resolve, 500));
-    }
+            } // end for conversation
+
+            inboxPage++;
+            await new Promise(resolve => setTimeout(resolve, 500));
+        } // end while per-inbox
+    } // end for inboxId
 
     // Construir Excel
     const sortedCustomKeys = Array.from(allCustomAttributeKeys).sort();
@@ -394,13 +399,16 @@ async function buildExportFile(chatwoot, inboxIds, inboxLabel, teamIds, agentIds
     const exportsDir = path.join(__dirname, '..', 'exports');
     if (!fs.existsSync(exportsDir)) fs.mkdirSync(exportsDir, { recursive: true });
 
+    const sanitize = (s) => s.replace(/[^a-zA-Z0-9áéíóúÁÉÍÓÚñÑ\s_-]/g, '').trim().replace(/\s+/g, '_').slice(0, 60);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-    const teamSuffix  = teamIds?.length  > 0 ? `_teams${teamIds.join('-')}`   : '';
-    const agentSuffix = agentIds?.length > 0 ? `_agents${agentIds.join('-')}` : '';
+    const teamSuffix  = teamIds?.length  > 0 ? `_eq${teamIds.join('-')}`   : '';
+    const agentSuffix = agentIds?.length > 0 ? `_ag${agentIds.join('-')}` : '';
     const dateSuffix  = (dateFrom || dateTo)
-        ? `_${dateFrom ? new Date(dateFrom * 1000).toISOString().slice(0,10) : 'inicio'}_${dateTo ? new Date(dateTo * 1000).toISOString().slice(0,10) : 'hoy'}`
+        ? `_${dateFrom || 'inicio'}_${dateTo || 'hoy'}`
         : '';
-    const fileName = `conversaciones_${inboxLabel.replace(/[^a-z0-9]/gi, '_')}${teamSuffix}${agentSuffix}${dateSuffix}_${timestamp}.xlsx`;
+    const labelPart = sanitize(inboxLabel);
+    const fileName = `conversaciones_${labelPart}${teamSuffix}${agentSuffix}${dateSuffix}_${timestamp}.xlsx`
+        .replace(/_+/g, '_'); // collapse multiple underscores
     const filePath = path.join(exportsDir, fileName);
 
     await workbook.xlsx.writeFile(filePath);
@@ -530,14 +538,27 @@ export async function StartExport(req, res) {
     const inboxIds  = parseIds(req.query.inboxId);
     const teamIds   = parseIds(req.query.teamId);
     const agentIds  = parseIds(req.query.agentId);
-    const dateFrom  = req.query.dateFrom ? Math.floor(new Date(req.query.dateFrom + 'T00:00:00').getTime() / 1000) : null;
-    const dateTo    = req.query.dateTo   ? Math.floor(new Date(req.query.dateTo   + 'T23:59:59').getTime() / 1000) : null;
+    // Pasar las fechas como strings 'YYYY-MM-DD' directamente a Chatwoot
+    // Chatwoot espera strings de fecha, NO Unix timestamps
+    const dateFrom  = req.query.dateFrom || null;
+    const dateTo    = req.query.dateTo   || null;
 
     if (!inboxIds) {
         return res.status(400).json({ error: 'Se requiere al menos un inboxId válido. Ej: inboxId=14 o inboxId=14,8' });
     }
-    if ((dateFrom && isNaN(dateFrom)) || (dateTo && isNaN(dateTo))) {
-        return res.status(400).json({ error: 'dateFrom y dateTo deben ser fechas válidas. Ej: 2026-01-01' });
+    // Validar formato de fechas YYYY-MM-DD
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (dateFrom && !dateRegex.test(dateFrom)) {
+        return res.status(400).json({ error: 'dateFrom debe tener formato YYYY-MM-DD. Ej: 2026-01-01' });
+    }
+    if (dateTo && !dateRegex.test(dateTo)) {
+        return res.status(400).json({ error: 'dateTo debe tener formato YYYY-MM-DD. Ej: 2026-12-31' });
+    }
+    if (dateFrom && isNaN(new Date(dateFrom).getTime())) {
+        return res.status(400).json({ error: 'dateFrom no es una fecha válida. Ej: 2026-01-01' });
+    }
+    if (dateTo && isNaN(new Date(dateTo).getTime())) {
+        return res.status(400).json({ error: 'dateTo no es una fecha válida. Ej: 2026-12-31' });
     }
 
     const jobId = crypto.randomUUID();
@@ -567,7 +588,7 @@ export async function StartExport(req, res) {
 
             const inboxLabel = validInboxes.length === 1
                 ? validInboxes[0].name
-                : `multi_inbox_${inboxIds.join('-')}`;
+                : validInboxes.slice(0, 3).map(i => i.name).join('_y_') + `_y_${validInboxes.length - 3}_mas`;
 
             await updateRDStationToken();
 

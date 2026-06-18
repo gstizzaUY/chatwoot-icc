@@ -1,0 +1,10 @@
+{
+  "ignore": [
+    "scripts/*",
+    "exports/*",
+    "controllers/*",
+    ".git/*",
+    "node_modules/*"
+  ],
+  "delay": "1000"
+}

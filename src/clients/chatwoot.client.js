@@ -226,6 +226,22 @@ class ChatwootClient {
     }
 
     /**
+     * Marca una conversación como no leída para los agentes
+     * Resetea agent_last_seen_at para que la conversación aparezca en negrita
+     */
+    async markAsUnread(conversationId) {
+        try {
+            const response = await this.client.post(
+                `/conversations/${conversationId}/unread`
+            );
+            return response.data;
+        } catch (error) {
+            console.warn(`⚠️  No se pudo marcar como no leída la conversación ${conversationId}:`, error.message);
+            return null;
+        }
+    }
+
+    /**
      * Obtiene las conversaciones de un contacto
      */
     async getConversationsByContact(contactId) {

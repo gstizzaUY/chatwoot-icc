@@ -150,7 +150,8 @@ class ContextBuilderService {
                     msg.content.includes('😊 SENTIMIENTO:') ||
                     msg.content.includes('🔍 INFORMACIÓN DETECTADA') ||
                     msg.content.includes('🤖 SUGERENCIA DEL ASISTENTE') ||
-                    msg.content.includes('💡 ASISTENTE DE');
+                    msg.content.includes('💡 ASISTENTE DE') ||
+                    msg.content.includes('[Agente IA]');
 
                 if (isAutoSummary) {
                     return false;

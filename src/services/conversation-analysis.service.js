@@ -838,121 +838,55 @@ class ConversationAnalysisService {
         try {
             const info = analysisData.extractedInfo;
             const chatwootChanges = analysisData.chatwootChanges || [];
-            const methodBadge = analysisData.analysisMethod === 'ai' ? '🤖 IA' : '📝 Regex';
             
             // ============ SECCIÓN 1: RESUMEN ============
-            const resumenSection = `📋 **RESUMEN DE LA CONVERSACIÓN**\n${analysisData.summary || 'No se pudo generar resumen'}`;
+            const resumenSection = `**Resumen:** ${analysisData.summary || 'No se pudo generar resumen'}`;
             
             // ============ SECCIÓN 2: SENTIMIENTO ============
-            const sentimentEmoji = analysisData.sentiment.sentiment === 'positive' ? '😊' : 
-                                  analysisData.sentiment.sentiment === 'negative' ? '😞' : '😐';
-            const sentimentSection = `\n\n${sentimentEmoji} **SENTIMIENTO: ${analysisData.sentiment.sentiment.toUpperCase()}**\n${analysisData.sentiment.reason}`;
+            const sentimentEmoji = analysisData.sentiment.sentiment === 'positive' ? 'Positivo' : 
+                                  analysisData.sentiment.sentiment === 'negative' ? 'Negativo' : 'Neutral';
+            const sentimentSection = `\n**Sentimiento:** ${sentimentEmoji} - ${analysisData.sentiment.reason}`;
             
             // ============ SECCIÓN 3: INFORMACIÓN DETECTADA ============
             // Mostrar solo información que fue actualizada o es relevante
             const detectedFields = [];
-            
-            // Agregar campos que fueron actualizados en Chatwoot
             const updatedFieldNames = chatwootChanges.map(c => {
-                // Mapear nombre amigable a nombre técnico
                 const fieldMap = {
-                    'Email': 'email',
-                    'Nombre': 'firstname',
-                    'Apellido': 'lastname',
-                    'Celular': 'mobile_phone',
-                    'Teléfono': 'phone',
-                    'Tiene iChef': 'tiene_ichef',
-                    'Es Cliente': 'es_cliente',
-                    'ID Equipo': 'id_equipo',
-                    'Etapa': 'stage',
-                    'Ciudad': 'city',
-                    'Departamento': 'state',
-                    'País': 'country',
-                    'Dirección': 'address',
-                    'Empresa': 'company',
-                    'Cargo': 'position'
+                    'Email': 'email', 'Nombre': 'firstname', 'Apellido': 'lastname',
+                    'Celular': 'mobile_phone', 'Telefono': 'phone',
+                    'Tiene iChef': 'tiene_ichef', 'Es Cliente': 'es_cliente',
+                    'ID Equipo': 'id_equipo', 'Etapa': 'stage',
+                    'Ciudad': 'city', 'Departamento': 'state', 'Pais': 'country',
+                    'Direccion': 'address', 'Empresa': 'company', 'Cargo': 'position'
                 };
                 return fieldMap[c.field] || c.field.toLowerCase();
             });
             
-            // Información básica (solo si fue actualizada o es nueva)
-            if (info.email && (updatedFieldNames.includes('email') || info.metadata?.confidence !== 'low')) {
-                detectedFields.push(`✓ Email: ${info.email}`);
-            }
-            if (info.firstname && (updatedFieldNames.includes('firstname') || updatedFieldNames.includes('nombre'))) {
-                detectedFields.push(`✓ Nombre: ${info.firstname}`);
-            }
-            if (info.lastname && (updatedFieldNames.includes('lastname') || updatedFieldNames.includes('apellido'))) {
-                detectedFields.push(`✓ Apellido: ${info.lastname}`);
-            }
-            if (info.mobile_phone && updatedFieldNames.includes('mobile_phone')) {
-                detectedFields.push(`✓ Celular: ${info.mobile_phone}`);
-            }
-            if (info.phone && updatedFieldNames.includes('phone')) {
-                detectedFields.push(`✓ Teléfono: ${info.phone}`);
-            }
-            
-            // iChef específico
-            if (info.tiene_ichef && updatedFieldNames.includes('tiene_ichef')) {
-                detectedFields.push(`✓ Tiene iChef: ${info.tiene_ichef}`);
-            }
-            if (info.es_cliente && updatedFieldNames.includes('es_cliente')) {
-                detectedFields.push(`✓ Es Cliente: ${info.es_cliente}`);
-            }
-            if (info.id_equipo && updatedFieldNames.includes('id_equipo')) {
-                detectedFields.push(`✓ ID Equipo: ${info.id_equipo}`);
-            }
-            if (info.stage && updatedFieldNames.includes('stage')) {
-                detectedFields.push(`✓ Etapa: ${info.stage}`);
-            }
-            
-            // Ubicación
-            if (info.city && updatedFieldNames.includes('city')) {
-                detectedFields.push(`✓ Ciudad: ${info.city}`);
-            }
-            if (info.state && updatedFieldNames.includes('state')) {
-                detectedFields.push(`✓ Departamento: ${info.state}`);
-            }
-            if (info.country && updatedFieldNames.includes('country')) {
-                detectedFields.push(`✓ País: ${info.country}`);
-            }
-            if (info.address && updatedFieldNames.includes('address')) {
-                detectedFields.push(`✓ Dirección: ${info.address}`);
-            }
-            
-            // Empresa
-            if (info.company && updatedFieldNames.includes('company')) {
-                detectedFields.push(`✓ Empresa: ${info.company}`);
-            }
-            if (info.position && updatedFieldNames.includes('position')) {
-                detectedFields.push(`✓ Cargo: ${info.position}`);
-            }
-            
-            // Preferencias
-            if (info.enc_experiencia && updatedFieldNames.includes('enc_experiencia')) {
-                detectedFields.push(`✓ Experiencia: ${info.enc_experiencia}`);
-            }
-            if (info.enc_gusta_cocinar && updatedFieldNames.includes('enc_gusta_cocinar')) {
-                detectedFields.push(`✓ Gusta Cocinar: ${info.enc_gusta_cocinar}`);
-            }
-            if (info.enc_via_se_entero_ichef && updatedFieldNames.includes('enc_via_se_entero_ichef')) {
-                detectedFields.push(`✓ Conoció iChef por: ${info.enc_via_se_entero_ichef}`);
-            }
-            
+            if (info.email && info.metadata?.confidence !== 'low') detectedFields.push(`**Email:** ${info.email}`);
+            if (info.firstname) detectedFields.push(`**Nombre:** ${info.firstname}`);
+            if (info.lastname) detectedFields.push(`**Apellido:** ${info.lastname}`);
+            if (info.mobile_phone) detectedFields.push(`**Celular:** ${info.mobile_phone}`);
+            if (info.phone) detectedFields.push(`**Telefono:** ${info.phone}`);
+            if (info.tiene_ichef) detectedFields.push(`**Tiene iChef:** ${info.tiene_ichef}`);
+            if (info.es_cliente) detectedFields.push(`**Es Cliente:** ${info.es_cliente}`);
+            if (info.id_equipo) detectedFields.push(`**ID Equipo:** ${info.id_equipo}`);
+            if (info.stage) detectedFields.push(`**Etapa:** ${info.stage}`);
+            if (info.city) detectedFields.push(`**Ciudad:** ${info.city}`);
+            if (info.state) detectedFields.push(`**Departamento:** ${info.state}`);
+            if (info.country) detectedFields.push(`**Pais:** ${info.country}`);
+
             const infoSection = detectedFields.length > 0 
-                ? `\n\n🔍 **INFORMACIÓN DETECTADA**\n${detectedFields.join('\n')}`
-                : '\n\n🔍 **INFORMACIÓN DETECTADA**\n⚠️ No se detectó información nueva para actualizar';
+                ? `\n${detectedFields.join('\n')}`
+                : '';
             
-            // ============ SECCIÓN 4: CAMBIOS EN CHATWOOT ============
+            // ============ CAMBIOS EN CHATWOOT ============
             let chatwootSection = '';
-            
+
             if (chatwootChanges.length > 0) {
                 const changesList = chatwootChanges.map(change => 
-                    `  • **${change.field}**: \`${change.old}\` → \`${change.new}\``
+                    `  ${change.field}: ${change.old} -> ${change.new}`
                 ).join('\n');
-                chatwootSection = `\n\n📝 **CAMPOS ACTUALIZADOS EN CHATWOOT** (${chatwootChanges.length})\n${changesList}`;
-            } else {
-                chatwootSection = '\n\n📝 **CAMPOS ACTUALIZADOS EN CHATWOOT**\n✓ Sin cambios (datos ya actualizados)';
+                chatwootSection = `\n**Chatwoot (${chatwootChanges.length}):**\n${changesList}`;
             }
             
             // ============ SECCIÓN 5: SINCRONIZACIÓN CON RD STATION ============
@@ -960,180 +894,48 @@ class ConversationAnalysisService {
             const rdUpdate = analysisData.rdStationUpdate;
             
             if (rdUpdate?.success) {
-                const action = rdUpdate.created ? '✨ Contacto creado' : '🔄 Contacto actualizado';
-                const rdChanges = rdUpdate.changes || [];
-                
-                // Nota especial si se mantuvo email ficticio por limitaciones de RD Station
-                // Nota si el email fue actualizado
-                let emailNote = '';
-                if (rdUpdate.emailUpdated) {
-                    emailNote = `\n  ✅ Email actualizado en RD Station: \`${rdUpdate.email}\``;
-                }
-                
-                // Mostrar cambios detectados (antes → después)
-                let changesText = '';
-                if (rdChanges.length > 0) {
-                    const changesList = rdChanges.map(change => 
-                        `    • **${change.field}**: \`${change.old}\` → \`${change.new}\``
-                    ).join('\n');
-                    changesText = `\n  📝 Cambios detectados (${rdChanges.length}):\n${changesList}`;
-                } else if (!rdUpdate.created) {
-                    changesText = '\n  ℹ️  Sin cambios (datos ya actualizados)';
-                }
-                
-                const eventText = rdUpdate.conversionEventSent 
-                    ? '\n  ✓ Evento de conversión registrado' 
-                    : '';
-                
-                rdSection = `\n\n🔄 **RD STATION**\n  ${action} (${rdUpdate.email})${emailNote}${changesText}${eventText}`;
+                const action = rdUpdate.created ? '(creado)' : '(actualizado)';
+                const eventText = rdUpdate.conversionEventSent ? ' + evento' : '';
+                rdSection = `\n**RD Station:** ${action} ${rdUpdate.email}${eventText}`;
             } else if (rdUpdate?.error) {
-                // Si falló, mostrar error detallado y valores pendientes
-                const errorDetails = rdUpdate.errorDetails || {};
-                const statusInfo = errorDetails.status ? ` (${errorDetails.status})` : '';
-                const errorData = errorDetails.data ? `\n  📋 Detalle: ${JSON.stringify(errorDetails.data)}` : '';
-                
-                const pendingFields = [];
-                if (info.tiene_ichef) pendingFields.push(`cf_tiene_ichef: ${info.tiene_ichef}`);
-                if (info.es_cliente) pendingFields.push(`cf_es_cliente: ${info.es_cliente}`);
-                if (info.id_equipo) pendingFields.push(`cf_id_equipo: ${info.id_equipo}`);
-                if (info.stage) pendingFields.push(`stage: ${info.stage}`);
-                
-                const manualUpdate = pendingFields.length > 0
-                    ? `\n  ⚠️ Valores pendientes de actualización manual:\n    ${pendingFields.join('\n    ')}`
-                    : '';
-                
-                rdSection = `\n\n🔄 **RD STATION**\n  ❌ Error${statusInfo}: ${rdUpdate.error}${errorData}${manualUpdate}`;
+                rdSection = `\n**RD Station:** ERROR - ${rdUpdate.error}`;
             } else {
-                rdSection = '\n\n🔄 **RD STATION**\n  ⚠️ No sincronizado';
+                rdSection = '';
             }
             
             // ============ SECCIÓN 5A: MULTIMEDIA ============
             let multimediaSection = '';
             const multimedia = analysisData.multimediaProcessed;
-            
+
             if (multimedia && (multimedia.totalAudios > 0 || multimedia.totalImages > 0)) {
-                multimediaSection = `\n\n🎬 **MULTIMEDIA PROCESADA**\n`;
-                
-                // Audios procesados
-                if (multimedia.totalAudios > 0) {
-                    multimediaSection += `  🎤 **Audios transcritos: ${multimedia.totalAudios}**\n`;
-                    multimedia.transcriptions.forEach((audio, i) => {
-                        const duration = audio.duration ? ` (${Math.round(audio.duration)}s)` : '';
-                        const preview = audio.text ? audio.text.substring(0, 100) : '[Sin texto]';
-                        multimediaSection += `     ${i + 1}. ${preview}...${duration}\n`;
-                    });
-                }
-                
-                // Imágenes/documentos procesados
-                if (multimedia.totalImages > 0) {
-                    const withInfo = multimedia.imageAnalysis.filter(img => img.contact_info_found && !img.error);
-                    multimediaSection += `\n  🖼️  **Imágenes/Documentos analizados: ${multimedia.totalImages}**\n`;
-                    
-                    if (withInfo.length > 0) {
-                        multimediaSection += `     ✓ ${withInfo.length} con información de contacto detectada\n`;
-                    }
-                    
-                    multimedia.imageAnalysis.forEach((img, i) => {
-                        if (img.description) {
-                            const preview = img.description.substring(0, 80);
-                            multimediaSection += `     ${i + 1}. ${preview}...\n`;
-                        }
-                    });
-                }
-                
-                // Campos actualizados desde multimedia
-                if (multimedia.fieldsUpdated && multimedia.fieldsUpdated.length > 0) {
-                    multimediaSection += `\n  📝 **Campos actualizados desde multimedia:**\n`;
-                    multimedia.fieldsUpdated.forEach(update => {
-                        const oldDisplay = update.oldValue || '(vacío)';
-                        multimediaSection += `     • **${update.field}**: \`${oldDisplay}\` → \`${update.newValue}\`\n`;
-                    });
-                }
-                
-                // Resumen de información extraída
+                multimediaSection = '\n**Multimedia:**';
+                if (multimedia.totalAudios > 0) multimediaSection += ` ${multimedia.totalAudios} audio(s)`;
+                if (multimedia.totalImages > 0) multimediaSection += ` ${multimedia.totalImages} imagen(es)`;
                 const extractedFromMedia = multimedia.extractedInfo;
                 if (extractedFromMedia && Object.keys(extractedFromMedia).length > 0) {
-                    const relevantFields = [];
-                    if (extractedFromMedia.firstname) relevantFields.push(`Nombre: ${extractedFromMedia.firstname}`);
-                    if (extractedFromMedia.lastname) relevantFields.push(`Apellido: ${extractedFromMedia.lastname}`);
-                    if (extractedFromMedia.email) relevantFields.push(`Email: ${extractedFromMedia.email}`);
-                    if (extractedFromMedia.mobile_phone) relevantFields.push(`Celular: ${extractedFromMedia.mobile_phone}`);
-                    if (extractedFromMedia.equipment_serial) relevantFields.push(`Serial: ${extractedFromMedia.equipment_serial}`);
-                    
-                    if (relevantFields.length > 0) {
-                        multimediaSection += `\n  ℹ️  **Info extraída:** ${relevantFields.join(', ')}\n`;
-                    }
+                    const fields = Object.entries(extractedFromMedia).map(([k, v]) => `${k}=${v}`).join(', ');
+                    multimediaSection += ` | ${fields}`;
                 }
             }
             
-            // ============ SECCIÓN 6: LEAD SCORING ============
-            const scoringSection = `\n\n📊 **LEAD SCORING**
-  📈 Interés: (A desarrollar próximamente)
-  ⚡ Actividad: (A desarrollar próximamente)`;
-            
-            // ============ SECCIÓN 7: RECOMENDACIONES ============
+            // ============ RECOMENDACIONES ============
             const recommendations = info.recommendations || [];
             let recSection = '';
-            
+
             if (recommendations.length > 0) {
-                const recList = recommendations.map((rec, i) => `  ${i + 1}. ${rec}`).join('\n');
-                recSection = `\n\n💡 **RECOMENDACIONES**\n${recList}`;
+                recSection = `\n**Recomendaciones:** ${recommendations.join(' | ')}`;
             } else {
-                // Recomendaciones automáticas basadas en el análisis
                 const autoRecs = [];
-                
-                if (info.tiene_ichef === 'Sí' && !info.id_equipo) {
-                    autoRecs.push('Solicitar número de serie del equipo para registro');
-                }
-                if (info.metadata?.requires_followup) {
-                    autoRecs.push('Requiere seguimiento - programar contacto');
-                }
-                if (info.metadata?.customer_intent === 'compra') {
-                    autoRecs.push('Cliente con intención de compra - priorizar seguimiento');
-                }
-                if (analysisData.sentiment.sentiment === 'negative') {
-                    autoRecs.push('Cliente insatisfecho - contactar para resolver situación');
-                }
-                if (!info.email || info.email.includes('@email.com')) {
-                    autoRecs.push('Solicitar email válido del contacto');
-                }
-                
-                if (autoRecs.length > 0) {
-                    const recList = autoRecs.map((rec, i) => `  ${i + 1}. ${rec}`).join('\n');
-                    recSection = `\n\n💡 **RECOMENDACIONES**\n${recList}`;
-                } else {
-                    recSection = '\n\n💡 **RECOMENDACIONES**\n  ✓ Sin acciones pendientes';
-                }
+                if (info.tiene_ichef === 'Sí' && !info.id_equipo) autoRecs.push('Solicitar serial del equipo');
+                if (info.metadata?.requires_followup) autoRecs.push('Requiere seguimiento');
+                if (info.metadata?.customer_intent === 'compra') autoRecs.push('Intencion de compra - priorizar');
+                if (analysisData.sentiment.sentiment === 'negative') autoRecs.push('Cliente insatisfecho - contactar');
+                if (!info.email || info.email.includes('@email.com')) autoRecs.push('Solicitar email valido');
+                if (autoRecs.length > 0) recSection = `\n**Recomendaciones:** ${autoRecs.join(' | ')}`;
             }
-            
-            // ============ SECCIÓN 8: ANÁLISIS MULTI-CANAL ============
-            let multiChannelSection = '';
-            const multiChannel = info.metadata?.multi_channel_analysis;
-            
-            if (multiChannel && multiChannel.totalConversations > 0) {
-                multiChannelSection = `\n\n🌐 **ANÁLISIS MULTI-CANAL**\n`;
-                multiChannelSection += `  📊 Total conversaciones analizadas: ${multiChannel.totalConversations + 1}\n`;
-                multiChannelSection += `  📱 Canales: ${multiChannel.channels.join(', ')}\n\n`;
-                multiChannelSection += `  📝 Historial:\n`;
-                const lines = multiChannel.summary.split('\n').slice(0, 5); // Primeras 5 líneas
-                lines.forEach(line => {
-                    if (line.trim()) {
-                        multiChannelSection += `     ${line}\n`;
-                    }
-                });
-                
-                if (info.metadata?.previous_conversations_context) {
-                    multiChannelSection += `\n  🔗 Relación: ${info.metadata.previous_conversations_context}`;
-                }
-            } else if (info.metadata?.previous_conversations_context) {
-                multiChannelSection = `\n\n📚 **CONTEXTO: CONVERSACIONES ANTERIORES**\n  🔗 ${info.metadata.previous_conversations_context}`;
-            }
-            
-            // ============ FOOTER ============
-            const footer = `\n\n---\n_Análisis generado automáticamente al cerrar la conversación_`;
-            
+
             // ============ CONSTRUIR NOTA COMPLETA ============
-            const noteContent = `${resumenSection}${sentimentSection}${infoSection}${chatwootSection}${rdSection}${multimediaSection}${scoringSection}${recSection}${multiChannelSection}${footer}`;
+            const noteContent = `[Agente IA] ${resumenSection}${sentimentSection}${infoSection}${chatwootSection}${rdSection}${multimediaSection}${recSection}`;
 
             await chatwootClient.sendMessage(conversationId, {
                 content: noteContent,
@@ -1142,6 +944,10 @@ class ConversationAnalysisService {
             });
 
             console.log(`📝 Nota interna agregada a conversación ${conversationId}`);
+
+            // Restaurar estado "no leído" para no confundir a operadores humanos
+            await chatwootClient.markAsUnread(conversationId);
+            console.log(`   ✅ Conversación ${conversationId} marcada como no leída`);
 
         } catch (error) {
             console.warn('⚠️  No se pudo agregar nota interna:', error.message);

@@ -54,14 +54,14 @@ export const CHANNEL_TO_AGENT = {
 // Configuración de triggers por tipo de agente
 export const AGENT_TRIGGERS = {
     [AGENT_TYPES.PRE_VENTA]: {
-        events: ['message_created'],    // Eventos que activan este agente
-        onMessageNumber: [1],           // Se activa en mensaje inicial del cliente
-        everyNMessages: 3               // Y luego cada 3 mensajes del cliente
+        events: ['message_created'],
+        onMessageNumber: [1],
+        everyNMessages: 5
     },
     [AGENT_TYPES.POST_VENTA]: {
         events: ['message_created'],
         onMessageNumber: [1],
-        everyNMessages: 3
+        everyNMessages: 5
     },
     [AGENT_TYPES.RESUMEN]: {
         events: ['conversation_status_changed'],

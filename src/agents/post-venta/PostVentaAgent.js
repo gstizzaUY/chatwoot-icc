@@ -113,113 +113,34 @@ class PostVentaAgent extends BaseAgent {
     }
 
     async createSuggestionNote(conversationId, data) {
-        const { analysis, suggestions, extractedInfo, crmUpdate, multimediaInfo } = data;
+        const { analysis, suggestions, extractedInfo } = data;
 
-        let note = `💡 **ASISTENTE DE SOPORTE**\n\n`;
+        let note = `**Agente IA - Asistente de Soporte**\n`;
+        note += `**Tipo:** ${analysis.conversation_type || 'consulta'} | **Urgencia:** ${analysis.urgency || 'media'} | **Satisfaccion:** ${analysis.satisfaction || 'medio'}`;
 
-        // Tipo de conversación
-        const typeEmojis = {
-            onboarding: '🎓',
-            recetas: '👨‍🍳',
-            problema: '🔧',
-            garantia: '📋'
-        };
-        const emoji = typeEmojis[analysis.conversation_type] || '💬';
-        note += `${emoji} **Tipo**: ${analysis.conversation_type || 'consulta'}\n`;
-
-        // Urgencia
-        const urgencyEmojis = { alta: '🔴', media: '🟡', baja: '🟢' };
-        const urgencyEmoji = urgencyEmojis[analysis.urgency] || '🟡';
-        note += `${urgencyEmoji} **Urgencia**: ${analysis.urgency || 'media'}\n`;
-
-        // Satisfacción
-        const satisfactionEmojis = { alto: '😊', medio: '😐', bajo: '😞' };
-        const satEmoji = satisfactionEmojis[analysis.satisfaction] || '😐';
-        note += `${satEmoji} **Satisfacción**: ${analysis.satisfaction || 'medio'}\n\n`;
-
-        // Descripción del problema
         if (analysis.issue_description) {
-            note += `❗ **Problema**: ${analysis.issue_description}\n\n`;
+            note += `\n**Problema:** ${analysis.issue_description}`;
         }
 
-        // Lo que intentó el cliente
         if (analysis.customer_tried && analysis.customer_tried.length > 0) {
-            note += `✅ **Cliente ya intentó**:\n`;
-            analysis.customer_tried.forEach(action => {
-                note += `  • ${action}\n`;
-            });
-            note += `\n`;
+            note += `\n**Cliente intento:** ${analysis.customer_tried.join(', ')}`;
         }
-
-        // Sugerencias
-        note += `🤖 **SUGERENCIAS**:\n\n`;
 
         if (suggestions.response) {
-            note += `💬 **Respuesta sugerida**:\n"${suggestions.response}"\n\n`;
+            note += `\n**Respuesta sugerida:** "${suggestions.response}"`;
         }
 
         if (suggestions.topics && suggestions.topics.length > 0) {
-            note += `📌 **Temas a abordar**:\n`;
-            suggestions.topics.forEach((topic, i) => {
-                note += `  ${i + 1}. ${topic}\n`;
-            });
-            note += `\n`;
+            note += `\n**Temas:** ${suggestions.topics.join(' | ')}`;
         }
 
         if (suggestions.action) {
-            const actionEmojis = {
-                escalar_tecnico: '🚨',
-                enviar_tutorial: '📚',
-                agendar_llamada: '📞',
-                enviar_garantia: '📋',
-                guiar_onboarding: '🎓'
-            };
-            const actionEmoji = actionEmojis[suggestions.action] || '🎯';
-            note += `${actionEmoji} **Acción recomendada**: ${suggestions.action.replace(/_/g, ' ')}\n`;
+            note += `\n**Accion:** ${suggestions.action.replace(/_/g, ' ')}`;
         }
 
-        if (suggestions.reasoning) {
-            note += `\n💭 _${suggestions.reasoning}_\n`;
-        }
-
-        // Multimedia procesada (especialmente útil para capturas de pantalla de errores)
-        if (multimediaInfo && multimediaInfo.hasMultimedia) {
-            note += `\n🎬 **MULTIMEDIA PROCESADA**:\n`;
-            
-            const extracted = multimediaInfo.extractedInfo || {};
-            const fieldsCount = Object.keys(extracted).length;
-            
-            if (fieldsCount > 0) {
-                note += `  ✓ ${fieldsCount} campo(s) extraído(s) de multimedia\n`;
-                const relevantFields = [];
-                if (extracted.equipment_serial) relevantFields.push(`Serial: ${extracted.equipment_serial}`);
-                if (extracted.mobile_phone) relevantFields.push(`Teléfono: ${extracted.mobile_phone}`);
-                if (extracted.email) relevantFields.push(`Email: ${extracted.email}`);
-                if (relevantFields.length > 0) {
-                    note += `  📋 ${relevantFields.join(', ')}\n`;
-                }
-            }
-            
-            if (multimediaInfo.summary) {
-                note += `  ℹ️  ${multimediaInfo.summary}\n`;
-            }
-        }
-
-        // Serial capturado
         if (extractedInfo.id_equipo) {
-            note += `\n🔢 **Serial capturado**: ${extractedInfo.id_equipo}\n`;
+            note += `\n**Serial:** ${extractedInfo.id_equipo}`;
         }
-
-        // Estado de CRM
-        if (crmUpdate) {
-            const chatwootChanges = crmUpdate.chatwoot?.changes?.length || 0;
-            const rdChanges = crmUpdate.rdStation?.changes?.length || 0;
-            if (chatwootChanges > 0 || rdChanges > 0) {
-                note += `\n✅ Actualizado: Chatwoot (${chatwootChanges}), RD Station (${rdChanges})\n`;
-            }
-        }
-
-        note += `\n---\n_Sugerencia generada automáticamente por Post-Venta Agent_`;
 
         await this.createInternalNote(conversationId, note, true);
     }

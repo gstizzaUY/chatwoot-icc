@@ -7,6 +7,8 @@ import {
     EXCLUDED_CONTACT_IDS
 } from '../constants/agent.constants.js';
 
+const NUTRIDOR_ENABLED = process.env.NUTRIDOR_ENABLED !== 'false';
+
 /**
  * Orquestador de Agentes IA
  * Determina qué agente ejecutar según canal, evento y contexto
@@ -226,6 +228,8 @@ class AgentOrchestratorService {
      * @private
      */
     async _shouldExecuteNutridor(conversationId, messages, triggers) {
+        if (!NUTRIDOR_ENABLED) return false;
+
         const agentFactory = (await import('../agents/AgentFactory.js')).default;
         const nutridorAgent = agentFactory.getAgent('nutridor');
 
@@ -267,6 +271,10 @@ class AgentOrchestratorService {
      * @returns {Promise<Object>} - { shouldBlockOtherAgents, executeNutridor }
      */
     async _checkNutridorPriority(conversationId, requestedAgentType) {
+        if (!NUTRIDOR_ENABLED) {
+            return { shouldBlockOtherAgents: false, executeNutridor: false };
+        }
+
         if (!conversationId) {
             return { shouldBlockOtherAgents: false, executeNutridor: false };
         }

@@ -99,11 +99,26 @@ RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef
 
 **Endpoint:** `POST /api/v2/webhooks/chatwoot/message-created`
 
-**Descripción:** Webhook para desactivar el bot cuando un agente responde (funcionalidad futura).
+**Descripción:** Webhook que recibe eventos cuando se crea un mensaje en Chatwoot. Activa el sistema de agentes IA en tiempo real (Nutridor, Pre-Venta, Post-Venta) según el canal y las condiciones de trigger. Solo procesa mensajes entrantes de clientes (y mensajes trigger del bot en canal 23).
 
 **Autenticación:** ❌ Ninguna (protegido por rate limiting)
 
-**Estado:** ⚠️ Stub (no implementado aún)
+**Estado:** ✅ Implementado — activa agentes Nutridor, Pre-Venta y Post-Venta
+
+**Payload esperado:**
+```json
+{
+  "event": "message_created",
+  "message_type": 0,
+  "content": "Hola, quiero info",
+  "conversation": {
+    "id": 12345,
+    "inbox_id": 23
+  }
+}
+```
+
+**Flujo:** El controlador (`message.controller.js`) filtra mensajes salientes (excepto triggers en canal 23), determina si es incoming, y delega al `AgentOrchestratorService` que evalúa qué agente ejecutar según el canal y los triggers configurados en `agent.constants.js`.
 
 ---
 
@@ -338,12 +353,20 @@ RD Station tiene circuit breaker implícito: si falla, el error no bloquea la ac
 
 ## 🔜 Próximas funcionalidades
 
-- [ ] Webhook de mensaje creado (desactivar bot)
 - [ ] Endpoints de contactos CRUD
 - [ ] Endpoints de conversaciones CRUD
 - [ ] Endpoints de deals/oportunidades
 - [ ] Sistema de campañas y onboarding
 - [ ] Exportación mejorada
+
+---
+
+## 📚 Documentación Relacionada
+
+- [AI_AGENTS_SYSTEM.md](../docs/AI_AGENTS_SYSTEM.md) — Documentación técnica unificada del sistema multi-agente IA
+- [AI_ANALYSIS_GUIDE.md](./AI_ANALYSIS_GUIDE.md) — Guía de análisis con IA (OpenAI)
+- [MULTI_AGENT_ARCHITECTURE.md](../MULTI_AGENT_ARCHITECTURE.md) — Arquitectura multi-agente (versión anterior, 3 agentes)
+- [MULTIMEDIA_IMPLEMENTATION.md](../MULTIMEDIA_IMPLEMENTATION.md) — Soporte multimedia (audio + imágenes)
 
 ---
 

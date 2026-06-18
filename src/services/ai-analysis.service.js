@@ -135,7 +135,8 @@ class AIAnalysisService {
                         msg.content.includes('📋 RESUMEN DE LA CONVERSACIÓN') ||
                         msg.content.includes('Análisis generado automáticamente') ||
                         msg.content.includes('😊 SENTIMIENTO:') ||
-                        msg.content.includes('🔍 INFORMACIÓN DETECTADA');
+                        msg.content.includes('🔍 INFORMACIÓN DETECTADA') ||
+                        msg.content.includes('[Agente IA]');
                     
                     return !isAutoSummary;
                 }

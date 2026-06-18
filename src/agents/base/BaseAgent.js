@@ -236,13 +236,19 @@ class BaseAgent {
      */
     async createInternalNote(conversationId, content, isPrivate = true) {
         try {
+            const prefixedContent = `[Agente IA] ${content}`;
+
             await chatwootClient.sendMessage(conversationId, {
-                content,
+                content: prefixedContent,
                 message_type: 'outgoing',
                 private: isPrivate
             });
 
             console.log(`📝 Nota interna creada en conversación ${conversationId}`);
+
+            // Restaurar estado "no leído" para no confundir a operadores humanos
+            await chatwootClient.markAsUnread(conversationId);
+            console.log(`   ✅ Conversación ${conversationId} marcada como no leída`);
         } catch (error) {
             console.warn('⚠️  No se pudo crear nota interna:', error.message);
         }

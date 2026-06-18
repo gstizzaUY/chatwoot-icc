@@ -184,13 +184,18 @@ const createConversation = async (contactId) => {
 
 /**
  * Crea una nota interna (mensaje privado) en la conversación.
+ * No marca la conversación como leída para no confundir a operadores humanos.
  */
 const createInternalNote = async (conversationId, content) => {
     const resp = await chatwoot.post(`/conversations/${conversationId}/messages`, {
-        content,
+        content: `[Agente IA] ${content}`,
         message_type: 'outgoing',
         private:      true
     });
+
+    // Restaurar estado "no leído"
+    await chatwoot.post(`/conversations/${conversationId}/unread`);
+
     return resp.data;
 };
 

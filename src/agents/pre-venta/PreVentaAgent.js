@@ -128,108 +128,32 @@ class PreVentaAgent extends BaseAgent {
      * Crea nota interna con sugerencias para el agente humano
      */
     async createSuggestionNote(conversationId, data) {
-        const { analysis, suggestions, extractedInfo, crmUpdate, multimediaInfo } = data;
+        const { analysis, suggestions, extractedInfo } = data;
 
-        let note = `💡 **ASISTENTE DE VENTAS**\n\n`;
+        let note = `**Agente IA - Asistente de Ventas**\n`;
+        note += `**Interes:** ${analysis.interest_level || 'medio'} | **Urgencia:** ${analysis.urgency || 'media'} | **Intencion:** ${analysis.intent || 'consulta'}`;
 
-        // Análisis
-        const interestEmoji = { alto: '🔥', medio: '🌡️', bajo: '❄️' }[analysis.interest_level] || '📊';
-        note += `${interestEmoji} **Interés**: ${analysis.interest_level || 'medio'}\n`;
-        note += `⚡ **Urgencia**: ${analysis.urgency || 'media'}\n`;
-        note += `🎯 **Intención**: ${analysis.intent || 'consulta'}\n\n`;
-
-        // Señales de compra
         if (analysis.buying_signals && analysis.buying_signals.length > 0) {
-            note += `✅ **Señales de compra**:\n`;
-            analysis.buying_signals.forEach(signal => {
-                note += `  • ${signal}\n`;
-            });
-            note += `\n`;
+            note += `\n**Seniales de compra:** ${analysis.buying_signals.join(', ')}`;
         }
 
-        // Objeciones
         if (analysis.objections && analysis.objections.length > 0) {
-            note += `⚠️ **Objeciones detectadas**:\n`;
-            analysis.objections.forEach(obj => {
-                note += `  • ${obj}\n`;
-            });
-            note += `\n`;
+            note += `\n**Objeciones:** ${analysis.objections.join(', ')}`;
         }
-
-        // Sugerencias
-        note += `🤖 **SUGERENCIAS**:\n\n`;
 
         if (suggestions.response) {
-            note += `💬 **Respuesta sugerida**:\n"${suggestions.response}"\n\n`;
-        }
-
-        if (suggestions.questions && suggestions.questions.length > 0) {
-            note += `❓ **Preguntas estratégicas**:\n`;
-            suggestions.questions.forEach((q, i) => {
-                note += `  ${i + 1}. ${q}\n`;
-            });
-            note += `\n`;
+            note += `\n**Respuesta sugerida:** "${suggestions.response}"`;
         }
 
         if (suggestions.action) {
-            const actionEmojis = {
-                agendar_demo: '📅',
-                enviar_catalogo: '📧',
-                hacer_oferta: '💰',
-                dar_seguimiento: '📞',
-                capturar_contacto: '📝'
-            };
-            const emoji = actionEmojis[suggestions.action] || '🎯';
-            note += `${emoji} **Acción recomendada**: ${suggestions.action.replace(/_/g, ' ')}\n`;
+            note += `\n**Accion:** ${suggestions.action.replace(/_/g, ' ')}`;
         }
 
-        if (suggestions.reasoning) {
-            note += `\n💭 _${suggestions.reasoning}_\n`;
-        }
-
-        // Multimedia procesada
-        if (multimediaInfo && multimediaInfo.hasMultimedia) {
-            note += `\n🎬 **MULTIMEDIA PROCESADA**:\n`;
-            
-            const extracted = multimediaInfo.extractedInfo || {};
-            const fieldsCount = Object.keys(extracted).length;
-            
-            if (fieldsCount > 0) {
-                note += `  ✓ ${fieldsCount} campo(s) extraído(s) de multimedia\n`;
-                const relevantFields = [];
-                if (extracted.firstname) relevantFields.push(`Nombre: ${extracted.firstname}`);
-                if (extracted.lastname) relevantFields.push(`Apellido: ${extracted.lastname}`);
-                if (extracted.email) relevantFields.push(`Email: ${extracted.email}`);
-                if (extracted.mobile_phone) relevantFields.push(`Celular: ${extracted.mobile_phone}`);
-                if (relevantFields.length > 0) {
-                    note += `  📋 ${relevantFields.join(', ')}\n`;
-                }
-            }
-            
-            if (multimediaInfo.summary) {
-                note += `  ℹ️  ${multimediaInfo.summary}\n`;
-            }
-        }
-
-        // Información capturada
-        const capturedFields = Object.entries(extractedInfo).filter(([k, v]) => v !== null && v !== undefined && v !== '');
+        const capturedFields = Object.entries(extractedInfo)
+            .filter(([k, v]) => v !== null && v !== undefined && v !== '');
         if (capturedFields.length > 0) {
-            note += `\n📋 **Info capturada** (${capturedFields.length} campos):\n`;
-            capturedFields.slice(0, 5).forEach(([key, value]) => {
-                note += `  • ${key}: ${value}\n`;
-            });
+            note += `\n**Info:** ${capturedFields.map(([k, v]) => `${k}=${v}`).join(', ')}`;
         }
-
-        // Estado de CRM
-        if (crmUpdate) {
-            const chatwootChanges = crmUpdate.chatwoot?.changes?.length || 0;
-            const rdChanges = crmUpdate.rdStation?.changes?.length || 0;
-            if (chatwootChanges > 0 || rdChanges > 0) {
-                note += `\n✅ Actualizado: Chatwoot (${chatwootChanges}), RD Station (${rdChanges})\n`;
-            }
-        }
-
-        note += `\n---\n_Sugerencia generada automáticamente por Pre-Venta Agent_`;
 
         await this.createInternalNote(conversationId, note, true);
     }

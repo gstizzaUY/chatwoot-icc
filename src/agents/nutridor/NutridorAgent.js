@@ -291,42 +291,17 @@ class NutridorAgent extends BaseAgent {
      * Crea nota interna cuando el agente completa su trabajo
      */
     async createCompletionNote(conversationId, data) {
-        const { extractedInfo, questionsAsked, hasCriticalInfo, crmUpdate } = data;
+        const { extractedInfo, questionsAsked, hasCriticalInfo } = data;
 
-        let note = `🌱 **AGENTE NUTRIDOR - INFORMACIÓN CAPTURADA**\n\n`;
-        
-        note += `📊 **Resumen:**\n`;
-        note += `- Preguntas realizadas: ${questionsAsked}\n`;
-        note += `- Información crítica completa: ${hasCriticalInfo ? '✅ Sí' : '⚠️ Parcial'}\n\n`;
+        let note = `**Agente IA - Nutridor** | **Informacion capturada**\n`;
 
-        // Información capturada
         const capturedFields = Object.entries(extractedInfo)
             .filter(([_, value]) => value !== null && value !== undefined)
-            .map(([key, value]) => `  • ${this.getFieldDisplayName(key)}: ${value}`)
+            .map(([key, value]) => `**${this.getFieldDisplayName(key)}:** ${value}`)
             .join('\n');
 
-        if (capturedFields) {
-            note += `✅ **Información capturada:**\n${capturedFields}\n\n`;
-        } else {
-            note += `⚠️ No se capturó información nueva\n\n`;
-        }
-
-        // Cambios en CRM
-        if (crmUpdate?.chatwootUpdate?.changes?.length > 0) {
-            note += `📝 **Campos actualizados en Chatwoot:**\n`;
-            crmUpdate.chatwootUpdate.changes.forEach(change => {
-                note += `  • ${change.field}: ${change.old} → ${change.new}\n`;
-            });
-            note += `\n`;
-        }
-
-        if (crmUpdate?.rdStationUpdate?.success) {
-            note += `🔄 **RD Station:** Contacto sincronizado\n\n`;
-        }
-
-        note += `💡 El agente humano puede continuar la conversación desde aquí.\n`;
-        note += `---\n`;
-        note += `_Generado automáticamente por el Agente Nutridor_`;
+        note += capturedFields || 'Sin informacion nueva';
+        note += `\n**Preguntas:** ${questionsAsked} | **Info critica:** ${hasCriticalInfo ? 'completa' : 'parcial'}`;
 
         await this.createInternalNote(conversationId, note);
     }
