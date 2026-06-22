@@ -71,10 +71,11 @@ class AgentOrchestratorService {
             }
 
             // 3. Verificar si el contacto está excluido (conversaciones internas)
-            const contactId = payload.conversation?.meta?.sender?.id || 
-                            payload.meta?.sender?.id || 
-                            payload.sender?.id ||
-                            payload.contact_id;
+            // En canales email (1, 12, 33), meta.sender puede apuntar al agente en vez del contacto real
+            const isEmailChannel = [1, 12, 33].includes(inboxId);
+            const contactId = isEmailChannel
+                ? (payload.contact?.id || payload.sender?.id || payload.contact_id)
+                : (payload.conversation?.meta?.sender?.id || payload.meta?.sender?.id || payload.sender?.id || payload.contact_id);
 
             if (contactId && EXCLUDED_CONTACT_IDS.includes(contactId)) {
                 console.log(`🚫 Contacto ${contactId} está en lista de exclusión (conversación interna) - ignorado`);

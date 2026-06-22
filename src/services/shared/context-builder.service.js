@@ -49,7 +49,11 @@ class ContextBuilderService {
 
             // 4. Obtener contacto
             let contact = null;
-            const contactId = conversation.meta?.sender?.id || conversation.contact_id;
+            // En canales email (1, 12, 33), meta.sender puede apuntar al agente en vez del contacto real
+            const isEmailChannel = [1, 12, 33].includes(conversation.inbox_id);
+            const contactId = isEmailChannel
+                ? (conversation.contact_id || conversation.meta?.sender?.id)
+                : (conversation.meta?.sender?.id || conversation.contact_id);
 
             if (includeContact && contactId) {
                 contact = await chatwootClient.getContactById(contactId);

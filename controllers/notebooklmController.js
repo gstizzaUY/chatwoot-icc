@@ -140,62 +140,251 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>iChef Analytics — ${escapeHtml(teamLabel)}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #f6f9fc; color: #1a1f36; }
-        .container { max-width: 1140px; }
-        .hero-i { background: linear-gradient(135deg, #1a1f36 0%, #2d3561 100%); padding: 28px 0 22px; color: white; }
-        .hero-i h1 { font-size: 1.5rem; font-weight: 700; }
-        .kpi-card { background: #fff; border-radius: 10px; padding: 16px 20px; border: 1px solid #e3e8ee; }
-        .kpi-card .kpi-val { font-size: 1.5rem; font-weight: 700; color: #1a1f36; }
-        .kpi-card .kpi-lbl { font-size: .7rem; color: #697386; text-transform: uppercase; letter-spacing: .4px; font-weight: 600; }
-        .kpi-card.green .kpi-val { color: #00ba88; }
-        .kpi-card.accent .kpi-val { color: #635bff; }
-        .card-dash { border-radius: 12px; border: 1px solid #e3e8ee; overflow: hidden; }
-        .card-dash .card-header { background: #fff; border-bottom: 1px solid #e3e8ee; font-weight: 600; font-size: .9rem; display: flex; align-items: center; gap: 8px; padding: 14px 18px; }
-        .card-dash .card-body { padding: 18px 20px; font-size: .85rem; line-height: 1.7; color: #2d3348; overflow-wrap: break-word; word-break: break-word; }
-        .card-dash .card-body .subtitle { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #635bff; margin: 16px 0 8px; padding-bottom: 5px; border-bottom: 1px solid #eef0ff; overflow: hidden; text-overflow: ellipsis; }
-        .card-dash .card-body strong { color: #1a1f36; font-weight: 700; }
-        .card-dash .card-body .card-list { padding-left: 18px; list-style: none; margin: 6px 0 12px; }
-        .card-dash .card-body .card-list li { position: relative; padding: 3px 0 3px 4px; margin-bottom: 4px; font-size: .82rem; overflow-wrap: break-word; word-break: break-word; }
-        .card-dash .card-body .card-list li::before { content: ''; position: absolute; left: -14px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: #635bff; }
-        .card-dash.error { border-left: 3px solid #df1b41; }
-        .stat-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f5f5f7; }
+        :root {
+            --primary: #635bff;
+            --primary-light: #eef0ff;
+            --success: #00ba88;
+            --success-light: #e6faf3;
+            --warning: #f5a623;
+            --warning-light: #fef6e8;
+            --danger: #df1b41;
+            --danger-light: #fff0f3;
+            --info: #00a3a3;
+            --info-light: #e6faf7;
+            --purple: #7c5cfc;
+            --purple-light: #f3f0ff;
+            --dark: #1a1f36;
+            --gray: #697386;
+            --light-bg: #f6f9fc;
+            --card-border: #e3e8ee;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #1a1f36 0%, #2d3561 50%, #3d4680 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(26,31,54,0.15);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #00d4aa; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .75; font-size: .9rem; color: rgba(255,255,255,.85); }
+        .hero-i .date { opacity: .8; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(26,31,54,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(26,31,54,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--success); }
+        .kpi-card.accent::before { background: var(--primary); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--success); }
+        .kpi-card.accent .kpi-val { color: var(--primary); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--success-light); color: var(--success); }
+        .kpi-card.accent .kpi-icon { background: var(--primary-light); color: var(--primary); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(26,31,54,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(26,31,54,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--danger); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--success-light); color: var(--success); }
+        .icon-i.amber { background: var(--warning-light); color: var(--warning); }
+        .icon-i.purple { background: var(--purple-light); color: var(--purple); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--danger-light); color: var(--danger); }
+
+        .subtitle { 
+            font-size: .72rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .7px; 
+            color: var(--primary); 
+            margin: 18px 0 10px; 
+            padding-bottom: 6px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f2f5; }
         .stat-row:last-child { border-bottom: none; }
-        .stat-row .lbl { color: #697386; font-size: .8rem; }
-        .stat-row .val { color: #1a1f36; font-weight: 600; font-size: .85rem; }
-        .icon-i { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 14px; }
-        .icon-i.blue { background: #eef0ff; color: #635bff; }
-        .icon-i.green { background: #e6faf3; color: #00ba88; }
-        .icon-i.amber { background: #fef6e8; color: #f5a623; }
-        .icon-i.purple { background: #f3f0ff; color: #7c5cfc; }
-        .icon-i.teal { background: #e6faf7; color: #00a3a3; }
+        .stat-row .stat-label { color: var(--gray); font-size: .85rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .9rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .8rem; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
     </style>
 </head>
 <body>
 <div class="hero-i">
     <div class="container">
         <div class="d-flex justify-content-between align-items-center">
-            <div><strong>iChef</strong> <span style="color:#00d4aa">Analytics</span></div>
-            <small style="opacity:.7">${dateStr}</small>
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">${dateStr}</div>
         </div>
         <h1 class="mt-3 mb-1">${escapeHtml(teamLabel)}</h1>
-        <small style="opacity:.7">Tablero de Comando — IA (${OPENAI_MODEL})</small>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (${OPENAI_MODEL})</div>
     </div>
 </div>
 <div class="container" style="margin-top:-14px">
     <div class="row g-3">
-        <div class="col-4 col-md-2"><div class="kpi-card"><div class="kpi-val">${meta.totalConvs ?? '—'}</div><div class="kpi-lbl">Conversaciones</div></div></div>
-        <div class="col-4 col-md-2"><div class="kpi-card green"><div class="kpi-val">${meta.openCount ?? '—'}</div><div class="kpi-lbl">Abiertas</div></div></div>
-        <div class="col-4 col-md-2"><div class="kpi-card"><div class="kpi-val">${meta.closedCount ?? '—'}</div><div class="kpi-lbl">Cerradas</div></div></div>
-        <div class="col-4 col-md-2"><div class="kpi-card accent"><div class="kpi-val">${meta.avgMsgs ?? '—'}</div><div class="kpi-lbl">Msg/Conv</div></div></div>
-        <div class="col-4 col-md-2"><div class="kpi-card"><div class="kpi-val">${meta.channels ?? '—'}</div><div class="kpi-lbl">Canales</div></div></div>
-        <div class="col-4 col-md-2"><div class="kpi-card"><div class="kpi-val">${meta.agents ?? '—'}</div><div class="kpi-lbl">Agentes</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">${meta.totalConvs ?? '—'}</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">${meta.openCount ?? '—'}</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">${meta.closedCount ?? '—'}</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card accent"><span class="kpi-icon">📊</span><div class="kpi-val">${meta.avgMsgs ?? '—'}</div><div class="kpi-lbl">Msg/Conv</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">📱</span><div class="kpi-val">${meta.channels ?? '—'}</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">${meta.agents ?? '—'}</div><div class="kpi-lbl">Agentes</div></div></div>
     </div>
-    <div class="row g-3 mt-1">${rows}</div>
-    <div class="text-center mt-4 pb-4"><small class="text-muted">iChef Analytics · Generado automaticamente · ${dateStr}</small></div>
+    <div class="row g-4 mt-1">${rows}</div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · ${dateStr}</div>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>`;
 }
@@ -206,7 +395,7 @@ function generateHTMLReport(teamLabel, answers, errors = {}, meta = {}) {
         { title: 'Estado', key: 'estado', icon: '🏷️', ic: 'green' },
         { title: 'Actividad', key: 'actividad', icon: '👥', ic: 'purple' },
         { title: 'Temas', key: 'recetas', icon: '💬', ic: 'teal' },
-        { title: 'Alertas', key: 'alertas', icon: '⚠️', ic: 'amber' },
+        { title: 'Alertas', key: 'alertas', icon: '⚠️', ic: 'red' },
         { title: 'Análisis General', key: 'analisis', icon: '📋', ic: 'blue' },
     ];
 
@@ -215,14 +404,14 @@ function generateHTMLReport(teamLabel, answers, errors = {}, meta = {}) {
         const error = errors[s.key] || '';
         const isError = !answers[s.key] && error;
         const isStat = ['volumen', 'estado', 'actividad'].includes(s.key);
-        const content = isStat ? answer : formatContent(answer);
+        const content = isStat ? answer : wrapTopicsInAccordions(s.key, formatContent(answer));
         return `
-        <div class="col-lg-6 mb-3" style="min-width:0">
-            <div class="card card-dash${isError ? ' error' : ''}">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100${isError ? ' error' : ''}">
                 <div class="card-header">
                     <span class="icon-i ${s.ic}">${s.icon}</span> ${escapeHtml(s.title)}
                 </div>
-                <div class="card-body">${content}</div>
+                <div class="card-body d-flex flex-column">${content}</div>
                 ${error ? `<div class="px-3 pb-3"><div class="text-danger small bg-danger bg-opacity-10 rounded p-2">⚠️ ${escapeHtml(error)}</div></div>` : ''}
             </div>
         </div>`;
@@ -242,29 +431,99 @@ function escapeHtml(text) {
         .replace(/"/g, '&quot;');
 }
 
+function buildAccordion(groupId, items) {
+    if (!items || items.length === 0) return '';
+    const list = items.map((it, idx) => {
+        const id = `acc-${groupId}-${idx}`;
+        return `
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="false" aria-controls="${id}">
+                    ${escapeHtml(it.title)}
+                </button>
+            </h2>
+            <div id="${id}" class="accordion-collapse collapse" data-bs-parent="#accordion-${groupId}">
+                <div class="accordion-body">${it.body}</div>
+            </div>
+        </div>`;
+    }).join('');
+    return `<div class="accordion accordion-flush accordion-i" id="accordion-${groupId}">${list}</div>`;
+}
+
 function formatContent(text) {
     if (typeof text !== 'string') return '';
-    let html = escapeHtml(text);
+    if (!text.trim()) return '<p class="text-muted fst-italic">Sin datos.</p>';
+
+    // Escape first to avoid HTML injection, then format
+    let html = escapeHtml(text.trim());
+
+    // Bold markup
     html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    html = html.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
-    html = html.replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, '<ul class="card-list">$1</ul>');
-    html = html.replace(/^([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,]{4,60})$/gm, '<div class="subtitle">$1</div>');
-    html = html.replace(/^(.{8,80}):[ \t]*$/gm, '<div class="subtitle">$1</div>');
-    html = html.replace(/^\s+/, '').replace(/\s+$/, '');
-    html = html.replace(/\n\n+/g, '\n\n');
-    html = html.replace(/\n/g, '<br>');
-    // Replace double <br> back to double newline for cleanup
-    html = html.replace(/<br><br>/g, '\n\n');
-    // Remove <br> inside <ul> (between <li> elements)
-    html = html.replace(/(<ul class="card-list">[\s\S]*?<\/ul>)/g, m => m.replace(/<br>/g, ''));
-    // Remove <br> immediately before/after block elements
-    html = html.replace(/(?:<br>)+<(div class="subtitle"|ul class="card-list")/g, '<$1');
-    html = html.replace(/<\/(div|ul)>(?:<br>)+/g, '</$1>');
-    // Convert remaining \n\n to <br><br>
-    html = html.replace(/\n\n/g, '<br><br>');
-    html = html.replace(/\n/g, '<br>');
-    html = html.replace(/^(<br>)+/, '').replace(/(<br>)+$/, '');
-    return html;
+
+    // Split into blocks separated by blank lines
+    const blocks = html.split(/\n\s*\n/).map(b => b.trim()).filter(Boolean);
+
+    const listPrefix = /^(?:[-•]|\d+[.\)])\s+/;
+    const isListLine = (l) => /^[-•]\s+/.test(l) || /^\d+[.\)]\s+/.test(l);
+
+    const out = blocks.map(block => {
+        const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
+
+        // List block: every line starts with -, •, or number.
+        if (lines.length > 1 && lines.every(isListLine)) {
+            const items = lines.map(l => `<li>${l.replace(listPrefix, '')}</li>`).join('');
+            return `<ul class="card-list">${items}</ul>`;
+        }
+
+        // Single line that looks like a heading
+        if (lines.length === 1 && (
+            /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:]{3,50}$/.test(lines[0]) ||
+            /^.{5,60}:[ \t]*$/.test(lines[0])
+        )) {
+            return `<div class="subtitle">${lines[0].replace(/:$/, '')}</div>`;
+        }
+
+        // Mixed block: detect inline subtitles, lists, and paragraphs
+        let inner = block;
+        inner = inner.replace(/^([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:]{3,50})$/gm, '<div class="subtitle">$1</div>');
+        inner = inner.replace(/^(.{5,60}):[ \t]*$/gm, '<div class="subtitle">$1</div>');
+        inner = inner.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
+        inner = inner.replace(/^\d+[.\)]\s+(.+)$/gm, '<li>$1</li>');
+        // Wrap contiguous list items
+        inner = inner.replace(/((?:<li>[\s\S]*?<\/li>\s*)+)/g, '<ul class="card-list">$1</ul>');
+        // Convert remaining newlines to <br>
+        inner = inner.replace(/\n/g, '<br>');
+        // Remove <br> next to block elements
+        inner = inner.replace(/(?:<br>)+<(div class="subtitle")/g, '<$1');
+        inner = inner.replace(/<\/(div)>(?:<br>)+/g, '</$1>');
+        inner = inner.replace(/(?:<br>)+<(ul class="card-list")/g, '<$1');
+        inner = inner.replace(/<\/(ul)>(?:<br>)+/g, '</$1>');
+        return `<p>${inner}</p>`;
+    });
+
+    return out.join('');
+}
+
+function wrapTopicsInAccordions(groupId, html) {
+    if (!html.trim()) return html;
+    // Split before each subtitle marker, keeping the marker in the token
+    const tokens = html.split(/(?=<div class="subtitle">)/).map(t => t.trim()).filter(Boolean);
+    if (tokens.length <= 1 && !tokens[0].startsWith('<div class="subtitle">')) {
+        return html; // No topics, return as-is
+    }
+
+    const items = [];
+    tokens.forEach(token => {
+        const m = token.match(/^<div class="subtitle">([^<]+)<\/div>([\s\S]*)$/);
+        if (m) {
+            const body = m[2].trim();
+            items.push({ title: m[1].trim(), body: body || '<p class="text-muted fst-italic small mb-0">Sin detalles.</p>' });
+        } else {
+            items.push({ title: 'General', body: token });
+        }
+    });
+
+    return buildAccordion(groupId, items);
 }
 
 // ─── Export + Analysis Pipeline ──────────────────────────────────────────────
@@ -494,13 +753,17 @@ function formatVolumeSection(stats) {
         `<tr><td class="lbl">${pd.day}</td><td class="val">${pd.count}</td></tr>`
     ).join('');
 
-    return `
-<div class="stat-row"><span class="stat-label">Total conversaciones</span><span class="stat-value">${stats.totalConvs}</span></div>
-<div class="stat-row"><span class="stat-label">Promedio msgs / conversación</span><span class="stat-value">${stats.avgMsgs}</span></div>
-<div class="stat-row"><span class="stat-label">Rango de fechas</span><span class="stat-value">${stats.dateRange}</span></div>
-<div class="subtitle">Conversaciones por canal</div>
-<table class="mini-table"><tbody>${inboxRows}</tbody></table>
-${stats.perDay.length > 0 ? `<div class="subtitle">Por día</div><table class="mini-table"><tbody>${perDayRows}</tbody></table>` : ''}`;
+    const top = `
+<div class="stat-compact"><span class="lbl">Total conversaciones</span><span class="val">${stats.totalConvs}</span></div>
+<div class="stat-compact"><span class="lbl">Promedio msgs / conversación</span><span class="val">${stats.avgMsgs}</span></div>
+<div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">${stats.dateRange}</span></div>`;
+
+    const accordions = buildAccordion('volumen', [
+        { title: 'Conversaciones por canal', body: `<table class="mini-table"><tbody>${inboxRows}</tbody></table>` },
+        ...(stats.perDay.length > 0 ? [{ title: 'Por día', body: `<table class="mini-table"><tbody>${perDayRows}</tbody></table>` }] : []),
+    ]);
+
+    return top + accordions;
 }
 
 function formatStatusSection(stats) {
@@ -511,11 +774,15 @@ function formatStatusSection(stats) {
         `<tr><td class="lbl">${escapeHtml(l.name)}</td><td class="val">${l.count}</td></tr>`
     ).join('');
 
-    return `
-<div class="stat-row"><span class="stat-label">Abiertas</span><span class="stat-value">${stats.openCount} <em>(${openPct}%)</em></span></div>
-<div class="stat-row"><span class="stat-label">Cerradas / Resueltas</span><span class="stat-value">${stats.closedCount} <em>(${closedPct}%)</em></span></div>
-<div class="subtitle">Etiquetas más usadas</div>
-<table class="mini-table"><tbody>${labelRows}</tbody></table>`;
+    const top = `
+<div class="stat-compact"><span class="lbl">Abiertas</span><span class="val">${stats.openCount} <em>(${openPct}%)</em></span></div>
+<div class="stat-compact"><span class="lbl">Cerradas / Resueltas</span><span class="val">${stats.closedCount} <em>(${closedPct}%)</em></span></div>`;
+
+    const accordions = buildAccordion('estado', [
+        { title: 'Etiquetas más usadas', body: `<table class="mini-table"><tbody>${labelRows}</tbody></table>` },
+    ]);
+
+    return top + accordions;
 }
 
 function formatActivitySection(stats) {
@@ -526,12 +793,14 @@ function formatActivitySection(stats) {
         `<tr><td class="lbl">${escapeHtml(c.name)}</td><td class="val">${c.count} conv.</td></tr>`
     ).join('');
 
-    return `
-<div class="stat-row"><span class="stat-label">Rango de fechas</span><span class="stat-value">${stats.dateRange}</span></div>
-<div class="subtitle">Agentes más activos</div>
-<table class="mini-table"><tbody>${agentRows}</tbody></table>
-<div class="subtitle">Contactos con más conversaciones</div>
-<table class="mini-table"><tbody>${contactRows}</tbody></table>`;
+    const top = `<div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">${stats.dateRange}</span></div>`;
+
+    const accordions = buildAccordion('actividad', [
+        { title: 'Agentes más activos', body: `<table class="mini-table"><tbody>${agentRows}</tbody></table>` },
+        { title: 'Contactos con más conversaciones', body: `<table class="mini-table"><tbody>${contactRows}</tbody></table>` },
+    ]);
+
+    return top + accordions;
 }
 
 // ─── HTTP Handlers ───────────────────────────────────────────────────────────
@@ -670,6 +939,9 @@ export async function DownloadPipelineResult(req, res) {
         return res.status(404).json({ error: 'Reporte no encontrado' });
     }
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     return res.sendFile(report.path);
 }
 
@@ -711,5 +983,8 @@ export async function DownloadHistoryReport(req, res) {
     const filePath = path.join(EXPORTS_DIR, path.basename(file));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     return res.sendFile(filePath);
 }

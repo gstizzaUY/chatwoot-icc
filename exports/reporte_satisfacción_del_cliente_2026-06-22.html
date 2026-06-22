@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Post-Venta iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #635bff;
+            --primary-light: #eef0ff;
+            --success: #00ba88;
+            --success-light: #e6faf3;
+            --warning: #f5a623;
+            --warning-light: #fef6e8;
+            --danger: #df1b41;
+            --danger-light: #fff0f3;
+            --info: #00a3a3;
+            --info-light: #e6faf7;
+            --purple: #7c5cfc;
+            --purple-light: #f3f0ff;
+            --dark: #1a1f36;
+            --gray: #697386;
+            --light-bg: #f6f9fc;
+            --card-border: #e3e8ee;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #1a1f36 0%, #2d3561 50%, #3d4680 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(26,31,54,0.15);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #00d4aa; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .75; font-size: .9rem; color: rgba(255,255,255,.85); }
+        .hero-i .date { opacity: .8; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(26,31,54,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(26,31,54,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--success); }
+        .kpi-card.accent::before { background: var(--primary); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--success); }
+        .kpi-card.accent .kpi-val { color: var(--primary); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--success-light); color: var(--success); }
+        .kpi-card.accent .kpi-icon { background: var(--primary-light); color: var(--primary); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(26,31,54,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(26,31,54,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--danger); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--success-light); color: var(--success); }
+        .icon-i.amber { background: var(--warning-light); color: var(--warning); }
+        .icon-i.purple { background: var(--purple-light); color: var(--purple); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--danger-light); color: var(--danger); }
+
+        .subtitle { 
+            font-size: .72rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .7px; 
+            color: var(--primary); 
+            margin: 18px 0 10px; 
+            padding-bottom: 6px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f2f5; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .85rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .9rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .8rem; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">22 jun. 2026, 9:10 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Post-Venta iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-4o-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">10</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">10</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">0</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card accent"><span class="kpi-icon">📊</span><div class="kpi-val">2.7</div><div class="kpi-lbl">Msg/Conv</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">📱</span><div class="kpi-val">1</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones</span><span class="val">10</span></div>
+<div class="stat-compact"><span class="lbl">Promedio msgs / conversación</span><span class="val">2.7</span></div>
+<div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">16/6/2026 - 19/6/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="false" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">10</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="false" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-06-17</td><td class="val">4</td></tr><tr><td class="lbl">2026-06-18</td><td class="val">3</td></tr><tr><td class="lbl">2026-06-19</td><td class="val">2</td></tr><tr><td class="lbl">2026-06-16</td><td class="val">1</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i green">🏷️</span> Estado
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Abiertas</span><span class="val">10 <em>(100%)</em></span></div>
+<div class="stat-compact"><span class="lbl">Cerradas / Resueltas</span><span class="val">0 <em>(0%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-estado">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-estado-0" aria-expanded="false" aria-controls="acc-estado-0">
+                    Etiquetas más usadas
+                </button>
+            </h2>
+            <div id="acc-estado-0" class="accordion-collapse collapse" data-bs-parent="#accordion-estado">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">tiene_ichef</td><td class="val">4</td></tr><tr><td class="lbl">cliente</td><td class="val">3</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">16/6/2026 - 19/6/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="false" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Neiff Cardozo</td><td class="val">10 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="false" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Franco Silva</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Bettina Quinteros</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Carla Navarro</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Camila</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Graciela Barrios</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-recetas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-0" aria-expanded="false" aria-controls="acc-recetas-0">
+                    TEMAS Y PATRONES DETECTADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-0" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-1" aria-expanded="false" aria-controls="acc-recetas-1">
+                    📌 MOTIVOS DE CONTACTO (top 10-15 con %)
+                </button>
+            </h2>
+            <div id="acc-recetas-1" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Onboarding D+1</strong>: 40% (4 de 10 conversaciones). Este patrón se observa en la mayoría de las interacciones, donde los clientes recién adquiridos consultan sobre la configuración inicial y el uso de recetas. Ejemplos: </li><br>   </ul>- &quot;Camila (ID #13756) consultó sobre su experiencia inicial: '¿Cómo puedo usar la función de cocinar al vapor?'&quot;<br>   - &quot;Bettina Quinteros (ID #13769) preguntó: '¿Recibí el Starter Pack correctamente?'<ul class="card-list"><li><strong>Onboarding D+30</strong>: 30% (3 de 10 conversaciones). Los clientes en esta etapa buscan profundizar en el uso del robot y compartir sus recetas favoritas. Ejemplos: </li><br>   </ul>- &quot;Gerónimo Xicart (ID #13713) mencionó: 'Me gustaría saber más sobre recetas avanzadas.'&quot;<br>   - &quot;Laura Rodriguez Manrique (ID #13729) dijo: '¿Qué nuevas recetas hay para probar este mes?'<ul class="card-list"><li><strong>Seguimiento D+7</strong>: 30% (3 de 10 conversaciones). Los clientes buscan feedback sobre su experiencia tras una semana de uso. Ejemplos: </li><br>   </ul>- &quot;Franco Silva (ID #13772) expresó: 'Estoy disfrutando el iChef, pero tengo dudas sobre algunas funciones.'&quot;<br>   - &quot;Maria Fernanda Blanco (ID #13726) comentó: '¿Qué recetas me recomiendan para el fin de semana?'</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-2" aria-expanded="false" aria-controls="acc-recetas-2">
+                    📌 PRODUCTOS/SERVICIOS MENCIONADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-2" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li><strong>iChef robot</strong>: Principal producto mencionado en todas las conversaciones.</li><br><li><strong>Starter Pack</strong>: Consultas sobre su recepción y contenido.</li><br><li><strong>Portal de recetas</strong>: Interés en nuevas recetas y funcionalidades de la app.</li><br><li><strong>Comunidad iChef Lovers</strong>: Preguntas sobre la interacción con otros usuarios.</li><br><li><strong>Garantía</strong>: Consultas sobre el tiempo y cobertura de la garantía.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-3" aria-expanded="false" aria-controls="acc-recetas-3">
+                    📌 ETAPA DEL CLIENTE EN EL JOURNEY
+                </button>
+            </h2>
+            <div id="acc-recetas-3" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Leads</strong>: No se registraron leads en este periodo.</li><br><li><strong>Oportunidades</strong>: No se registraron oportunidades en este periodo.</li><br><li><strong>Onboarding D+1</strong>: 40% de las conversaciones.</li><br><li><strong>Clientes activos</strong>: 60% de las conversaciones corresponden a clientes que ya han comenzado a usar el producto.</li><br><li><strong>Clientes en riesgo</strong>: No se identificaron clientes en riesgo en este periodo.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-4" aria-expanded="false" aria-controls="acc-recetas-4">
+                    📌 PATRONES REPETITIVOS
+                </button>
+            </h2>
+            <div id="acc-recetas-4" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>La mayoría de las consultas en la etapa D+1 se centran en la configuración inicial y el uso de recetas. Esto indica una necesidad de mejorar la comunicación sobre el proceso de onboarding.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-5" aria-expanded="false" aria-controls="acc-recetas-5">
+                    📌 RECLAMOS / QUEJAS / INCIDENCIAS
+                </button>
+            </h2>
+            <div id="acc-recetas-5" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>No se registraron reclamos o quejas formales en las conversaciones analizadas.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-6" aria-expanded="false" aria-controls="acc-recetas-6">
+                    📌 CASOS DESTACADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-6" class="accordion-collapse collapse" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Conversación positiva</strong>: &quot;Franco Silva (ID #13772) expresó: 'Estoy disfrutando el iChef, pero tengo dudas sobre algunas funciones.' Esto refleja una buena experiencia general, pero también una oportunidad de mejora en la comunicación de funciones.&quot;</li><br><li><strong>Conversación compleja</strong>: &quot;Gerónimo Xicart (ID #13713) mostró interés en recetas avanzadas, lo que sugiere que algunos clientes buscan un uso más sofisticado del producto. Esto podría indicar la necesidad de contenido más avanzado en el portal de recetas.&quot;</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-alertas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-0" aria-expanded="false" aria-controls="acc-alertas-0">
+                    ALERTAS PARA LA OPERACION
+                </button>
+            </h2>
+            <div id="acc-alertas-0" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-1" aria-expanded="false" aria-controls="acc-alertas-1">
+                    ⚠️ SIN RESPUESTA DEL AGENTE
+                </button>
+            </h2>
+            <div id="acc-alertas-1" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No se registraron conversaciones sin respuesta del agente en el periodo analizado.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-2" aria-expanded="false" aria-controls="acc-alertas-2">
+                    ⚠️ INSATISFACCION DETECTADA
+                </button>
+            </h2>
+            <div id="acc-alertas-2" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No se detectaron clientes frustrados o molestos en las conversaciones analizadas.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-3" aria-expanded="false" aria-controls="acc-alertas-3">
+                    ⚠️ CASOS URGENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-3" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No se registraron problemas técnicos que impidan el uso del robot en las conversaciones analizadas.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-4" aria-expanded="false" aria-controls="acc-alertas-4">
+                    ⚠️ CONTACTOS RECURRENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-4" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Franco Silva (ID #13772)</strong>: Contacto recurrente en la etapa D+7, lo que indica un seguimiento normal de onboarding.</li><br><li><strong>Bettina Quinteros (ID #13769)</strong>: También en D+1, lo que sugiere que está en la etapa inicial de uso del producto.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-5" aria-expanded="false" aria-controls="acc-alertas-5">
+                    ⚠️ SIN AGENTE ASIGNADO
+                </button>
+            </h2>
+            <div id="acc-alertas-5" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Todas las conversaciones tienen un agente asignado (Neiff Cardozo).</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-6" aria-expanded="false" aria-controls="acc-alertas-6">
+                    ⚠️ CANALES CON PROBLEMAS
+                </button>
+            </h2>
+            <div id="acc-alertas-6" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No se identificaron problemas en los canales de comunicación, todos los contactos fueron a través de la API.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-7" aria-expanded="false" aria-controls="acc-alertas-7">
+                    ⚠️ RIESGOS POTENCIALES
+                </button>
+            </h2>
+            <div id="acc-alertas-7" class="accordion-collapse collapse" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>La concentración de consultas en la etapa D+1 podría indicar que los nuevos usuarios no están recibiendo suficiente información sobre el uso del producto, lo que podría llevar a insatisfacción futura si no se aborda adecuadamente.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-analisis">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-0" aria-expanded="false" aria-controls="acc-analisis-0">
+                    ANALISIS PARA GERENCIA
+                </button>
+            </h2>
+            <div id="acc-analisis-0" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-1" aria-expanded="false" aria-controls="acc-analisis-1">
+                    📊 RESUMEN EJECUTIVO
+                </button>
+            </h2>
+            <div id="acc-analisis-1" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">Durante el periodo analizado, se registraron 10 conversaciones en el equipo de Post-Venta iChef, todas abiertas y atendidas por un único agente, Neiff Cardozo. La tendencia muestra un enfoque en el onboarding, con un 70% de las conversaciones en las etapas D+1 y D+30. Esto indica que los clientes están buscando apoyo en sus primeras experiencias con el producto. El dato más relevante es que no se registraron quejas ni problemas técnicos, lo que sugiere una buena recepción del producto.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-2" aria-expanded="false" aria-controls="acc-analisis-2">
+                    💡 INSIGHTS CLAVE
+                </button>
+            </h2>
+            <div id="acc-analisis-2" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Alta concentración en onboarding</strong>: 70% de las conversaciones (7 de 10) están relacionadas con el onboarding. Esto es relevante porque indica que los nuevos usuarios necesitan más apoyo y recursos para adaptarse al producto. Ejemplo: &quot;Camila (ID #13756) consultó sobre su experiencia inicial.&quot;</li><br><li><strong>Interés en recetas avanzadas</strong>: 30% de las conversaciones (3 de 10) son sobre el uso de recetas avanzadas. Esto sugiere que hay una oportunidad de crear contenido más sofisticado en el portal. Ejemplo: &quot;Gerónimo Xicart (ID #13713) mencionó: 'Me gustaría saber más sobre recetas avanzadas.'&quot;</li><br><li><strong>Uso efectivo del canal API</strong>: Todas las conversaciones se realizaron a través de la API, lo que indica que este canal es efectivo para el contacto post-venta. Ejemplo: Todas las interacciones fueron gestionadas por Neiff Cardozo.</li><br><li><strong>Falta de quejas</strong>: No se registraron quejas ni problemas técnicos, lo que refleja una buena experiencia del cliente. Esto es positivo para la imagen de la marca.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-3" aria-expanded="false" aria-controls="acc-analisis-3">
+                    🔧 RECOMENDACIONES
+                </button>
+            </h2>
+            <div id="acc-analisis-3" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Mejorar la comunicación de onboarding</strong>: Crear un documento o video explicativo sobre la configuración inicial y uso de recetas. Esto debería ser distribuido a todos los nuevos clientes. (Canal: Email, Equipo: Post-Venta, Responsable: Neiff Cardozo, Impacto: Mejora en la satisfacción del cliente, Prioridad: Alta)</li><br><li><strong>Desarrollar contenido avanzado</strong>: Crear y publicar recetas avanzadas en el portal de recetas para satisfacer la demanda de los usuarios más experimentados. (Canal: Portal de recetas, Equipo: Contenido, Responsable: Equipo de Marketing, Impacto: Aumento en la retención de clientes, Prioridad: Media)</li><br><li><strong>Monitorear la satisfacción del cliente</strong>: Implementar encuestas de satisfacción después de la etapa D+1 para evaluar la experiencia del cliente y detectar áreas de mejora. (Canal: Email, Equipo: Post-Venta, Responsable: Neiff Cardozo, Impacto: Mejora continua en el servicio, Prioridad: Alta)</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-4" aria-expanded="false" aria-controls="acc-analisis-4">
+                    🌡️ TEMPERATURA DE LA OPERACION
+                </button>
+            </h2>
+            <div id="acc-analisis-4" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">La temperatura de la operación esta semana es de 8/10. Esto se justifica por la alta cantidad de interacciones (10) y la ausencia de quejas o problemas técnicos, lo que indica que los clientes están satisfechos con el producto y el servicio.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-5" aria-expanded="false" aria-controls="acc-analisis-5">
+                    📈 TENDENCIAS Y PROYECCIONES
+                </button>
+            </h2>
+            <div id="acc-analisis-5" class="accordion-collapse collapse" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">Se espera que la próxima semana continúe la tendencia de alta demanda en las etapas de onboarding, por lo que es recomendable preparar más recursos para atender a los nuevos clientes. Además, se podría anticipar un aumento en las consultas sobre recetas avanzadas, lo que sugiere que los clientes están comenzando a explorar más funcionalidades del iChef.</p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 22 jun. 2026, 9:10 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
