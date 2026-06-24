@@ -836,12 +836,7 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         const reportFileName = `reporte_${teamName.replace(/\s+/g, '_')}_${dateStr}.html`;
         const reportPath = path.join(EXPORTS_DIR, reportFileName);
         fs.writeFileSync(reportPath, html, 'utf-8');
-        // Store raw data for Excel export (strip non-serializable extract functions)
-        const topicData = topicStats ? {
-            ...topicStats,
-            topics: topicStats.topics.map(t => ({ label: t.label, count: t.count, details: t.details.map(d => ({ ...d, matchedKeywords: undefined })) })),
-        } : null;
-        reports.push({ team: teamName, label, path: reportPath, fileName: reportFileName, data: { stats, topicData, meta, answers } });
+        reports.push({ team: teamName, label, path: reportPath, fileName: reportFileName, data: { stats, topicStats, meta, answers } });
 
         reportProgress++;
         await sleep(1000);
@@ -1277,8 +1272,9 @@ export async function ExportDashboardExcel(req, res) {
         return res.status(404).json({ error: 'Datos del reporte no disponibles' });
     }
 
-    const { stats, topicData, meta } = report.data;
-    const conclusions = topicData?.conclusions || {};
+    const { stats, topicStats, meta } = report.data;
+    const conclusions = topicStats?.conclusions || {};
+    const topicData = topicStats;
     const aiAnswers = report.data.answers || {};
 
     const workbook = new ExcelJS.Workbook();
@@ -1347,7 +1343,6 @@ export async function ExportDashboardExcel(req, res) {
         }
     }
 
-    // Sheets 5-7: AI analysis (plain text)
     // Sheets 5-7: AI analysis (plain text). Hoja 7 solo para admin.
     const aiSheets = [
         { name: 'Temas IA', content: aiAnswers.recetas || 'No disponible' },
