@@ -14,7 +14,8 @@ import {
     DownloadPipelineResult,
     SetupNotebooks,
     ListDashboards,
-    DownloadHistoryReport
+    DownloadHistoryReport,
+    ExportDashboardExcel,
 } from '../controllers/notebooklmController.js';
 
 const router = express.Router();
@@ -57,6 +58,8 @@ router.get('/notebooklm/status/:jobId', GetPipelineStatus);
 // GET /api/export/notebooklm/download/:jobId/xlsx        → descargar el .xlsx
 // GET /api/export/notebooklm/download/:jobId/report?team=ventas  → descargar reporte .html
 router.get('/notebooklm/download/:jobId/:type', DownloadPipelineResult);
+// GET /api/export/notebooklm/export-dashboard/:jobId?team=ventas  → descargar dashboard .xlsx
+router.get('/notebooklm/export-dashboard/:jobId', ExportDashboardExcel);
 
 // POST /api/export/notebooklm/setup   → registrar los notebooks de equipo en el MCP server
 router.post('/notebooklm/setup', SetupNotebooks);

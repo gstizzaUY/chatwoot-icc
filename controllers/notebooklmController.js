@@ -836,7 +836,12 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         const reportFileName = `reporte_${teamName.replace(/\s+/g, '_')}_${dateStr}.html`;
         const reportPath = path.join(EXPORTS_DIR, reportFileName);
         fs.writeFileSync(reportPath, html, 'utf-8');
-        reports.push({ team: teamName, label, path: reportPath, fileName: reportFileName });
+        // Store raw data for Excel export (strip non-serializable extract functions)
+        const topicData = topicStats ? {
+            ...topicStats,
+            topics: topicStats.topics.map(t => ({ label: t.label, count: t.count, details: t.details.map(d => ({ ...d, matchedKeywords: undefined })) })),
+        } : null;
+        reports.push({ team: teamName, label, path: reportPath, fileName: reportFileName, data: { stats, topicData, meta, answers } });
 
         reportProgress++;
         await sleep(1000);
@@ -1253,6 +1258,112 @@ export async function SetupNotebooks(req, res) {
         success: true,
         message: 'El dashboard usa OpenAI para el analisis. No se requiere configuracion adicional.',
     });
+}
+
+export async function ExportDashboardExcel(req, res) {
+    if (!requireToken(req, res)) return;
+
+    const { jobId } = req.params;
+    const job = jobs.get(jobId);
+    if (!job || job.status !== 'done' || !job.result) {
+        return res.status(404).json({ error: 'Job no encontrado o pipeline no completado' });
+    }
+
+    const teamName = req.query.team;
+    const report = teamName
+        ? job.result.reports?.find(r => r.team === teamName)
+        : job.result.reports?.[0];
+    if (!report || !report.data) {
+        return res.status(404).json({ error: 'Datos del reporte no disponibles' });
+    }
+
+    const { stats, topicData, meta } = report.data;
+    const conclusions = topicData?.conclusions || {};
+    const aiAnswers = report.data.answers || {};
+
+    const workbook = new ExcelJS.Workbook();
+    const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF509F2C' } } };
+
+    // Sheet 1: Resumen (KPIs)
+    const sh1 = workbook.addWorksheet('Resumen');
+    sh1.columns = [
+        { header: 'Indicador', key: 'label', width: 30 },
+        { header: 'Valor', key: 'value', width: 20 },
+    ];
+    sh1.getRow(1).eachCell(c => { c.font = headerStyle.font; c.fill = headerStyle.fill; });
+    sh1.addRow({ label: 'Conversaciones totales', value: meta.totalConvs });
+    sh1.addRow({ label: 'Abiertas', value: meta.openCount });
+    sh1.addRow({ label: 'Cerradas / Resueltas', value: meta.closedCount });
+    sh1.addRow({ label: 'Canales', value: meta.channels });
+    sh1.addRow({ label: 'Agentes', value: meta.agents });
+    sh1.addRow({ label: 'Rango de fechas', value: stats?.dateRange || '' });
+    sh1.addRow({ label: 'Equipo', value: report.label });
+
+    // Sheet 2: Volumen
+    const sh2 = workbook.addWorksheet('Volumen');
+    sh2.columns = [
+        { header: 'Canal', key: 'name', width: 30 },
+        { header: 'Conversaciones', key: 'count', width: 15 },
+    ];
+    sh2.getRow(1).eachCell(c => { c.font = headerStyle.font; c.fill = headerStyle.fill; });
+    (stats?.inboxCounts || []).forEach(i => sh2.addRow({ name: i.name, count: i.count }));
+    sh2.addRow({}); sh2.addRow({ name: 'Por día', count: '' });
+    (stats?.perDay || []).forEach(d => sh2.addRow({ name: d.day, count: d.count }));
+
+    // Sheet 3: Actividad
+    const sh3 = workbook.addWorksheet('Actividad');
+    sh3.columns = [
+        { header: 'Agente', key: 'name', width: 30 },
+        { header: 'Conversaciones', key: 'count', width: 15 },
+    ];
+    sh3.getRow(1).eachCell(c => { c.font = headerStyle.font; c.fill = headerStyle.fill; });
+    (stats?.topAgents || []).forEach(a => sh3.addRow({ name: a.name, count: a.count }));
+    sh3.addRow({});
+    (stats?.topContacts || []).forEach(c => sh3.addRow({ name: c.name, count: c.count }));
+
+    // Sheet 4: Seguimiento de Temas
+    const sh4 = workbook.addWorksheet('Seguimiento de Temas');
+    sh4.columns = [
+        { header: 'Tema', key: 'topic', width: 22 },
+        { header: 'ID Conversación', key: 'cid', width: 12 },
+        { header: 'Contacto', key: 'contact', width: 25 },
+        { header: 'Email', key: 'email', width: 30 },
+        { header: 'Conclusión', key: 'conclusion', width: 18 },
+        { header: 'Recomendó a', key: 'extracted', width: 25 },
+    ];
+    sh4.getRow(1).eachCell(c => { c.font = headerStyle.font; c.fill = headerStyle.fill; });
+    if (topicData?.topics) {
+        for (const t of topicData.topics) {
+            for (const d of (t.details || [])) {
+                sh4.addRow({
+                    topic: t.label,
+                    cid: d.cid,
+                    contact: d.contactName,
+                    email: d.contactEmail,
+                    conclusion: conclusions[d.cid] || '—',
+                    extracted: d.extracted || '',
+                });
+            }
+        }
+    }
+
+    // Sheets 5-7: AI analysis (plain text)
+    const aiSheets = [
+        { name: 'Temas IA', content: aiAnswers.recetas || 'No disponible' },
+        { name: 'Alertas IA', content: aiAnswers.alertas || 'No disponible' },
+        { name: 'Análisis General IA', content: aiAnswers.analisis || 'No disponible' },
+    ];
+    for (const sheet of aiSheets) {
+        const sh = workbook.addWorksheet(sheet.name);
+        sh.columns = [{ header: 'Contenido', key: 'content', width: 100 }];
+        sh.getRow(1).eachCell(c => { c.font = headerStyle.font; c.fill = headerStyle.fill; });
+        sheet.content.split('\n').forEach(line => sh.addRow({ content: line }));
+    }
+
+    const buf = await workbook.xlsx.writeBuffer();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="dashboard_${report.team}_${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    return res.send(Buffer.from(buf));
 }
 
 export async function ListDashboards(req, res) {
