@@ -6,6 +6,7 @@ yarn-error.log
 
 # Variables de entorno
 .env
+.env.example
 .env.local
 .env.*.local
 

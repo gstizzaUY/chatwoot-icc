@@ -21,6 +21,42 @@ const TEAM_LABELS = {
     'pre-ventas':                 'Pre-Ventas iChef',
     'satisfacción del cliente':   'Post-Venta iChef',
     'portal':                     'Portal iChef',
+    'sin_equipo':                 'Sin equipo asignado',
+};
+
+function extractRecommendedTo(text) {
+    const patterns = [
+        /recomend[éeoóaí]?(?:\s+\w+){0,3}\s+a\s+([^,.;:!?\n]{2,60})/i,
+        /recomendar(?:\s+\w+){0,3}\s+a\s+([^,.;:!?\n]{2,60})/i,
+        /recomiendo(?:\s+\w+){0,3}\s+a\s+([^,.;:!?\n]{2,60})/i,
+        /recomendó(?:\s+\w+){0,3}\s+a\s+([^,.;:!?\n]{2,60})/i,
+    ];
+    for (const re of patterns) {
+        const m = text.match(re);
+        if (m) {
+            let name = m[1].trim();
+            name = name.replace(/^(?:mi|tu|su|un|una|el|la|los|las|nuestro|nuestra|vuestro|vuestra)\s+/i, '');
+            name = name.replace(/^(?:amigo|amiga|hermano|hermana|conocido|conocida|vecino|vecina|compañero|compañera|colega|cliente|pareja|novio|novia|primo|prima)\s+/i, '');
+            name = name.trim();
+            if (name.length > 2) return name;
+        }
+    }
+    return null;
+}
+
+const TOPIC_TRACKING = {
+    'satisfacción del cliente': [
+        { label: 'Referidos', keywords: ['referido', 'referidos', 'programa de referidos', 'recomendar', 'recomendé', 'recomendó', 'recomendamos', 'recomendaron', 'recomendado', 'recomendación', 'recomendaciones', 'recomiendo', 'recomendarle', 'recomendaste'], extract: extractRecommendedTo },
+        { label: 'Recomendaciones a potenciales clientes', keywords: ['potencial cliente', 'potenciales clientes', 'amigo interesado', 'conocido quiere', 'alguien más quiere', 'recomendar iChef', 'recomendé iChef', 'recomendó iChef'], extract: extractRecommendedTo },
+    ],
+    'ventas': [
+        { label: 'iChef Cuotas', keywords: ['ichef cuotas', 'cuotas sin tarjeta', 'plan de cuotas', 'financiación propia', 'ichefcuotas', 'plan propio'] },
+        { label: 'Financiación', keywords: ['financiación', 'financiacion', 'plan de financiación', 'pago en cuotas', 'cuotas', 'tarjeta de crédito', 'tarjeta de credito', 'débito', 'debito'] },
+    ],
+    'pre-ventas': [
+        { label: 'iChef Cuotas', keywords: ['ichef cuotas', 'cuotas sin tarjeta', 'plan de cuotas', 'financiación propia', 'ichefcuotas', 'plan propio'] },
+        { label: 'Financiación', keywords: ['financiación', 'financiacion', 'plan de financiación', 'pago en cuotas', 'cuotas', 'tarjeta de crédito', 'tarjeta de credito', 'débito', 'debito'] },
+    ],
 };
 
 const PIPELINE_STAGES = ['exportando', 'analizando', 'completado'];
@@ -147,50 +183,54 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #635bff;
-            --primary-light: #eef0ff;
-            --success: #00ba88;
-            --success-light: #e6faf3;
-            --warning: #f5a623;
-            --warning-light: #fef6e8;
-            --danger: #df1b41;
-            --danger-light: #fff0f3;
-            --info: #00a3a3;
-            --info-light: #e6faf7;
-            --purple: #7c5cfc;
-            --purple-light: #f3f0ff;
-            --dark: #1a1f36;
-            --gray: #697386;
-            --light-bg: #f6f9fc;
-            --card-border: #e3e8ee;
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
         }
         body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
         .container { max-width: 1280px; }
 
         .hero-i { 
-            background: linear-gradient(135deg, #1a1f36 0%, #2d3561 50%, #3d4680 100%); 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
             padding: 32px 0 28px; 
             color: white; 
-            box-shadow: 0 4px 20px rgba(26,31,54,0.15);
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
         }
         .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
-        .hero-i .brand span { color: #00d4aa; }
+        .hero-i .brand span { color: #FC846B; }
         .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
-        .hero-i .subtitle { opacity: .75; font-size: .9rem; color: rgba(255,255,255,.85); }
-        .hero-i .date { opacity: .8; font-size: .85rem; font-weight: 500; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
 
         .kpi-card { 
             background: #fff; 
             border-radius: 14px; 
             padding: 20px 18px; 
             border: 1px solid var(--card-border); 
-            box-shadow: 0 2px 8px rgba(26,31,54,0.06);
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
             transition: transform 0.15s ease, box-shadow 0.15s ease;
             height: 100%;
             position: relative;
             overflow: hidden;
         }
-        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(26,31,54,0.1); }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
         .kpi-card::before {
             content: '';
             position: absolute;
@@ -200,12 +240,12 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
             height: 3px;
             background: var(--primary);
         }
-        .kpi-card.green::before { background: var(--success); }
-        .kpi-card.accent::before { background: var(--primary); }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
         .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
         .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
-        .kpi-card.green .kpi-val { color: var(--success); }
-        .kpi-card.accent .kpi-val { color: var(--primary); }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
         .kpi-icon {
             position: absolute;
             top: 14px;
@@ -220,21 +260,21 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
             background: var(--primary-light);
             color: var(--primary);
         }
-        .kpi-card.green .kpi-icon { background: var(--success-light); color: var(--success); }
-        .kpi-card.accent .kpi-icon { background: var(--primary-light); color: var(--primary); }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
 
         .card-dash { 
             border-radius: 14px; 
             border: 1px solid var(--card-border); 
             overflow: hidden; 
             background: #fff;
-            box-shadow: 0 2px 8px rgba(26,31,54,0.05);
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
             transition: box-shadow 0.2s ease;
             height: 100%;
             display: flex;
             flex-direction: column;
         }
-        .card-dash:hover { box-shadow: 0 8px 20px rgba(26,31,54,0.1); }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
         .card-dash .card-header { 
             background: #fff; 
             border-bottom: 1px solid var(--card-border); 
@@ -259,24 +299,24 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
         .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
         .card-dash .card-body p { margin-bottom: 0.7rem; }
         .card-dash .card-body p:last-child { margin-bottom: 0; }
-        .card-dash.error { border-left: 4px solid var(--danger); }
+        .card-dash.error { border-left: 4px solid var(--coral); }
 
         .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
         .icon-i.blue { background: var(--primary-light); color: var(--primary); }
-        .icon-i.green { background: var(--success-light); color: var(--success); }
-        .icon-i.amber { background: var(--warning-light); color: var(--warning); }
-        .icon-i.purple { background: var(--purple-light); color: var(--purple); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
         .icon-i.teal { background: var(--info-light); color: var(--info); }
-        .icon-i.red { background: var(--danger-light); color: var(--danger); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
 
         .subtitle { 
-            font-size: .72rem; 
+            font-size: .68rem; 
             font-weight: 800; 
             text-transform: uppercase; 
-            letter-spacing: .7px; 
+            letter-spacing: .6px; 
             color: var(--primary); 
-            margin: 18px 0 10px; 
-            padding-bottom: 6px; 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
             border-bottom: 1px solid var(--primary-light);
         }
         .subtitle:first-child { margin-top: 0; }
@@ -287,12 +327,6 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
         .mini-table td { padding: 7px 0; font-size: .85rem; }
         .mini-table td.lbl { color: var(--gray); }
         .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
-
-        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid #f0f2f5; }
-        .stat-row:last-child { border-bottom: none; }
-        .stat-row .stat-label { color: var(--gray); font-size: .85rem; }
-        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .9rem; }
-        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .8rem; }
 
         .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
         .card-list li { 
@@ -374,12 +408,11 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
 </div>
 <div class="container" style="margin-top:-14px">
     <div class="row g-3">
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">${meta.totalConvs ?? '—'}</div><div class="kpi-lbl">Conversaciones</div></div></div>
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">${meta.openCount ?? '—'}</div><div class="kpi-lbl">Abiertas</div></div></div>
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">${meta.closedCount ?? '—'}</div><div class="kpi-lbl">Cerradas</div></div></div>
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card accent"><span class="kpi-icon">📊</span><div class="kpi-val">${meta.avgMsgs ?? '—'}</div><div class="kpi-lbl">Msg/Conv</div></div></div>
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">📱</span><div class="kpi-val">${meta.channels ?? '—'}</div><div class="kpi-lbl">Canales</div></div></div>
-        <div class="col-6 col-md-4 col-lg-2"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">${meta.agents ?? '—'}</div><div class="kpi-lbl">Agentes</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">${meta.totalConvs ?? '—'}</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">${meta.openCount ?? '—'}</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">${meta.closedCount ?? '—'}</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">${meta.channels ?? '—'}</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">${meta.agents ?? '—'}</div><div class="kpi-lbl">Agentes</div></div></div>
     </div>
     <div class="row g-4 mt-1">${rows}</div>
     <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · ${dateStr}</div>
@@ -389,10 +422,10 @@ function generateHTMLPage(teamLabel, rows, dateStr, meta) {
 </html>`;
 }
 
-function generateHTMLReport(teamLabel, answers, errors = {}, meta = {}) {
+function generateHTMLReport(teamLabel, answers, errors = {}, meta = {}, topicStats = null) {
     const sections = [
         { title: 'Volumen', key: 'volumen', icon: '📊', ic: 'blue' },
-        { title: 'Estado', key: 'estado', icon: '🏷️', ic: 'green' },
+        { title: 'Seguimiento de Temas', key: 'topicTracking', icon: '🎯', ic: 'amber' },
         { title: 'Actividad', key: 'actividad', icon: '👥', ic: 'purple' },
         { title: 'Temas', key: 'recetas', icon: '💬', ic: 'teal' },
         { title: 'Alertas', key: 'alertas', icon: '⚠️', ic: 'red' },
@@ -400,13 +433,15 @@ function generateHTMLReport(teamLabel, answers, errors = {}, meta = {}) {
     ];
 
     const rows = sections.map(s => {
-        const answer = answers[s.key] || 'Sin datos';
+        let answer = answers[s.key] || 'Sin datos';
+        if (s.key === 'topicTracking') answer = formatTopicTrackingSection(topicStats);
         const error = errors[s.key] || '';
-        const isError = !answers[s.key] && error;
-        const isStat = ['volumen', 'estado', 'actividad'].includes(s.key);
+        const isError = !answers[s.key] && error && s.key !== 'topicTracking';
+        const isStat = ['volumen', 'actividad', 'topicTracking'].includes(s.key);
         const content = isStat ? answer : wrapTopicsInAccordions(s.key, formatContent(answer));
+        const adminOnly = s.key === 'analisis' ? ' admin-only-card' : '';
         return `
-        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch${adminOnly}" style="min-width:0">
             <div class="card card-dash w-100${isError ? ' error' : ''}">
                 <div class="card-header">
                     <span class="icon-i ${s.ic}">${s.icon}</span> ${escapeHtml(s.title)}
@@ -438,16 +473,30 @@ function buildAccordion(groupId, items) {
         return `
         <div class="accordion-item">
             <h2 class="accordion-header">
-                <button class="accordion-button collapsed py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="false" aria-controls="${id}">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#${id}" aria-expanded="true" aria-controls="${id}">
                     ${escapeHtml(it.title)}
                 </button>
             </h2>
-            <div id="${id}" class="accordion-collapse collapse" data-bs-parent="#accordion-${groupId}">
+            <div id="${id}" class="accordion-collapse collapse show" data-bs-parent="#accordion-${groupId}">
                 <div class="accordion-body">${it.body}</div>
             </div>
         </div>`;
     }).join('');
     return `<div class="accordion accordion-flush accordion-i" id="accordion-${groupId}">${list}</div>`;
+}
+
+function extractExcerpt(text, keywords) {
+    const normalizedText = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    for (const kw of keywords) {
+        const normalizedKw = kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const idx = normalizedText.indexOf(normalizedKw);
+        if (idx >= 0) {
+            const start = Math.max(0, idx - 60);
+            const end = Math.min(text.length, idx + kw.length + 80);
+            return (start > 0 ? '…' : '') + text.slice(start, end).trim() + (end < text.length ? '…' : '');
+        }
+    }
+    return text.slice(0, 120).trim() + (text.length > 120 ? '…' : '');
 }
 
 function formatContent(text) {
@@ -567,6 +616,7 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
             teamName: String(row.getCell(col(convHeaders, 'Equipo Asignado')).value || '').trim().toLowerCase(),
             inboxName: String(row.getCell(col(convHeaders, 'Canal')).value || '').trim(),
             contactName: String(row.getCell(col(convHeaders, 'Nombre Completo')).value || ''),
+            contactEmail: String(row.getCell(col(convHeaders, 'Email')).value || ''),
             status: String(row.getCell(col(convHeaders, 'Estado')).value || ''),
             createdAt: row.getCell(col(convHeaders, 'Fecha Creación')).value || '',
             assigneeName: String(row.getCell(col(convHeaders, 'Agente Asignado')).value || ''),
@@ -581,10 +631,13 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         const content = row.getCell(col(msgHeaders, 'Contenido')).value || '';
         if (!content) return;
         if (!allMsgs.has(cid)) allMsgs.set(cid, []);
+        const isPrivateVal = row.getCell(col(msgHeaders, 'Mensaje Privado')).value;
+        const isPrivate = String(isPrivateVal || '').toLowerCase() === 'true' || String(isPrivateVal || '').toLowerCase() === 'sí' || isPrivateVal === true || isPrivateVal === 1;
         allMsgs.get(cid).push({
             senderName: String(row.getCell(col(msgHeaders, 'Remitente')).value || ''),
             content: String(content),
             timestamp: row.getCell(col(msgHeaders, 'Fecha/Hora')).value || '',
+            isPrivate,
         });
     });
 
@@ -593,6 +646,17 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         const t = meta.teamName || 'sin_equipo';
         if (!teams[t]) teams[t] = { name: t, cids: [] };
         teams[t].cids.push(cid);
+    }
+
+    // Merge conversations without a team into the largest assigned team
+    // so they are not reported separately.
+    if (teams['sin_equipo'] && Object.keys(teams).length > 1) {
+        const assigned = Object.entries(teams).filter(([key]) => key !== 'sin_equipo');
+        const largest = assigned.sort((a, b) => b[1].cids.length - a[1].cids.length)[0];
+        if (largest) {
+            largest[1].cids.push(...teams['sin_equipo'].cids);
+            delete teams['sin_equipo'];
+        }
     }
 
     const teamNames = Object.keys(teams);
@@ -621,8 +685,10 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         // Sections 1-3: local stats from Excel
         const stats = computeLocalStats(cids, allConvs, allMsgs);
         answers['volumen'] = formatVolumeSection(stats);
-        answers['estado'] = formatStatusSection(stats);
         answers['actividad'] = formatActivitySection(stats);
+
+        // Topic tracking (local, no AI)
+        const topicStats = computeTopicStats(teamName, cids, allConvs, allMsgs);
 
         // Sections 4-6: OpenAI qualitative analysis
         try {
@@ -648,11 +714,10 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
             totalConvs: stats.totalConvs,
             openCount: stats.openCount,
             closedCount: stats.closedCount,
-            avgMsgs: stats.avgMsgs,
             channels: stats.inboxCounts.length,
             agents: stats.topAgents.filter(a => a.name !== 'Sin agente').length || stats.topAgents.length,
         };
-        const html = generateHTMLReport(label, answers, errors, meta);
+        const html = generateHTMLReport(label, answers, errors, meta, topicStats);
         const dateStr = new Date().toISOString().slice(0, 10);
         const reportFileName = `reporte_${teamName.replace(/\s+/g, '_')}_${dateStr}.html`;
         const reportPath = path.join(EXPORTS_DIR, reportFileName);
@@ -753,10 +818,7 @@ function formatVolumeSection(stats) {
         `<tr><td class="lbl">${pd.day}</td><td class="val">${pd.count}</td></tr>`
     ).join('');
 
-    const top = `
-<div class="stat-compact"><span class="lbl">Total conversaciones</span><span class="val">${stats.totalConvs}</span></div>
-<div class="stat-compact"><span class="lbl">Promedio msgs / conversación</span><span class="val">${stats.avgMsgs}</span></div>
-<div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">${stats.dateRange}</span></div>`;
+    const top = `<div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">${stats.dateRange}</span></div>`;
 
     const accordions = buildAccordion('volumen', [
         { title: 'Conversaciones por canal', body: `<table class="mini-table"><tbody>${inboxRows}</tbody></table>` },
@@ -801,6 +863,99 @@ function formatActivitySection(stats) {
     ]);
 
     return top + accordions;
+}
+
+function computeTopicStats(teamName, cids, allConvs, allMsgs) {
+    const topics = TOPIC_TRACKING[teamName];
+    if (!topics || topics.length === 0) return null;
+
+    const counts = topics.map(t => ({ ...t, count: 0, details: [] }));
+    let anyTopicCount = 0;
+
+    for (const cid of cids) {
+        const meta = allConvs.get(cid);
+        const contactName = meta?.contactName || 'Sin nombre';
+        const contactEmail = meta?.contactEmail || '';
+        const msgs = allMsgs.get(cid) || [];
+        // Filter: only client messages (not internal notes/automations)
+        const clientMsgs = msgs.filter(m => !m.isPrivate && String(m.content || '').trim().length > 0);
+        const originalText = clientMsgs.map(m => String(m.content || '')).join(' ');
+        const fullText = originalText.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        let matchedAny = false;
+
+        for (const topic of counts) {
+            const matchedKeywords = topic.keywords.filter(kw => {
+                const normalizedKw = kw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                return fullText.includes(normalizedKw);
+            });
+            if (matchedKeywords.length > 0) {
+                topic.count++;
+                const extracted = typeof topic.extract === 'function' ? topic.extract(originalText) : null;
+                topic.details.push({
+                    cid,
+                    contactName,
+                    contactEmail,
+                    matchedKeywords,
+                    excerpt: escapeHtml(extractExcerpt(originalText, topic.keywords)),
+                    extracted: extracted ? escapeHtml(extracted) : null,
+                });
+                matchedAny = true;
+            }
+        }
+        if (matchedAny) anyTopicCount++;
+    }
+
+    return { topics: counts, anyTopicCount, totalConvs: cids.length };
+}
+
+function formatTopicTrackingSection(topicStats) {
+    if (!topicStats || topicStats.topics.length === 0) {
+        return '<p class="text-muted fst-italic small mb-0">No hay temas de seguimiento configurados para este equipo.</p>';
+    }
+
+    const total = topicStats.totalConvs || 1;
+    const anyPct = ((topicStats.anyTopicCount / total) * 100).toFixed(0);
+
+    const stats = `
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">${topicStats.totalConvs}</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">${topicStats.anyTopicCount} <em>(${anyPct}%)</em></span></div>`;
+
+    const topicAccordions = topicStats.topics.map((t, idx) => {
+        const pct = ((t.count / total) * 100).toFixed(0);
+        const detailRows = t.details.map(d => {
+            const extra = d.extracted ? `<br><span style="color:var(--primary);font-weight:600">→ Recomendó a: ${d.extracted}</span>` : '';
+            return `<tr>
+                <td style="width:1%;white-space:nowrap;padding-right:10px"><span style="font-weight:700;color:var(--primary)">#${d.cid}</span></td>
+                <td style="width:1%;white-space:nowrap;padding-right:10px"><strong>${escapeHtml(d.contactName)}</strong>${d.contactEmail ? `<br><small class="text-muted">${escapeHtml(d.contactEmail)}</small>` : ''}</td>
+                <td style="font-size:.7rem;color:var(--gray);line-height:1.4">${d.excerpt}${extra}</td>
+            </tr>`;
+        }).join('');
+
+        const table = t.details.length > 0
+            ? `<table class="mini-table"><tbody>${detailRows}</tbody></table>`
+            : '<p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p>';
+
+        return {
+            title: `${t.label} — ${t.count} conversaci${t.count === 1 ? 'ón' : 'ones'} (${pct}%)`,
+            body: table,
+        };
+    });
+
+    const accordion = buildAccordion('topic-tracking', topicAccordions);
+    return stats + accordion;
+}
+
+function serveReportHtml(res, filePath, req) {
+    const isAdmin = String(req.query.isAdmin || '').toLowerCase() === 'true';
+    let html = fs.readFileSync(filePath, 'utf-8');
+    if (!isAdmin) {
+        html = html.replace('</body>', '<style>.admin-only-card{display:none!important}</style></body>');
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.send(html);
 }
 
 // ─── HTTP Handlers ───────────────────────────────────────────────────────────
@@ -938,11 +1093,7 @@ export async function DownloadPipelineResult(req, res) {
     if (!report || !fs.existsSync(report.path)) {
         return res.status(404).json({ error: 'Reporte no encontrado' });
     }
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    return res.sendFile(report.path);
+    return serveReportHtml(res, report.path, req);
 }
 
 // SetupNotebooks kept for backward compatibility, returns config info
@@ -982,9 +1133,5 @@ export async function DownloadHistoryReport(req, res) {
     if (!file) return res.status(400).json({ error: 'file requerido' });
     const filePath = path.join(EXPORTS_DIR, path.basename(file));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    return res.sendFile(filePath);
+    return serveReportHtml(res, filePath, req);
 }
