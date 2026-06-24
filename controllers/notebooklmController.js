@@ -22,6 +22,14 @@ const TEAM_LABELS = {
     'satisfacción del cliente':   'Post-Venta iChef',
     'portal':                     'Portal iChef',
     'sin_equipo':                 'Sin equipo asignado',
+    'todos':                      'Todos los Canales',
+};
+
+const TEAM_KEY_TO_EXCEL = {
+    ventas:    'ventas',
+    preventa:  'pre-ventas',
+    postventa: 'satisfacción del cliente',
+    portal:    'portal',
 };
 
 function extractRecommendedTo(text) {
@@ -165,6 +173,77 @@ Genera un JSON con 3 secciones. Cada seccion debe ser EXTENSA y DETALLADA (minim
         alertas: (parsed.alertas || 'Sin alertas detectadas.').replace(/\\n/g, '\n').trim(),
         analisis: (parsed.analisis || 'Sin analisis general.').replace(/\\n/g, '\n').trim(),
     };
+}
+
+async function askTopicConclusions(topicStats, allConvs, allMsgs, label) {
+    if (!topicStats || topicStats.anyTopicCount === 0) return null;
+
+    // Gather conversation summaries (last 5 messages per conversation)
+    const summaries = [];
+    for (const topic of topicStats.topics) {
+        for (const detail of topic.details) {
+            const msgs = allMsgs.get(detail.cid) || [];
+            const msgText = msgs.slice(-5).map(m => `${m.senderName || '?'}: ${(m.content || '').substring(0, 200)}`).join('\n');
+            summaries.push({
+                cid: detail.cid,
+                contactName: detail.contactName,
+                topicLabel: topic.label,
+                messages: msgText,
+            });
+        }
+    }
+
+    // Limit to avoid token overflow
+    const MAX = 60;
+    const toAnalyze = summaries.slice(0, MAX);
+
+    if (toAnalyze.length === 0) return null;
+
+    const conversationText = toAnalyze.map((s, i) =>
+        `**Conv #${s.cid}** | ${s.contactName} | Tema: ${s.topicLabel}\n${s.messages}`
+    ).join('\n\n---\n\n');
+
+    const system = `Eres un analista de ventas de iChef. Para cada conversación, determina su CONCLUSIÓN. 
+Usa EXACTAMENTE una de estas categorías:
+- VENTA: se concretó o está muy cerca
+- EVALUANDO: el cliente está considerando la compra
+- SIN RESPUESTA: el cliente dejó de responder
+- SOLO CONSULTA: solo pidió info, sin intención real de compra
+- CALIFICADO: cliente califica para el plan/beneficio mencionado pero aún no definió
+- NO CALIFICA: no aplica a este tema
+
+Responde SOLO un JSON válido con este formato: {"conclusions":[{"cid":"13784","conclusion":"EVALUANDO"},...]}. Nada más.`;
+
+    const user = `Analiza estas conversaciones del equipo ${label}:\n\n${conversationText}`;
+
+    try {
+        const resp = await openai.chat.completions.create({
+            model: OPENAI_MODEL,
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: user },
+            ],
+            temperature: 0.3,
+            max_tokens: 2000,
+        });
+        const content = resp.choices[0]?.message?.content || '';
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            const map = {};
+            const list = parsed.conclusions || parsed || [];
+            for (const item of list) {
+                if (item.cid && item.conclusion) {
+                    map[String(item.cid)] = item.conclusion;
+                }
+            }
+            return map;
+        }
+        return {};
+    } catch (err) {
+        console.error(`[Pipeline] Error OpenAI para conclusiones: ${err.message}`);
+        return {};
+    }
 }
 
 // ─── HTML Report Generator ───────────────────────────────────────────────────
@@ -577,7 +656,7 @@ function wrapTopicsInAccordions(groupId, html) {
 
 // ─── Export + Analysis Pipeline ──────────────────────────────────────────────
 
-async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, onProgress) {
+async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, teamKey, onProgress) {
     const accountId = parseInt(process.env.CHATWOOT_ACCOUNT_ID || 2);
 
     // ─ Step 1: Export Excel ─
@@ -641,7 +720,7 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         });
     });
 
-    const teams = {};
+    let teams = {};
     for (const [cid, meta] of allConvs) {
         const t = meta.teamName || 'sin_equipo';
         if (!teams[t]) teams[t] = { name: t, cids: [] };
@@ -656,6 +735,36 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
         if (largest) {
             largest[1].cids.push(...teams['sin_equipo'].cids);
             delete teams['sin_equipo'];
+        }
+    }
+
+    // Filter by teamKey (from frontend selection)
+    if (teamKey === 'todos') {
+        // Merge all teams into one consolidated report
+        const allCids = [];
+        for (const t of Object.values(teams)) {
+            allCids.push(...t.cids);
+        }
+        if (allCids.length > 0) {
+            teams = { todos: { name: 'todos', cids: allCids } };
+        }
+    } else if (teamKey && TEAM_KEY_TO_EXCEL[teamKey]) {
+        // Only keep the matching team
+        const targetName = TEAM_KEY_TO_EXCEL[teamKey];
+        const targetTeam = teams[targetName];
+        if (targetTeam) {
+            // Merge sin_equipo into target if it exists (already merged above, but just in case)
+            if (teams['sin_equipo']) {
+                targetTeam.cids.push(...teams['sin_equipo'].cids);
+            }
+            teams = { [targetName]: targetTeam };
+        } else {
+            // No matching team found, create a dummy team from unassigned
+            const allCids = [];
+            for (const t of Object.values(teams)) { allCids.push(...t.cids); }
+            if (allCids.length > 0) {
+                teams = { [targetName]: { name: targetName, cids: allCids } };
+            }
         }
     }
 
@@ -689,6 +798,11 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
 
         // Topic tracking (local, no AI)
         const topicStats = computeTopicStats(teamName, cids, allConvs, allMsgs);
+
+        // AI conclusions for topic-tracked conversations
+        if (topicStats && topicStats.anyTopicCount > 0) {
+            topicStats.conclusions = await askTopicConclusions(topicStats, allConvs, allMsgs, label);
+        }
 
         // Sections 4-6: OpenAI qualitative analysis
         try {
@@ -915,19 +1029,63 @@ function formatTopicTrackingSection(topicStats) {
 
     const total = topicStats.totalConvs || 1;
     const anyPct = ((topicStats.anyTopicCount / total) * 100).toFixed(0);
+    const conclusions = topicStats.conclusions || {};
+
+    const conclusionLabel = (c) => {
+        const map = {
+            'VENTA': '✅ Venta',
+            'EVALUANDO': '⏳ Evaluando',
+            'SIN RESPUESTA': '📭 Sin respuesta',
+            'SOLO CONSULTA': '💬 Solo consulta',
+            'CALIFICADO': '📋 Calificado',
+            'NO CALIFICA': '➖ No califica',
+        };
+        return map[c] || c || '—';
+    };
+
+    const conclusionBadge = (c) => {
+        const colors = {
+            'VENTA': '#509F2C',
+            'EVALUANDO': '#f5a623',
+            'SIN RESPUESTA': '#df1b41',
+            'SOLO CONSULTA': '#6b7280',
+            'CALIFICADO': '#635bff',
+            'NO CALIFICA': '#bbb',
+        };
+        return colors[c] || '#999';
+    };
+
+    // Count conclusions per type for stats
+    const conclusionCounts = {};
+    let totalConclusions = 0;
+    for (const topic of topicStats.topics) {
+        for (const d of topic.details) {
+            const c = conclusions[d.cid] || '—';
+            conclusionCounts[c] = (conclusionCounts[c] || 0) + 1;
+            totalConclusions++;
+        }
+    }
+    const conclusionStats = Object.entries(conclusionCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([conclusion, count]) => {
+            const pct = totalConclusions > 0 ? ((count / totalConclusions) * 100).toFixed(0) : 0;
+            return `<span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${conclusionBadge(conclusion)};margin-right:4px"></span>${conclusionLabel(conclusion)}: <strong>${count}</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(${pct}%)</em></span>`;
+        }).join('');
 
     const stats = `
 <div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">${topicStats.totalConvs}</span></div>
-<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">${topicStats.anyTopicCount} <em>(${anyPct}%)</em></span></div>`;
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">${topicStats.anyTopicCount} <em>(${anyPct}%)</em></span></div>
+${totalConclusions > 0 ? `<div style="padding:6px 0 2px;line-height:1.8">${conclusionStats}</div>` : ''}`;
 
     const topicAccordions = topicStats.topics.map((t, idx) => {
         const pct = ((t.count / total) * 100).toFixed(0);
         const detailRows = t.details.map(d => {
+            const conclusion = conclusions[d.cid] || '—';
             const extra = d.extracted ? `<br><span style="color:var(--primary);font-weight:600">→ Recomendó a: ${d.extracted}</span>` : '';
             return `<tr>
-                <td style="width:1%;white-space:nowrap;padding-right:10px"><span style="font-weight:700;color:var(--primary)">#${d.cid}</span></td>
-                <td style="width:1%;white-space:nowrap;padding-right:10px"><strong>${escapeHtml(d.contactName)}</strong>${d.contactEmail ? `<br><small class="text-muted">${escapeHtml(d.contactEmail)}</small>` : ''}</td>
-                <td style="font-size:.7rem;color:var(--gray);line-height:1.4">${d.excerpt}${extra}</td>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#${d.cid}</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>${escapeHtml(d.contactName)}</strong>${d.contactEmail ? `<br><small class="text-muted">${escapeHtml(d.contactEmail)}</small>` : ''}</td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:${conclusionBadge(conclusion)};padding:2px 8px;border-radius:10px;background:${conclusionBadge(conclusion)}18">${conclusionLabel(conclusion)}</span>${extra}</td>
             </tr>`;
         }).join('');
 
@@ -975,6 +1133,7 @@ export async function StartPipeline(req, res) {
         : [];
     const dateFrom = req.query.dateFrom || null;
     const dateTo = req.query.dateTo || null;
+    const teamKey = req.query.teamKey || null;
 
     if (inboxIds.length === 0) {
         return res.status(400).json({ error: 'Se requiere al menos un inboxId' });
@@ -999,7 +1158,7 @@ export async function StartPipeline(req, res) {
         statusUrl: `/api/export/notebooklm/status/${jobId}`,
     });
 
-    runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, (update) => {
+    runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, teamKey, (update) => {
         const j = jobs.get(jobId);
         if (j) {
             j.stage = update.stage;
