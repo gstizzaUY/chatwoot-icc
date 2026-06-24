@@ -945,19 +945,6 @@ function formatTopicTrackingSection(topicStats) {
     return stats + accordion;
 }
 
-function serveReportHtml(res, filePath, req) {
-    const isAdmin = String(req.query.isAdmin || '').toLowerCase() === 'true';
-    let html = fs.readFileSync(filePath, 'utf-8');
-    if (!isAdmin) {
-        html = html.replace('</body>', '<style>.admin-only-card{display:none!important}</style></body>');
-    }
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    return res.send(html);
-}
-
 // ─── HTTP Handlers ───────────────────────────────────────────────────────────
 
 function requireToken(req, res) {
@@ -1093,7 +1080,11 @@ export async function DownloadPipelineResult(req, res) {
     if (!report || !fs.existsSync(report.path)) {
         return res.status(404).json({ error: 'Reporte no encontrado' });
     }
-    return serveReportHtml(res, report.path, req);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.sendFile(report.path);
 }
 
 // SetupNotebooks kept for backward compatibility, returns config info
@@ -1133,5 +1124,9 @@ export async function DownloadHistoryReport(req, res) {
     if (!file) return res.status(400).json({ error: 'file requerido' });
     const filePath = path.join(EXPORTS_DIR, path.basename(file));
     if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Archivo no encontrado' });
-    return serveReportHtml(res, filePath, req);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.sendFile(filePath);
 }
