@@ -852,7 +852,7 @@ async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo,
     return {
         filePath: exportFilePath,
         fileName: exportFileName,
-        reports: reports.map(r => ({ team: r.team, label: r.label, fileName: r.fileName, path: r.path })),
+        reports: reports.map(r => ({ team: r.team, label: r.label, fileName: r.fileName, path: r.path, data: r.data })),
     };
 }
 
