@@ -1348,11 +1348,15 @@ export async function ExportDashboardExcel(req, res) {
     }
 
     // Sheets 5-7: AI analysis (plain text)
+    // Sheets 5-7: AI analysis (plain text). Hoja 7 solo para admin.
     const aiSheets = [
         { name: 'Temas IA', content: aiAnswers.recetas || 'No disponible' },
         { name: 'Alertas IA', content: aiAnswers.alertas || 'No disponible' },
-        { name: 'Análisis General IA', content: aiAnswers.analisis || 'No disponible' },
     ];
+    const isAdmin = String(req.query.isAdmin || '').toLowerCase() === 'true';
+    if (isAdmin) {
+        aiSheets.push({ name: 'Análisis General IA', content: aiAnswers.analisis || 'No disponible' });
+    }
     for (const sheet of aiSheets) {
         const sh = workbook.addWorksheet(sheet.name);
         sh.columns = [{ header: 'Contenido', key: 'content', width: 100 }];
