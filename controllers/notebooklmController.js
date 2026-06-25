@@ -154,7 +154,9 @@ Genera un JSON con 3 secciones. Cada seccion debe ser EXTENSA y DETALLADA (minim
   "analisis": "ANALISIS PARA GERENCIA\\n\\n📊 RESUMEN EJECUTIVO (4-5 lineas):\\nRadiografia del periodo: volumen, tendencia, estado general del equipo ${teamLabel}, comparacion con lo esperado. Destaca el dato mas relevante.\\n\\n💡 INSIGHTS CLAVE (6-8):\\nHallazgos que la gerencia necesita saber. Cada insight debe:\\n- Partir de un dato concreto de la muestra\\n- Explicar POR QUE es relevante para el negocio\\n- Incluir IDs, nombres y numeros\\n- Tener un titulo en negrita que resuma el hallazgo\\n\\nEjemplo: '**Concentracion de carga en un solo agente**: Neiff Cardozo atendio 24 de 29 conversaciones (83%). Si bien el equipo es chico, esto representa un riesgo operativo: si Neiff no esta disponible, la operacion de Post-Venta se detiene.'\\n\\n🔧 RECOMENDACIONES (6-8):\\nAcciones concretas, especificas y priorizadas. Para cada una indicar:\\n- QUE hacer exactamente\\n- DONDE (canal, equipo, proceso)\\n- QUIEN deberia ejecutarlo\\n- IMPACTO ESPERADO\\n- PRIORIDAD (Alta/Media/Baja)\\n\\n🌡️ TEMPERATURA DE LA OPERACION:\\nEn escala 1-10, como esta funcionando ${teamLabel} esta semana. Justifica con 3 datos concretos de la muestra.\\n\\n📈 TENDENCIAS Y PROYECCIONES:\\nSi los datos lo permiten, proyecta que puede pasar la proxima semana y que medidas preventivas tomar."
 }`;
 
-    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5') ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3, response_format: { type: 'json_object' } };
+    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5')
+        ? { reasoning_effort: REASONING_EFFORT, response_format: { type: 'json_object' } }
+        : { temperature: 0.3, response_format: { type: 'json_object' } };
 
     let completion;
     try {
@@ -204,11 +206,9 @@ Genera un JSON con 3 secciones. Cada seccion debe ser EXTENSA y DETALLADA (minim
             throw new Error('No JSON found in response');
         }
     }
-    console.log('[askOpenAI] Parsed keys:', Object.keys(parsed));
-
     const toString = (val, fallback) => {
-        if (typeof val === 'string') return val;
-        if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join('\n');
+        if (typeof val === 'string') return normalizeSections(val);
+        if (Array.isArray(val)) return normalizeSections(val.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join('\n'));
         return JSON.stringify(val || fallback);
     };
 
@@ -260,7 +260,9 @@ Responde SOLO un JSON válido con este formato: {"conclusions":[{"cid":"13784","
 
     const user = `Analiza estas conversaciones del equipo ${label}:\n\n${conversationText}`;
 
-    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5') ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3 };
+    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5')
+        ? { reasoning_effort: REASONING_EFFORT, response_format: { type: 'json_object' } }
+        : { temperature: 0.3, response_format: { type: 'json_object' } };
 
     try {
         const resp = await openai.chat.completions.create({
@@ -627,6 +629,41 @@ function extractExcerpt(text, keywords) {
         }
     }
     return text.slice(0, 120).trim() + (text.length > 120 ? '…' : '');
+}
+
+function normalizeSections(text) {
+    // Inject blank lines before common AI section headers so formatContent splits them into blocks.
+    // Matches lines starting with topic-like words followed by colon.
+    const sectionKeywords = [
+        'Volumen del período',
+        'Motivo dominante',
+        'Segundo gran bloque',
+        'Tercer bloque',
+        'Cuarto bloque',
+        'Quinto bloque',
+        'Acceso a comunidad',
+        'Incidentes técnicos',
+        'Servicio técnico',
+        'Consulta de uso',
+        'Productos y servicios',
+        'Etapa del cliente',
+        'Patrones repetitivos',
+        'Reclamos y quejas',
+        'Casos destacados positivos',
+        'Casos destacados negativos',
+        'Casos destacable',
+        'Casos destacados',
+        'Lectura operativa',
+        'Patrón repetitivo',
+        'Patrón transversal',
+        'Acciones sugeridas',
+        'Handoffs a',
+        'Ejemplos de',
+        'Ejemplos del mismo patrón',
+        'Más ejemplos',
+    ];
+    const pattern = new RegExp('\\n(' + sectionKeywords.map(k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'g');
+    return text.replace(pattern, '\n\n$1');
 }
 
 function formatContent(text) {
