@@ -17,6 +17,7 @@ import {
     DownloadHistoryReport,
     ExportDashboardExcel,
 } from '../controllers/notebooklmController.js';
+import { getGenerationLog } from '../src/scheduler/dashboard-scheduler.js';
 
 const router = express.Router();
 
@@ -69,5 +70,14 @@ router.get('/dashboards', ListDashboards);
 
 // GET /api/export/dashboards/download?file=reporte_ventas_2026-06-12.html
 router.get('/dashboards/download', DownloadHistoryReport);
+
+// GET /api/export/scheduler-log  → log de generación automática
+router.get('/scheduler-log', (req, res) => {
+    try {
+        res.json(getGenerationLog());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 export default router;

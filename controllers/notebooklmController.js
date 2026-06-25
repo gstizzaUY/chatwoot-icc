@@ -13,8 +13,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const EXPORTS_DIR = path.resolve(__dirname, '..', 'exports');
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 120000, maxRetries: 2 });
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 300000, maxRetries: 2 });
+const OPENAI_MODEL = process.env.OPENAI_DASHBOARD_MODEL || process.env.OPENAI_MODEL || 'gpt-4o';
+const REASONING_EFFORT = process.env.OPENAI_REASONING_EFFORT || 'medium';
 
 const TEAM_LABELS = {
     'ventas':                     'Ventas iChef',
@@ -153,25 +154,61 @@ Genera un JSON con 3 secciones. Cada seccion debe ser EXTENSA y DETALLADA (minim
   "analisis": "ANALISIS PARA GERENCIA\\n\\n📊 RESUMEN EJECUTIVO (4-5 lineas):\\nRadiografia del periodo: volumen, tendencia, estado general del equipo ${teamLabel}, comparacion con lo esperado. Destaca el dato mas relevante.\\n\\n💡 INSIGHTS CLAVE (6-8):\\nHallazgos que la gerencia necesita saber. Cada insight debe:\\n- Partir de un dato concreto de la muestra\\n- Explicar POR QUE es relevante para el negocio\\n- Incluir IDs, nombres y numeros\\n- Tener un titulo en negrita que resuma el hallazgo\\n\\nEjemplo: '**Concentracion de carga en un solo agente**: Neiff Cardozo atendio 24 de 29 conversaciones (83%). Si bien el equipo es chico, esto representa un riesgo operativo: si Neiff no esta disponible, la operacion de Post-Venta se detiene.'\\n\\n🔧 RECOMENDACIONES (6-8):\\nAcciones concretas, especificas y priorizadas. Para cada una indicar:\\n- QUE hacer exactamente\\n- DONDE (canal, equipo, proceso)\\n- QUIEN deberia ejecutarlo\\n- IMPACTO ESPERADO\\n- PRIORIDAD (Alta/Media/Baja)\\n\\n🌡️ TEMPERATURA DE LA OPERACION:\\nEn escala 1-10, como esta funcionando ${teamLabel} esta semana. Justifica con 3 datos concretos de la muestra.\\n\\n📈 TENDENCIAS Y PROYECCIONES:\\nSi los datos lo permiten, proyecta que puede pasar la proxima semana y que medidas preventivas tomar."
 }`;
 
-    const completion = await openai.chat.completions.create({
-        model: OPENAI_MODEL,
-        messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: prompt },
-        ],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
-        max_tokens: 6000,
-    });
+    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5') ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3, response_format: { type: 'json_object' } };
+
+    let completion;
+    try {
+        completion = await openai.chat.completions.create({
+            model: OPENAI_MODEL,
+            messages: [
+                { role: 'system', content: system },
+                { role: 'user', content: prompt },
+            ],
+            ...reasoningParams,
+            max_completion_tokens: 32000,
+        });
+    } catch (err) {
+        console.error('[askOpenAI] Error de API OpenAI:', err.message);
+        console.error('[askOpenAI] Detalle:', JSON.stringify(err.error || err, null, 2));
+        throw err;
+    }
 
     const content = completion.choices[0]?.message?.content;
-    if (!content) throw new Error('OpenAI respuesta vacia');
+    if (!content) {
+        console.error('[askOpenAI] Respuesta vacía del modelo');
+        console.error('[askOpenAI] Finish reason:', completion.choices[0]?.finish_reason);
+        console.error('[askOpenAI] Usage:', JSON.stringify(completion.usage));
+        console.error('[askOpenAI] Model:', completion.model);
+        throw new Error('OpenAI respuesta vacia');
+    }
 
-    const parsed = JSON.parse(content);
+    let parsed;
+    try {
+        // Try direct parse first
+        parsed = JSON.parse(content);
+    } catch {
+        // Try extracting from markdown code block or between braces
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try {
+                parsed = JSON.parse(jsonMatch[0]);
+            } catch (parseErr) {
+                console.error('[askOpenAI] Error al parsear JSON. Content length:', content.length);
+                console.error('[askOpenAI] Primeros 300 chars:', content.substring(0, 300));
+                console.error('[askOpenAI] Últimos 300 chars:', content.substring(Math.max(0, content.length - 300)));
+                throw parseErr;
+            }
+        } else {
+            console.error('[askOpenAI] No se encontró JSON en la respuesta. Content length:', content.length);
+            console.error('[askOpenAI] Primeros 500 chars:', content.substring(0, 500));
+            throw new Error('No JSON found in response');
+        }
+    }
+    console.log('[askOpenAI] Parsed keys:', Object.keys(parsed));
     return {
-        recetas: (parsed.recetas || 'Sin analisis de temas.').replace(/\\n/g, '\n').trim(),
-        alertas: (parsed.alertas || 'Sin alertas detectadas.').replace(/\\n/g, '\n').trim(),
-        analisis: (parsed.analisis || 'Sin analisis general.').replace(/\\n/g, '\n').trim(),
+        recetas: (typeof parsed.recetas === 'string' ? parsed.recetas : JSON.stringify(parsed.recetas || 'Sin analisis de temas.')).replace(/\\n/g, '\n').trim(),
+        alertas: (typeof parsed.alertas === 'string' ? parsed.alertas : JSON.stringify(parsed.alertas || 'Sin alertas detectadas.')).replace(/\\n/g, '\n').trim(),
+        analisis: (typeof parsed.analisis === 'string' ? parsed.analisis : JSON.stringify(parsed.analisis || 'Sin analisis general.')).replace(/\\n/g, '\n').trim(),
     };
 }
 
@@ -216,6 +253,8 @@ Responde SOLO un JSON válido con este formato: {"conclusions":[{"cid":"13784","
 
     const user = `Analiza estas conversaciones del equipo ${label}:\n\n${conversationText}`;
 
+    const reasoningParams = OPENAI_MODEL.startsWith('gpt-5') ? { reasoning_effort: REASONING_EFFORT } : { temperature: 0.3 };
+
     try {
         const resp = await openai.chat.completions.create({
             model: OPENAI_MODEL,
@@ -223,21 +262,26 @@ Responde SOLO un JSON válido con este formato: {"conclusions":[{"cid":"13784","
                 { role: 'system', content: system },
                 { role: 'user', content: user },
             ],
-            temperature: 0.3,
-            max_tokens: 2000,
+            ...reasoningParams,
+            max_completion_tokens: 4000,
         });
         const content = resp.choices[0]?.message?.content || '';
         const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            const map = {};
-            const list = parsed.conclusions || parsed || [];
-            for (const item of list) {
-                if (item.cid && item.conclusion) {
-                    map[String(item.cid)] = item.conclusion;
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                const map = {};
+                const list = parsed.conclusions || parsed || [];
+                for (const item of list) {
+                    if (item.cid && item.conclusion) {
+                        map[String(item.cid)] = item.conclusion;
+                    }
                 }
+                return map;
+            } catch (parseErr) {
+                console.error(`[askTopicConclusions] Error al parsear JSON: ${parseErr.message}`);
+                console.error(`[askTopicConclusions] Content: ${content.substring(0, 300)}`);
             }
-            return map;
         }
         return {};
     } catch (err) {
@@ -656,7 +700,7 @@ function wrapTopicsInAccordions(groupId, html) {
 
 // ─── Export + Analysis Pipeline ──────────────────────────────────────────────
 
-async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, teamKey, onProgress) {
+export async function runPipeline(jobId, inboxIds, teamIds, agentIds, dateFrom, dateTo, teamKey, onProgress) {
     const accountId = parseInt(process.env.CHATWOOT_ACCOUNT_ID || 2);
 
     // ─ Step 1: Export Excel ─

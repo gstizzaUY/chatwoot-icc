@@ -160,7 +160,7 @@ class BaseAgent {
                 ],
                 response_format: { type: 'json_object' },
                 temperature: 0.3,
-                max_tokens: 1500
+                max_completion_tokens: 1500
             });
 
             const result = JSON.parse(completion.choices[0].message.content);

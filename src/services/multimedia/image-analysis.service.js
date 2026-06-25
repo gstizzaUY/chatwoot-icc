@@ -134,7 +134,7 @@ class ImageAnalysisService {
                         ]
                     }
                 ],
-                max_tokens: OPENAI_CONFIG.VISION_MAX_TOKENS,
+                max_completion_tokens: OPENAI_CONFIG.VISION_MAX_TOKENS,
                 temperature: 0.2
             });
 

@@ -77,7 +77,7 @@ class AIAnalysisService {
                 ],
                 response_format: { type: 'json_object' },
                 temperature: 0.3,
-                max_tokens: 1500 // Aumentado para soportar más contexto
+                max_completion_tokens: 1500 // Aumentado para soportar más contexto
             });
 
             const result = JSON.parse(completion.choices[0].message.content);
@@ -322,7 +322,7 @@ Responde con JSON con los campos detectados.`;
                 ],
                 response_format: { type: 'json_object' },
                 temperature: 0.1, // Muy bajo para precisión
-                max_tokens: 300
+                max_completion_tokens: 300
             });
 
             return JSON.parse(completion.choices[0].message.content);

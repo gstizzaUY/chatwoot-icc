@@ -68,6 +68,10 @@ app.use('/api/export', exportConversationsRoutes); // Exportación de conversaci
 // Routes V2 (nueva arquitectura)
 app.use('/api/v2', v2Routes);
 
+// Dashboard scheduler — genera reportes automáticamente los lunes 8:00 AM (UY)
+import { startDashboardScheduler } from './src/scheduler/dashboard-scheduler.js';
+startDashboardScheduler();
+
 app.listen(port, () => {
     console.log(`Servidor corriendo en puerto ${port}`);
     console.log('✅ Aplicación iniciada correctamente');
