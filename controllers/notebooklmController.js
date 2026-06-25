@@ -645,6 +645,19 @@ function formatContent(text) {
     const listPrefix = /^(?:[-•]|\d+[.\)])\s+/;
     const isListLine = (l) => /^[-•]\s+/.test(l) || /^\d+[.\)]\s+/.test(l);
 
+    // Detect lines that are section headers (subtitles)
+    const isHeading = (line) => {
+        if (/^📌/.test(line)) return true;
+        if (/^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:\(\)\\\/\-–—\.]{3,200}$/.test(line)) return true;
+        if (/^.{3,200}:[ \t]*$/.test(line)) return true;
+        return false;
+    };
+
+    // Regex for inline subtitle detection in mixed blocks
+    const emojiHeading = /^[📌⚠️💡🔧🌡️📈📊📋✅]+\s+([^\n]{3,200})$/gm;
+    const capsHeading = /^([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:\(\)\\\/\-–—\.]{3,200})$/gm;
+    const colonPattern = /^(.{3,200}):[ \t]*$/gm;
+
     const out = blocks.map(block => {
         const lines = block.split('\n').map(l => l.trim()).filter(Boolean);
 
@@ -655,17 +668,15 @@ function formatContent(text) {
         }
 
         // Single line that looks like a heading
-        if (lines.length === 1 && (
-            /^[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:]{3,50}$/.test(lines[0]) ||
-            /^.{5,60}:[ \t]*$/.test(lines[0])
-        )) {
+        if (lines.length === 1 && isHeading(lines[0])) {
             return `<div class="subtitle">${lines[0].replace(/:$/, '')}</div>`;
         }
 
         // Mixed block: detect inline subtitles, lists, and paragraphs
         let inner = block;
-        inner = inner.replace(/^([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ0-9\s,:]{3,50})$/gm, '<div class="subtitle">$1</div>');
-        inner = inner.replace(/^(.{5,60}):[ \t]*$/gm, '<div class="subtitle">$1</div>');
+        inner = inner.replace(emojiHeading, '<div class="subtitle">$1</div>');
+        inner = inner.replace(capsHeading, '<div class="subtitle">$1</div>');
+        inner = inner.replace(colonPattern, '<div class="subtitle">$1</div>');
         inner = inner.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
         inner = inner.replace(/^\d+[.\)]\s+(.+)$/gm, '<li>$1</li>');
         // Wrap contiguous list items
