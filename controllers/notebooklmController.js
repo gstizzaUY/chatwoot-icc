@@ -205,10 +205,17 @@ Genera un JSON con 3 secciones. Cada seccion debe ser EXTENSA y DETALLADA (minim
         }
     }
     console.log('[askOpenAI] Parsed keys:', Object.keys(parsed));
+
+    const toString = (val, fallback) => {
+        if (typeof val === 'string') return val;
+        if (Array.isArray(val)) return val.map(v => typeof v === 'string' ? v : JSON.stringify(v)).join('\n');
+        return JSON.stringify(val || fallback);
+    };
+
     return {
-        recetas: (typeof parsed.recetas === 'string' ? parsed.recetas : JSON.stringify(parsed.recetas || 'Sin analisis de temas.')).replace(/\\n/g, '\n').trim(),
-        alertas: (typeof parsed.alertas === 'string' ? parsed.alertas : JSON.stringify(parsed.alertas || 'Sin alertas detectadas.')).replace(/\\n/g, '\n').trim(),
-        analisis: (typeof parsed.analisis === 'string' ? parsed.analisis : JSON.stringify(parsed.analisis || 'Sin analisis general.')).replace(/\\n/g, '\n').trim(),
+        recetas: toString(parsed.recetas, 'Sin analisis de temas.').replace(/\\n/g, '\n').trim(),
+        alertas: toString(parsed.alertas, 'Sin alertas detectadas.').replace(/\\n/g, '\n').trim(),
+        analisis: toString(parsed.analisis, 'Sin analisis general.').replace(/\\n/g, '\n').trim(),
     };
 }
 
