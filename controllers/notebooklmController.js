@@ -77,8 +77,8 @@ setInterval(() => {
     const now = Date.now();
     for (const [jobId, job] of jobs.entries()) {
         if (now - job.createdAt > FOUR_HOURS) {
+            // Only delete the temporary Excel export, not the report HTMLs (needed for Historial)
             if (job.result?.filePath && fs.existsSync(job.result.filePath)) fs.unlink(job.result.filePath, () => {});
-            job.result?.reports?.forEach(r => { if (r.path && fs.existsSync(r.path)) fs.unlink(r.path, () => {}); });
             jobs.delete(jobId);
         }
     }
