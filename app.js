@@ -61,8 +61,6 @@ app.use('/api/inconcert', inconcertRoutes); // Rutas de InConcert
 app.use('/api/rd-station', rdStationRoutes); // Importación masiva desde InConcert a RD Station, Actualiza Contactos en RD Station, Registra Demos en RD Station
 app.use('/api/rd-to-inconcert', rdStationToInconcertRoutes); // Crea los Contactos en inConcert desde RD Station
 
-app.use('/api/actualizacion-firmware', rdStationRoutes); // Rutas de Actualización de Firmware')
-
 app.use('/api/export', exportConversationsRoutes); // Exportación de conversaciones a Excel
 
 // Routes V2 (nueva arquitectura)

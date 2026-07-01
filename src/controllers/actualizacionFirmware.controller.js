@@ -1,0 +1,231 @@
+import axios from 'axios';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+// ============================================================
+// Dedupe robusto: por lead (uuid/id) + numero + campana
+// TTL configurable via env (por defecto 24 horas)
+// ============================================================
+const sentRegistry = new Map(); // key: "campana:leadId:number" -> timestamp
+const DEDUPE_TTL_MS = Number(process.env.HSM_DEDUPE_TTL_MS || 24 * 60 * 60 * 1000); // 24h
+
+const CAMPAIGN_KEY = 'actualizacion_firmware_servidor_cns';
+
+const SAILBOT_API_URL =
+    'https://app.sailbot.biz/Bot-Server/api/messages/whatsapp-template';
+const SAILBOT_AUTH = 'Basic aWNoZWZAbWFpbC5jb206c2FpbGJvdDIwMjA=';
+const SAILBOT_FROM = '587863384414365';
+
+const TEMPLATE_NAME = 'actualizacion_firmware_servidor_cns';
+const TEMPLATE_VARIABLES = [
+    {
+        header_image:
+            'https://img.auctiva.com/imgdata/1/5/5/1/4/3/4/webimg/1180318527_o.jpg'
+    }
+];
+
+// ============================================================
+// Helpers de dedupe
+// ============================================================
+const cleanupRegistry = () => {
+    const now = Date.now();
+    let cleaned = 0;
+    for (const [key, ts] of sentRegistry.entries()) {
+        if (now - ts > DEDUPE_TTL_MS) {
+            sentRegistry.delete(key);
+            cleaned++;
+        }
+    }
+    if (cleaned > 0) {
+        console.log(`[${CAMPAIGN_KEY}] Cleanup: eliminadas ${cleaned} entradas antiguas del registro`);
+    }
+};
+
+setInterval(cleanupRegistry, 60 * 60 * 1000);
+
+const wasSentRecently = (leadId, number) => {
+    const key = `${CAMPAIGN_KEY}:${leadId}:${number}`;
+    const ts = sentRegistry.get(key);
+    if (!ts) return false;
+    return Date.now() - ts <= DEDUPE_TTL_MS;
+};
+
+const markAsSent = (leadId, number) => {
+    const key = `${CAMPAIGN_KEY}:${leadId}:${number}`;
+    sentRegistry.set(key, Date.now());
+};
+
+// ============================================================
+// Normalizacion de numero WhatsApp (Uruguay - codigo 598)
+// ============================================================
+const pickPhoneRaw = (lead) =>
+    lead?.mobile_phone || lead?.personal_phone || lead?.phone || null;
+
+const normalizeWhatsappNumber = (raw) => {
+    if (!raw || typeof raw !== 'string') return null;
+    const digits = raw.replace(/\D/g, '');
+    if (!digits) return null;
+    if (digits.startsWith('598')) return digits;
+    if (digits.length === 9 && digits.startsWith('0')) return `598${digits.slice(1)}`;
+    if (digits.length === 8) return `598${digits}`;
+    return null;
+};
+
+// ============================================================
+// Handler principal
+// POST /api/v2/hsm/actualizacion-firmware
+// Body esperado (viene de automatizacion RD Station):
+// { "leads": [ { "id", "uuid", "email", "mobile_phone", ... }, ... ] }
+// ============================================================
+const actualizacionFirmware = async (req, res) => {
+    const listaLeads = req.body;
+    console.log(`[${CAMPAIGN_KEY}] Leads recibidos:`, listaLeads);
+
+    const leads = listaLeads?.leads;
+    if (!Array.isArray(leads) || leads.length === 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'Body invalido: se esperaba { leads: [...] }'
+        });
+    }
+
+    res.status(202).json({
+        success: true,
+        message: 'Procesando en background',
+        received: leads.length
+    });
+
+    setImmediate(async () => {
+        cleanupRegistry();
+
+        const results = {
+            received: leads.length,
+            sent: 0,
+            skipped: 0,
+            errors: 0,
+            details: []
+        };
+
+        const seenInThisRequest = new Set();
+
+        for (const lead of leads) {
+            const rawPhone = pickPhoneRaw(lead);
+            const number = normalizeWhatsappNumber(rawPhone);
+
+            if (!number) {
+                results.skipped += 1;
+                results.details.push({
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    reason: 'No se encontro celular valido',
+                    rawPhone
+                });
+                console.warn(
+                    `[${CAMPAIGN_KEY}] ⚠ Numero invalido — lead: ${lead?.id || lead?.email} | rawPhone: ${rawPhone}`
+                );
+                continue;
+            }
+
+            const leadId = lead?.uuid || lead?.id || lead?.email || number;
+            const dedupKey = `${leadId}:${number}`;
+
+            if (seenInThisRequest.has(dedupKey)) {
+                results.skipped += 1;
+                results.details.push({
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    number,
+                    reason: 'Duplicado en este request (mismo lead/numero repetido)'
+                });
+                continue;
+            }
+            seenInThisRequest.add(dedupKey);
+
+            if (wasSentRecently(leadId, number)) {
+                const elapsed = Date.now() - sentRegistry.get(`${CAMPAIGN_KEY}:${leadId}:${number}`);
+                results.skipped += 1;
+                results.details.push({
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    number,
+                    reason: `Ya enviado en esta campana hace ${Math.round(elapsed / 60000)} min`
+                });
+                console.log(
+                    `[${CAMPAIGN_KEY}] ⤷ Skipped (dedupe): ${number} (${lead?.email}) — enviado hace ${Math.round(elapsed / 60000)} min`
+                );
+                continue;
+            }
+
+            try {
+                await axios.post(
+                    SAILBOT_API_URL,
+                    {
+                        from: SAILBOT_FROM,
+                        templateName: TEMPLATE_NAME,
+                        to: [
+                            {
+                                contactPhone: number,
+                                variables: TEMPLATE_VARIABLES
+                            }
+                        ]
+                    },
+                    {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: SAILBOT_AUTH
+                        },
+                        timeout: 30000
+                    }
+                );
+
+                markAsSent(leadId, number);
+                results.sent += 1;
+                results.details.push({
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    number,
+                    status: 'sent'
+                });
+
+                console.log(
+                    `[${CAMPAIGN_KEY}] ✅ Enviado correctamente — numero: ${number} | lead: ${lead?.id || lead?.email}`
+                );
+
+            } catch (sendError) {
+                results.errors += 1;
+                const status = sendError?.response?.status;
+                const data = sendError?.response?.data;
+
+                console.error(`[${CAMPAIGN_KEY}] ❌ Error enviando a ${number}:`, {
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    httpStatus: status,
+                    responseData: data,
+                    message: sendError?.message
+                });
+
+                results.details.push({
+                    leadId: lead?.id,
+                    email: lead?.email,
+                    number,
+                    status: 'error',
+                    error: sendError?.message,
+                    sailbotStatus: status,
+                    sailbotData: data
+                });
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+
+        console.log(`[${CAMPAIGN_KEY}] 📊 Resumen final:`, {
+            received: results.received,
+            sent: results.sent,
+            skipped: results.skipped,
+            errors: results.errors
+        });
+    });
+};
+
+export default actualizacionFirmware;

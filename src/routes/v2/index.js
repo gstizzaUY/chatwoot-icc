@@ -4,6 +4,7 @@ import debugRoutes from './debug.routes.js';
 import hsmRoutes from './hsm.routes.js';
 import comunidadLoversRoutes from './comunidadLovers.routes.js';
 import exportContactsRoutes from './exportContacts.routes.js';
+import firmwareRoutes from './firmware.routes.js';
 // import contactRoutes from './contact.routes.js';
 // import conversationRoutes from './conversation.routes.js';
 // import dealRoutes from './deal.routes.js';
@@ -38,6 +39,9 @@ router.use('/comunidad-lovers', comunidadLoversRoutes);
 
 // Exportación de contactos a Excel
 router.use('/export/contacts', exportContactsRoutes);
+
+// Firmware - Actualización de firmware (validador CNS/Nube)
+router.use('/firmware', firmwareRoutes);
 
 // Rutas de recursos (requieren autenticación de API Key)
 // TODO: Descomentar cuando estén implementados

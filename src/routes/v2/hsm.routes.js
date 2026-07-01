@@ -4,6 +4,7 @@ import promoExpoBebe2026 from '../../controllers/promoExpoBebe2026.controller.js
 import ciberLunes2026 from '../../controllers/ciberLunes2026.controller.js';
 import ciberlunesMelany from '../../controllers/ciberlunesMelany.controller.js';
 import ichefTallerBlw from '../../controllers/ichefTallerBlw.controller.js';
+import actualizacionFirmware from '../../controllers/actualizacionFirmware.controller.js';
 
 const router = express.Router();
 
@@ -86,5 +87,21 @@ router.post('/ciberlunes-melany', ciberlunesMelany);
  * Incluye dedupe por campaña+lead+número (TTL 24h).
  */
 router.post('/ichef-taller-blw', ichefTallerBlw);
+
+/**
+ * POST /api/v2/hsm/actualizacion-firmware
+ *
+ * EnvIa por WhatsApp (Sailbot API) el template
+ * "actualizacion_firmware_servidor_cns" con la imagen de
+ * actualizaciOn de firmware a los leads que llegan
+ * desde una automatizaciOn de RD Station.
+ *
+ * Body esperado:
+ * { "leads": [ { "id", "uuid", "email", "mobile_phone", ... }, ... ] }
+ *
+ * Responde con HTTP 202 inmediatamente y procesa en background.
+ * Incluye dedupe por campana+lead+nUmero (TTL 24h).
+ */
+router.post('/actualizacion-firmware', actualizacionFirmware);
 
 export default router;
