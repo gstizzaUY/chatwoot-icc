@@ -4,7 +4,7 @@ import { PRE_VENTA_CHANNELS } from '../../constants/agent.constants.js';
 
 /**
  * Agente de Pre-Venta
- * Actúa en tiempo real en canales comerciales
+ * Actua en tiempo real en canales comerciales
  * Sugiere respuestas y acciones comerciales
  */
 class PreVentaAgent extends BaseAgent {
@@ -13,33 +13,27 @@ class PreVentaAgent extends BaseAgent {
             agentType: 'pre-venta',
             channels: PRE_VENTA_CHANNELS
         });
+        // Memoria de campos ya reportados por conversacion
+        this.reportedFields = new Map();
     }
 
-    /**
-     * Prompt del sistema específico para pre-venta
-     */
     getSystemPrompt() {
         return PRE_VENTA_SYSTEM_PROMPT;
     }
 
-    /**
-     * Construye prompt del usuario con contexto
-     */
     buildUserPrompt(context) {
         const { contact, filteredMessages, previousConversations } = context;
 
-        // Información del contacto
         let contactInfo = '';
         if (contact) {
             contactInfo = `CONTACTO ACTUAL:\n`;
             if (contact.name) contactInfo += `- Nombre: ${contact.name}\n`;
             if (contact.email) contactInfo += `- Email: ${contact.email}\n`;
-            if (contact.phone_number) contactInfo += `- Teléfono: ${contact.phone_number}\n`;
+            if (contact.phone_number) contactInfo += `- Telefono: ${contact.phone_number}\n`;
             if (contact.custom_attributes?.city) contactInfo += `- Ciudad: ${contact.custom_attributes.city}\n`;
             if (contact.custom_attributes?.tiene_ichef) contactInfo += `- Tiene iChef: ${contact.custom_attributes.tiene_ichef}\n`;
         }
 
-        // Historial previo (si existe)
         let conversationHistory = '';
         if (previousConversations && previousConversations.length > 0) {
             const resolved = previousConversations.filter(c => c.status === 'resolved').slice(0, 3);
@@ -54,16 +48,14 @@ class PreVentaAgent extends BaseAgent {
             }
         }
 
-        // Mensajes actuales (últimos 10 para contexto reciente)
         const recentMessages = filteredMessages.slice(-10);
         const messagesText = this.contextBuilder.formatMessagesWithMultimediaForAI(recentMessages);
 
-        // Agregar información de multimedia si está disponible
         let multimediaInfo = '';
         if (context.multimediaInfo && context.multimediaInfo.hasMultimedia) {
             const extracted = context.multimediaInfo.extractedInfo;
             const fields = Object.entries(extracted).map(([key, value]) => `${key}: ${value}`).join(', ');
-            multimediaInfo = `\n\nINFORMACIÓN EXTRAÍDA DE MULTIMEDIA:\n${fields}\n`;
+            multimediaInfo = `\n\nINFORMACION EXTRAIDA DE MULTIMEDIA:\n${fields}\n`;
         }
 
         return PRE_VENTA_USER_PROMPT_TEMPLATE
@@ -72,24 +64,18 @@ class PreVentaAgent extends BaseAgent {
             .replace('{messages}', messagesText + multimediaInfo);
     }
 
-    /**
-     * Procesa resultado del análisis
-     */
     async processResult(aiResult, context) {
         const { conversation, contact } = context;
 
-        // 1. Extraer información
         const extractedInfo = aiResult.extracted_info || {};
         const analysis = aiResult.analysis || {};
         const suggestions = aiResult.suggestions || {};
 
-        console.log('🔍 Pre-Venta - Info extraída:', extractedInfo);
-        console.log('📊 Análisis:', analysis);
+        console.log('Pre-Venta - Info extraida:', extractedInfo);
+        console.log('Analisis:', analysis);
 
-        // 2. Aplicar reglas de negocio
         const validatedInfo = this.applyBusinessRules(extractedInfo, contact);
 
-        // 3. Actualizar CRMs si hay información nueva
         let crmUpdate = null;
         const hasNewInfo = Object.values(validatedInfo).some(v => v !== null && v !== undefined);
 
@@ -101,19 +87,18 @@ class PreVentaAgent extends BaseAgent {
                     validatedInfo,
                     { summary: null }
                 );
-                console.log('✅ CRMs actualizados con nueva información');
+                console.log('CRMs actualizados con nueva informacion');
             } catch (error) {
-                console.error('⚠️  Error actualizando CRMs:', error.message);
+                console.error('Error actualizando CRMs:', error.message);
             }
         }
 
-        // 4. Crear nota interna con sugerencias
         await this.createSuggestionNote(conversation.id, {
             analysis,
             suggestions,
             extractedInfo: validatedInfo,
             crmUpdate,
-            multimediaInfo: context.multimediaInfo  // Agregar info de multimedia
+            multimediaInfo: context.multimediaInfo
         });
 
         return {
@@ -125,34 +110,68 @@ class PreVentaAgent extends BaseAgent {
     }
 
     /**
-     * Crea nota interna con sugerencias para el agente humano
+     * Crea nota interna con sugerencias para el agente humano.
+     * - Respuesta sugerida DESTACADA al inicio
+     * - Datos tecnicos en texto pequeno al final
+     * - No repite campos ya reportados en notas anteriores
      */
     async createSuggestionNote(conversationId, data) {
         const { analysis, suggestions, extractedInfo } = data;
 
-        let note = `**Agente IA - Asistente de Ventas**\n`;
-        note += `**Interes:** ${analysis.interest_level || 'medio'} | **Urgencia:** ${analysis.urgency || 'media'} | **Intencion:** ${analysis.intent || 'consulta'}`;
+        // Obtener campos ya reportados para esta conversacion
+        const alreadyReported = this.reportedFields.get(conversationId) || new Set();
+
+        // Campos nuevos (no reportados antes)
+        const newFields = Object.entries(extractedInfo)
+            .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !alreadyReported.has(k));
+
+        // Registrar estos campos como ya reportados
+        if (newFields.length > 0) {
+            const updated = new Set(alreadyReported);
+            newFields.forEach(([k]) => updated.add(k));
+            this.reportedFields.set(conversationId, updated);
+        }
+
+        // ========== CONSTRUIR NOTA ==========
+
+        let note = '';
+
+        // ── RESPUESTA SUGERIDA (lo mas importante, va primero y destacado) ──
+        if (suggestions.response) {
+            note += `### 💬 Respuesta sugerida\n\n> ${suggestions.response}\n\n`;
+        }
+
+        // ── ACCION RECOMENDADA ──
+        if (suggestions.action) {
+            note += `**Accion:** ${suggestions.action.replace(/_/g, ' ')}\n\n`;
+        }
+
+        // ── DATOS TECNICOS EN LETRA CHICA ──
+        note += `---\n*Analisis de IA*\n`;
+
+        const interestEmoji = analysis.interest_level === 'alto' ? '🔥' :
+                              analysis.interest_level === 'medio' ? '🌡️' : '❄️';
+        note += `Interes: ${interestEmoji} ${analysis.interest_level || 'medio'}`;
+
+        if (analysis.urgency) note += ` | Urgencia: ${analysis.urgency}`;
+        if (analysis.intent) note += ` | Intencion: ${analysis.intent}`;
 
         if (analysis.buying_signals && analysis.buying_signals.length > 0) {
-            note += `\n**Seniales de compra:** ${analysis.buying_signals.join(', ')}`;
+            note += `\nSeniales: ${analysis.buying_signals.join(', ')}`;
         }
 
         if (analysis.objections && analysis.objections.length > 0) {
-            note += `\n**Objeciones:** ${analysis.objections.join(', ')}`;
+            note += `\nObjeciones: ${analysis.objections.join(', ')}`;
         }
 
-        if (suggestions.response) {
-            note += `\n**Respuesta sugerida:** "${suggestions.response}"`;
+        // Info nueva capturada
+        if (newFields.length > 0) {
+            note += `\n\n*Nuevos datos:* ${newFields.map(([k, v]) => `\`${k}=${v}\``).join(', ')}`;
         }
 
-        if (suggestions.action) {
-            note += `\n**Accion:** ${suggestions.action.replace(/_/g, ' ')}`;
-        }
-
-        const capturedFields = Object.entries(extractedInfo)
-            .filter(([k, v]) => v !== null && v !== undefined && v !== '');
-        if (capturedFields.length > 0) {
-            note += `\n**Info:** ${capturedFields.map(([k, v]) => `${k}=${v}`).join(', ')}`;
+        // Si hay campos ya conocidos, mencionarlos brevemente
+        if (alreadyReported.size > 0) {
+            note += `\n*Ya registrado:* ${[...alreadyReported].join(', ')}`;
         }
 
         await this.createInternalNote(conversationId, note, true);
