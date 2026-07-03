@@ -108,3 +108,17 @@ export async function updateRDAll(req, res) {
         res.status(500).json({ success: false, error: error.message });
     }
 }
+
+export async function createRDSingle(req, res) {
+    try {
+        const { validator, email } = req.body;
+        if (!validator || !email) return res.status(400).json({ success: false, error: 'validator y email requeridos' });
+        if (!['cns', 'nube'].includes(validator)) {
+            return res.status(400).json({ success: false, error: 'Validador invalido' });
+        }
+        const result = await firmwareService.createRDSingle(validator, email);
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+}

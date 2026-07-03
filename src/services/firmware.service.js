@@ -167,6 +167,81 @@ async function updateRDSingle(email) {
     }
 }
 
+async function createRDSingle(validator, email) {
+    const result = await fetchFirmwareInfo(email);
+    if (!result.data) {
+        return { success: false, email, error: result.error || 'No se pudo obtener datos del endpoint' };
+    }
+
+    const { clientName, robotId, firmwareVersion, cellphone } = result.data;
+
+    const contactData = {
+        email,
+        cf_tiene_ichef: 'Sí',
+        cf_validador: 'CNS',
+    };
+    if (clientName) contactData.name = clientName;
+    if (cellphone) {
+        contactData.mobile_phone = cellphone;
+        contactData.personal_phone = cellphone;
+    }
+    if (robotId) contactData.cf_id_equipo = robotId;
+    if (firmwareVersion) contactData.cf_version_firmware = firmwareVersion;
+
+    try {
+        const upsertResult = await rdStationClient.upsertContact(contactData);
+
+        if (upsertResult.created === false) {
+            console.log(`ℹ️ Contacto ${email} ya existía en RD Station - actualizado`);
+        } else {
+            console.log(`✅ Contacto ${email} creado en RD Station`);
+        }
+
+        // Marcar como verde en el JSON de firmware
+        const results = loadResults(validator);
+        const idx = results.findIndex(r => r.email === email);
+        if (idx !== -1) {
+            results[idx].source = 'verde';
+            saveResults(validator, results);
+        }
+
+        // Mover email entre archivos JSON
+        moveEmailFromRojoToVerde(validator, email);
+
+        return { success: true, email, created: upsertResult.created !== false };
+    } catch (error) {
+        return { success: false, email, error: error.message };
+    }
+}
+
+function moveEmailFromRojoToVerde(validator, email) {
+    if (validator !== 'cns') return;
+
+    const rojoPath = ROJO_FILES[validator];
+    const verdePath = EMAIL_FILES[validator];
+    if (!rojoPath || !existsSync(rojoPath)) return;
+
+    // Quitar de rojos
+    const rojoRaw = JSON.parse(readFileSync(rojoPath, 'utf-8'));
+    if (rojoRaw?.Email) {
+        rojoRaw.Email = rojoRaw.Email.filter(e => e !== email);
+        writeFileSync(rojoPath, JSON.stringify(rojoRaw, null, 2));
+        console.log(`📧 ${email} removido de lista roja`);
+    }
+
+    // Agregar a verdes
+    if (existsSync(verdePath)) {
+        const verdeRaw = JSON.parse(readFileSync(verdePath, 'utf-8'));
+        if (Array.isArray(verdeRaw) && verdeRaw.length > 0 && Array.isArray(verdeRaw[0]?.email)) {
+            if (!verdeRaw[0].email.includes(email)) {
+                verdeRaw[0].email.push(email);
+                writeFileSync(verdePath, JSON.stringify(verdeRaw, null, 2));
+                console.log(`📧 ${email} agregado a lista verde`);
+            }
+        }
+    }
+}
+
 async function updateRDAll(validator, { onProgress } = {}) {
     const items = loadEmails(validator).filter(i => i.source === 'verde');
     const results2 = [];
@@ -196,6 +271,7 @@ export default {
     refreshSingle,
     updateRDSingle,
     updateRDAll,
+    createRDSingle,
     getProgress,
     clearProgress,
 };

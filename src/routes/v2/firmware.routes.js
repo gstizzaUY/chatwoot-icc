@@ -6,6 +6,7 @@ import {
     refreshFirmwareSingle,
     updateRDSingle,
     updateRDAll,
+    createRDSingle,
     getFetchProgress,
 } from '../../controllers/firmware.controller.js';
 
@@ -18,5 +19,6 @@ router.post('/fetch-single', fetchFirmwareSingle);
 router.post('/refresh-single', refreshFirmwareSingle);
 router.post('/update-rd-single', updateRDSingle);
 router.post('/update-rd/:validator', updateRDAll);
+router.post('/create-rd-single', createRDSingle);
 
 export default router;
