@@ -13,8 +13,8 @@ class PreVentaAgent extends BaseAgent {
             agentType: 'pre-venta',
             channels: PRE_VENTA_CHANNELS
         });
-        // Memoria de campos ya reportados por conversacion
         this.reportedFields = new Map();
+        this.SUGGESTIONS_ENABLED = false;
     }
 
     getSystemPrompt() {
@@ -118,58 +118,43 @@ class PreVentaAgent extends BaseAgent {
     async createSuggestionNote(conversationId, data) {
         const { analysis, suggestions, extractedInfo } = data;
 
-        // Obtener campos ya reportados para esta conversacion
         const alreadyReported = this.reportedFields.get(conversationId) || new Set();
 
-        // Campos nuevos (no reportados antes)
         const newFields = Object.entries(extractedInfo)
             .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !alreadyReported.has(k));
 
-        // Registrar estos campos como ya reportados
-        if (newFields.length > 0) {
-            const updated = new Set(alreadyReported);
-            newFields.forEach(([k]) => updated.add(k));
-            this.reportedFields.set(conversationId, updated);
+        // SILENCIOSO: si no hay datos nuevos, no crear nota
+        if (newFields.length === 0) {
+            console.log(`🤫 Pre-Venta: sin datos nuevos en conversacion ${conversationId} - sin nota`);
+            return;
         }
 
-        // ========== CONSTRUIR NOTA ==========
+        const updated = new Set(alreadyReported);
+        newFields.forEach(([k]) => updated.add(k));
+        this.reportedFields.set(conversationId, updated);
 
         let note = '';
 
-        // ── RESPUESTA SUGERIDA (lo mas importante, va primero y destacado) ──
-        if (suggestions.response) {
-            note += `### 💬 Respuesta sugerida\n\n> ${suggestions.response}\n\n`;
+        if (this.SUGGESTIONS_ENABLED) {
+            if (suggestions.response) {
+                note += `### 💬 Respuesta sugerida\n\n> ${suggestions.response}\n\n`;
+            }
+            if (suggestions.action) {
+                note += `**Accion:** ${suggestions.action.replace(/_/g, ' ')}\n\n`;
+            }
+            note += `---\n*Analisis de IA*\n`;
+            const interestEmoji = analysis.interest_level === 'alto' ? '🔥' :
+                                  analysis.interest_level === 'medio' ? '🌡️' : '❄️';
+            note += `Interes: ${interestEmoji} ${analysis.interest_level || 'medio'}`;
+            if (analysis.urgency) note += ` | Urgencia: ${analysis.urgency}`;
+            if (analysis.intent) note += ` | Intencion: ${analysis.intent}`;
+            if (analysis.buying_signals?.length) note += `\nSeniales: ${analysis.buying_signals.join(', ')}`;
+            if (analysis.objections?.length) note += `\nObjeciones: ${analysis.objections.join(', ')}`;
+            note += `\n\n`;
         }
 
-        // ── ACCION RECOMENDADA ──
-        if (suggestions.action) {
-            note += `**Accion:** ${suggestions.action.replace(/_/g, ' ')}\n\n`;
-        }
+        note += `*Datos capturados:* ${newFields.map(([k, v]) => `\`${k}=${v}\``).join(', ')}`;
 
-        // ── DATOS TECNICOS EN LETRA CHICA ──
-        note += `---\n*Analisis de IA*\n`;
-
-        const interestEmoji = analysis.interest_level === 'alto' ? '🔥' :
-                              analysis.interest_level === 'medio' ? '🌡️' : '❄️';
-        note += `Interes: ${interestEmoji} ${analysis.interest_level || 'medio'}`;
-
-        if (analysis.urgency) note += ` | Urgencia: ${analysis.urgency}`;
-        if (analysis.intent) note += ` | Intencion: ${analysis.intent}`;
-
-        if (analysis.buying_signals && analysis.buying_signals.length > 0) {
-            note += `\nSeniales: ${analysis.buying_signals.join(', ')}`;
-        }
-
-        if (analysis.objections && analysis.objections.length > 0) {
-            note += `\nObjeciones: ${analysis.objections.join(', ')}`;
-        }
-
-        // Info nueva capturada
-        if (newFields.length > 0) {
-            note += `\n\n*Nuevos datos:* ${newFields.map(([k, v]) => `\`${k}=${v}\``).join(', ')}`;
-        }
-
-        // Si hay campos ya conocidos, mencionarlos brevemente
         if (alreadyReported.size > 0) {
             note += `\n*Ya registrado:* ${[...alreadyReported].join(', ')}`;
         }
