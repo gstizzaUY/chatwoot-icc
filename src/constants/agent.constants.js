@@ -129,3 +129,9 @@ export const EXCLUDED_CONTACT_IDS = [
     7631,   // Contacto interno
     25573   // Contacto interno
 ];
+
+// Canales de email donde el remitente puede ser el sistema (formulario web)
+export const EMAIL_CHANNELS = [1, 12, 33];
+
+// Email del sistema que envía los formularios web
+export const SYSTEM_SENDER_EMAIL = 'comercial@ichef.uy';

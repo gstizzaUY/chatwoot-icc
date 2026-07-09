@@ -254,6 +254,22 @@ class ChatwootClient {
         }
     }
 
+    /**
+     * Crea una nueva conversación en un inbox vinculada a un contacto
+     */
+    async createConversation({ inbox_id, contact_id, status = 'open', assignee_id = null, team_id = null }) {
+        try {
+            const payload = { inbox_id, contact_id, status };
+            if (assignee_id) payload.assignee_id = assignee_id;
+            if (team_id) payload.team_id = team_id;
+            const response = await this.client.post('/conversations', payload);
+            return response.data;
+        } catch (error) {
+            console.error('Error creando conversación:', error.message);
+            throw error;
+        }
+    }
+
     // ==================== HELPERS PRIVADOS ====================
 
     /**
