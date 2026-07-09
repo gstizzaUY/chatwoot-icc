@@ -1,6 +1,4 @@
 import agentOrchestratorService from '../services/agent-orchestrator.service.js';
-import formSubmissionHandler from '../services/form-submission-handler.service.js';
-import agentFactory from '../agents/AgentFactory.js';
 
 /**
  * Controlador para webhooks de mensajes
@@ -62,38 +60,7 @@ export const messageCreated = async (req, res) => {
             console.log('✅ Mensaje del cliente - procesando...');
         }
 
-        // PRE-PROCESADOR: Detectar formularios web en canales email
-        // Si el remitente es el sistema, extraer contacto real y redirigir
-        if (isIncoming) {
-            const formResult = await formSubmissionHandler.handleIfFormSubmission(payload);
-
-            if (formResult.handled && formResult.newConversationId) {
-                console.log(`✅ Formulario web redirigido a conversacion #${formResult.newConversationId}`);
-
-                // Disparar agente PreVenta en la nueva conversacion (background, no bloquea respuesta)
-                setImmediate(async () => {
-                    try {
-                        const agent = agentFactory.getAgent('pre-venta');
-                        await agent.execute(formResult.newConversationId, { includeHistory: true });
-                        console.log(`✅ PreVenta ejecutado en nueva conv #${formResult.newConversationId}`);
-                    } catch (error) {
-                        console.error(`❌ Error PreVenta en nueva conv: ${error.message}`);
-                    }
-                });
-
-                return res.status(200).json({
-                    success: true,
-                    message: 'Formulario web procesado - conversacion redirigida',
-                    newConversationId: formResult.newConversationId
-                });
-            }
-
-            if (formResult.handled) {
-                console.log('⚠️ Formulario web detectado pero no se pudo procesar completamente');
-            }
-        }
-
-        // Ejecutar orquestador (pipeline normal para emails directos y otros canales)
+        // Ejecutar orquestador
         const result = await agentOrchestratorService.processWebhookEvent(
             'message_created',
             payload
