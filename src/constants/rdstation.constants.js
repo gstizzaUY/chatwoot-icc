@@ -31,6 +31,9 @@ export const RD_CONVERSIONS = {
     WEBINAR_REGISTERED: 'webinar-registered',
     WEBINAR_ATTENDED: 'webinar-attended',
     CONTENT_DOWNLOADED: 'content-downloaded',
+
+    // Social
+    INSTAGRAM_MESSAGE_RECEIVED: 'instagram-message-received',
     
     // Soporte
     SUPPORT_TICKET_CREATED: 'support-ticket-created',

@@ -686,8 +686,15 @@ class ConversationAnalysisService {
                     rdData.email = generatedEmail;
                     console.log(`⚠️ Email generado desde teléfono para RD Station: ${rdData.email}`);
                 } else {
-                    console.error('❌ No hay email ni teléfono disponible para RD Station');
-                    throw new Error('No se puede sincronizar con RD Station: sin email válido');
+                    const instagramSourceId = _getInstagramSourceId(chatwootContact);
+                    if (instagramSourceId) {
+                        generatedEmail = `${instagramSourceId}@email.com`;
+                        rdData.email = generatedEmail;
+                        console.log(`📱 Email falso generado desde Instagram source_id: ${rdData.email}`);
+                    } else {
+                        console.error('❌ No hay email ni teléfono disponible para RD Station');
+                        throw new Error('No se puede sincronizar con RD Station: sin email válido');
+                    }
                 }
             }
 
@@ -1004,6 +1011,15 @@ class ConversationAnalysisService {
 
         return results;
     }
+}
+
+function _getInstagramSourceId(contact) {
+    const inboxes = contact.contact_inboxes || [];
+    const instagram = inboxes.find(ci => {
+        const channelType = ci.inbox?.channel_type || ci.channel_type || '';
+        return channelType === 'Channel::Instagram';
+    });
+    return instagram?.source_id || null;
 }
 
 export default new ConversationAnalysisService();

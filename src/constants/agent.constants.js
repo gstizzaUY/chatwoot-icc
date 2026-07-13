@@ -19,7 +19,8 @@ export const PRE_VENTA_CHANNELS = [
     34, // iChef Center Wpp
     46, // iChef MKT Wpp
     12, // Correo Comercial
-    45  // iChef Comercial Wpp
+    45, // iChef Comercial Wpp
+    54  // ichefuy (Instagram)
 ];
 
 // Canales de nutridor (captura de información)
@@ -45,6 +46,7 @@ export const CHANNEL_TO_AGENT = {
     46: AGENT_TYPES.PRE_VENTA,
     12: AGENT_TYPES.PRE_VENTA,
     45: AGENT_TYPES.PRE_VENTA,
+    54: AGENT_TYPES.PRE_VENTA,  // ichefuy (Instagram)
     
     // Post-venta
     41: AGENT_TYPES.POST_VENTA,

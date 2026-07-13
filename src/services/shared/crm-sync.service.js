@@ -163,7 +163,14 @@ class CRMSyncService {
                     generatedEmail = generateEmailFromPhone(chatwootContact.phone_number);
                     rdData.email = generatedEmail;
                 } else {
-                    throw new Error('No se puede sincronizar con RD Station: sin email válido');
+                    const instagramSourceId = _getInstagramSourceId(chatwootContact);
+                    if (instagramSourceId) {
+                        generatedEmail = `${instagramSourceId}@email.com`;
+                        rdData.email = generatedEmail;
+                        console.log(`📱 Email falso generado desde Instagram source_id: ${generatedEmail}`);
+                    } else {
+                        throw new Error('No se puede sincronizar con RD Station: sin email válido');
+                    }
                 }
             }
 
@@ -328,6 +335,21 @@ class CRMSyncService {
                 };
             }
 
+            // 4. Si se generó un email falso (Instagram, telefono), escribirlo en Chatwoot
+            if (rdResult?.generatedEmail && !currentContact.email) {
+                try {
+                    console.log(`📧 Persistiendo email falso en Chatwoot: ${rdResult.generatedEmail}`);
+                    await chatwootClient.updateContact(contactId, {
+                        email: rdResult.generatedEmail,
+                        custom_attributes: {
+                            email: rdResult.generatedEmail
+                        }
+                    });
+                } catch (updateError) {
+                    console.warn(`⚠️ No se pudo actualizar email en Chatwoot: ${updateError.message}`);
+                }
+            }
+
             return {
                 chatwoot: chatwootResult,
                 rdStation: rdResult
@@ -337,6 +359,18 @@ class CRMSyncService {
             throw error;
         }
     }
+}
+
+/**
+ * Obtiene el source_id de Instagram del contacto si existe
+ */
+function _getInstagramSourceId(contact) {
+    const inboxes = contact.contact_inboxes || [];
+    const instagram = inboxes.find(ci => {
+        const channelType = ci.inbox?.channel_type || ci.channel_type || '';
+        return channelType === 'Channel::Instagram';
+    });
+    return instagram?.source_id || null;
 }
 
 export default new CRMSyncService();
