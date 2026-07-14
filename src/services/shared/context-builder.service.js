@@ -146,6 +146,12 @@ class ContextBuilderService {
                 return false;
             }
 
+            // Ignorar mensajes de actividad del sistema (message_type 2)
+            // Contienen nombres de agentes, no datos del cliente
+            if (msg.message_type === 2 || msg.message_type === '2') {
+                return false;
+            }
+
             // Ignorar notas automáticas del sistema
             if (msg.private && msg.content_type === 'text') {
                 const isAutoSummary =

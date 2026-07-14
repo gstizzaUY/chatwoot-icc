@@ -291,7 +291,7 @@ class NutridorAgent extends BaseAgent {
      * Crea nota interna cuando el agente completa su trabajo
      */
     async createCompletionNote(conversationId, data) {
-        const { extractedInfo, questionsAsked, hasCriticalInfo } = data;
+        const { extractedInfo, questionsAsked, hasCriticalInfo, crmUpdate } = data;
 
         let note = `**Agente IA - Nutridor** | **Informacion capturada**\n`;
 
@@ -302,6 +302,14 @@ class NutridorAgent extends BaseAgent {
 
         note += capturedFields || 'Sin informacion nueva';
         note += `\n**Preguntas:** ${questionsAsked} | **Info critica:** ${hasCriticalInfo ? 'completa' : 'parcial'}`;
+
+        const chatwootChanges = crmUpdate?.chatwoot?.changes;
+        if (chatwootChanges && chatwootChanges.length > 0) {
+            note += `\n\n**Cambios en Chatwoot (${chatwootChanges.length}):**\n`;
+            chatwootChanges.forEach(c => {
+                note += `  ${c.field}: "${c.old}" → "${c.new}"\n`;
+            });
+        }
 
         await this.createInternalNote(conversationId, note);
     }

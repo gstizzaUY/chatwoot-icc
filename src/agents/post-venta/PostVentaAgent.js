@@ -113,7 +113,7 @@ class PostVentaAgent extends BaseAgent {
     }
 
     async createSuggestionNote(conversationId, data) {
-        const { analysis, suggestions, extractedInfo } = data;
+        const { analysis, suggestions, extractedInfo, crmUpdate } = data;
 
         let note = `**Agente IA - Asistente de Soporte**\n`;
         note += `**Tipo:** ${analysis.conversation_type || 'consulta'} | **Urgencia:** ${analysis.urgency || 'media'} | **Satisfaccion:** ${analysis.satisfaction || 'medio'}`;
@@ -140,6 +140,14 @@ class PostVentaAgent extends BaseAgent {
 
         if (extractedInfo.id_equipo) {
             note += `\n**Serial:** ${extractedInfo.id_equipo}`;
+        }
+
+        const chatwootChanges = crmUpdate?.chatwoot?.changes;
+        if (chatwootChanges && chatwootChanges.length > 0) {
+            note += `\n\n**Cambios en Chatwoot (${chatwootChanges.length}):**\n`;
+            chatwootChanges.forEach(c => {
+                note += `  ${c.field}: "${c.old}" → "${c.new}"\n`;
+            });
         }
 
         await this.createInternalNote(conversationId, note, true);

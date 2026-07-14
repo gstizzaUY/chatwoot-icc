@@ -116,15 +116,18 @@ class PreVentaAgent extends BaseAgent {
      * - No repite campos ya reportados en notas anteriores
      */
     async createSuggestionNote(conversationId, data) {
-        const { analysis, suggestions, extractedInfo } = data;
+        const { analysis, suggestions, extractedInfo, crmUpdate } = data;
 
         const alreadyReported = this.reportedFields.get(conversationId) || new Set();
 
         const newFields = Object.entries(extractedInfo)
             .filter(([k, v]) => v !== null && v !== undefined && v !== '' && !alreadyReported.has(k));
 
-        // SILENCIOSO: si no hay datos nuevos, no crear nota
-        if (newFields.length === 0) {
+        const chatwootChanges = crmUpdate?.chatwoot?.changes;
+        const hasChanges = (chatwootChanges && chatwootChanges.length > 0);
+
+        // SILENCIOSO: si no hay datos nuevos ni cambios en CRM, no crear nota
+        if (newFields.length === 0 && !hasChanges) {
             console.log(`🤫 Pre-Venta: sin datos nuevos en conversacion ${conversationId} - sin nota`);
             return;
         }
@@ -153,10 +156,19 @@ class PreVentaAgent extends BaseAgent {
             note += `\n\n`;
         }
 
-        note += `*Datos capturados:* ${newFields.map(([k, v]) => `\`${k}=${v}\``).join(', ')}`;
+        if (newFields.length > 0) {
+            note += `*Datos capturados:* ${newFields.map(([k, v]) => `\`${k}=${v}\``).join(', ')}`;
+        }
 
         if (alreadyReported.size > 0) {
             note += `\n*Ya registrado:* ${[...alreadyReported].join(', ')}`;
+        }
+
+        if (hasChanges) {
+            note += `\n\n**Cambios en Chatwoot (${chatwootChanges.length}):**\n`;
+            chatwootChanges.forEach(c => {
+                note += `  ${c.field}: "${c.old}" → "${c.new}"\n`;
+            });
         }
 
         await this.createInternalNote(conversationId, note, true);
