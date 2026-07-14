@@ -1,8 +1,27 @@
 import agentOrchestratorService from '../services/agent-orchestrator.service.js';
+import chatwootClient from '../clients/chatwoot.client.js';
 
 /**
  * Controller para manejar webhooks de plataformas externas
  */
+
+/**
+ * Limpia las etiquetas [Agente IA] de una conversacion
+ */
+async function cleanupAiLabels(conversationId) {
+    try {
+        const conv = await chatwootClient.getConversation(conversationId);
+        const labels = conv?.labels || [];
+        const nonAiLabels = labels.filter(l => !l.startsWith('[Agente IA]'));
+
+        if (nonAiLabels.length < labels.length) {
+            await chatwootClient.setLabels(conversationId, nonAiLabels);
+            console.log(`🧹 ${labels.length - nonAiLabels.length} etiquetas [Agente IA] eliminadas de conv #${conversationId}`);
+        }
+    } catch (error) {
+        console.warn(`⚠️ No se pudieron limpiar etiquetas IA de conv #${conversationId}:`, error.message);
+    }
+}
 
 /**
  * Webhook para recibir eventos de Chatwoot cuando se cierra una conversación
@@ -78,6 +97,9 @@ export const conversationStatusChanged = async (req, res, next) => {
                 } else {
                     console.log(`⚠️  Conversación ${conversationId} procesada con advertencias:`, result.reason);
                 }
+
+                // Limpiar etiquetas [Agente IA] al resolver la conversacion
+                await cleanupAiLabels(conversationId);
 
             } catch (error) {
                 console.error(`❌ Error procesando conversación ${conversationId} en background:`, error.message);

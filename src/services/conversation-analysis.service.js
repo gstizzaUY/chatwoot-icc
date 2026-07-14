@@ -948,15 +948,22 @@ class ConversationAnalysisService {
             // ============ CONSTRUIR NOTA COMPLETA ============
             const noteContent = `[Agente IA] ${resumenSection}${sentimentSection}${infoSection}${chatwootSection}${rdSection}${multimediaSection}${recSection}`;
 
-            await chatwootClient.sendMessage(conversationId, {
-                content: noteContent,
-                message_type: 'outgoing',
-                private: true
-            });
+            // Convertir a formato label y agregar a la conversacion
+            const ts = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            const cleanContent = `[Agente IA] ${ts} | ${noteContent}`
+                .replace(/,/g, ' -')
+                .replace(/\*/g, '')
+                .replace(/#/g, '')
+                .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+                .replace(/\n/g, ' | ')
+                .substring(0, 500);
+
+            const conv = await chatwootClient.getConversation(conversationId);
+            const currentLabels = conv?.labels || [];
+            await chatwootClient.setLabels(conversationId, [...currentLabels, cleanContent]);
 
             console.log(`📝 Nota interna agregada a conversación ${conversationId}`);
 
-            // Restaurar estado "no leído" para no confundir a operadores humanos
             await chatwootClient.markAsUnread(conversationId);
             console.log(`   ✅ Conversación ${conversationId} marcada como no leída`);
 

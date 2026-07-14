@@ -227,31 +227,41 @@ class BaseAgent {
     }
 
     /**
-     * Crea nota interna en la conversación
+     * Crea nota interna en la conversación como actividad del sistema
+     * Agrega una etiqueta [Agente IA] que se limpia al resolver la conversación
      * 
      * @param {number} conversationId - ID de la conversación
      * @param {string} content - Contenido de la nota
-     * @param {boolean} isPrivate - Si es nota privada (default: true)
+     * @param {boolean} isPrivate - Ignorado (todas son publicas como actividad)
      * @returns {Promise<void>}
      */
     async createInternalNote(conversationId, content, isPrivate = true) {
         try {
-            const prefixedContent = `[Agente IA] ${content}`;
+            const cleanContent = this._formatAsLabel(content);
 
-            await chatwootClient.sendMessage(conversationId, {
-                content: prefixedContent,
-                message_type: 'outgoing',
-                private: isPrivate
-            });
+            const conv = await chatwootClient.getConversation(conversationId);
+            const currentLabels = conv?.labels || [];
+
+            const newLabels = [...currentLabels, cleanContent];
+            await chatwootClient.setLabels(conversationId, newLabels);
 
             console.log(`📝 Nota interna creada en conversación ${conversationId}`);
 
-            // Restaurar estado "no leído" para no confundir a operadores humanos
             await chatwootClient.markAsUnread(conversationId);
-            console.log(`   ✅ Conversación ${conversationId} marcada como no leída`);
         } catch (error) {
             console.warn('⚠️  No se pudo crear nota interna:', error.message);
         }
+    }
+
+    _formatAsLabel(content) {
+        const ts = new Date().toISOString().replace('T', ' ').substring(0, 19);
+        return `[Agente IA] ${ts} | ${content}`
+            .replace(/,/g, ' -')
+            .replace(/\*/g, '')
+            .replace(/#/g, '')
+            .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+            .replace(/\n/g, ' | ')
+            .substring(0, 500);
     }
 
     /**
