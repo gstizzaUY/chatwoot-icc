@@ -2,6 +2,7 @@ import chatwootClient from '../../clients/chatwoot.client.js';
 import rdStationClient from '../../clients/rdstation.client.js';
 import { mapContactChatwootToRD } from '../../mappers/contact.mapper.js';
 import { generateEmailFromPhone, isValidEmail } from '../../utils/email.utils.js';
+import { normalizePhone } from '../../utils/phone.utils.js';
 import { RD_CONVERSIONS } from '../../constants/rdstation.constants.js';
 import fieldProtectionService from './field-protection.service.js';
 
@@ -78,7 +79,7 @@ class CRMSyncService {
                 `${extractedInfo.firstname}${extractedInfo.lastname ? ' ' + extractedInfo.lastname : ''}` :
                 null, 'Nombre completo');
             updateField('root', 'email', extractedInfo.email && isValidEmail(extractedInfo.email) ? extractedInfo.email : null, 'Email');
-            updateField('root', 'phone_number', extractedInfo.mobile_phone || extractedInfo.phone, 'Teléfono');
+            updateField('root', 'phone_number', normalizePhone(extractedInfo.mobile_phone || extractedInfo.phone), 'Teléfono');
 
             // Información básica
             updateField('custom', 'email', extractedInfo.email && isValidEmail(extractedInfo.email) ? extractedInfo.email : null, 'Correo Electrónico');
@@ -152,6 +153,11 @@ class CRMSyncService {
 
             const rdData = mapContactChatwootToRD(chatwootContact);
             let generatedEmail = null;
+
+            // Detectar si el mapper ya generó un email falso desde teléfono
+            if (!chatwootContact.email && rdData.email && rdData.email.includes('@email.com')) {
+                generatedEmail = rdData.email;
+            }
 
             // Asegurar email válido
             const hasValidEmail = extractedInfo.email && isValidEmail(extractedInfo.email);
