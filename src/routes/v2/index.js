@@ -5,6 +5,7 @@ import hsmRoutes from './hsm.routes.js';
 import comunidadLoversRoutes from './comunidadLovers.routes.js';
 import exportContactsRoutes from './exportContacts.routes.js';
 import firmwareRoutes from './firmware.routes.js';
+import oportunidadRoutes from './oportunidad.routes.js';
 // import contactRoutes from './contact.routes.js';
 // import conversationRoutes from './conversation.routes.js';
 // import dealRoutes from './deal.routes.js';
@@ -42,6 +43,9 @@ router.use('/export/contacts', exportContactsRoutes);
 
 // Firmware - Actualización de firmware (validador CNS/Nube)
 router.use('/firmware', firmwareRoutes);
+
+// Oportunidades - Leads desde RD Station con oportunidad creada
+router.use('/oportunidad', oportunidadRoutes);
 
 // Rutas de recursos (requieren autenticación de API Key)
 // TODO: Descomentar cuando estén implementados

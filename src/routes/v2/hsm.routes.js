@@ -5,6 +5,7 @@ import ciberLunes2026 from '../../controllers/ciberLunes2026.controller.js';
 import ciberlunesMelany from '../../controllers/ciberlunesMelany.controller.js';
 import ichefTallerBlw from '../../controllers/ichefTallerBlw.controller.js';
 import actualizacionFirmware from '../../controllers/actualizacionFirmware.controller.js';
+import confirmacionPedidoWeb from '../../controllers/confirmacionPedidoWeb.controller.js';
 
 const router = express.Router();
 
@@ -103,5 +104,31 @@ router.post('/ichef-taller-blw', ichefTallerBlw);
  * Incluye dedupe por campana+lead+nUmero (TTL 24h).
  */
 router.post('/actualizacion-firmware', actualizacionFirmware);
+
+/**
+ * POST /api/v2/hsm/confirmacion-pedido-web
+ *
+ * Recibe notificación de nuevo pedido pagado desde el plugin
+ * WooCommerce WhatsApp Events y envía un WhatsApp de confirmación
+ * al cliente usando la plantilla HSM de utilidad "confirmacion_pedido_web"
+ * a través de Sailbot (API oficial de WhatsApp).
+ *
+ * Variables del template (plantilla de utilidad con nombres explícitos):
+ *   order_number, name, total, product
+ *
+ * Body esperado (viene del plugin WordPress):
+ * {
+ *   "event": "order_paid",
+ *   "store": { "name", "url" },
+ *   "order": { "id", "number", "status", "currency", "total" },
+ *   "customer": { "name", "email", "phone" },
+ *   "items": [ { "product_id", "name", "quantity", "total" } ],
+ *   "created_at": "..."
+ * }
+ *
+ * Responde con HTTP 202 inmediatamente y procesa en background
+ * para evitar timeouts del plugin WordPress.
+ */
+router.post('/confirmacion-pedido-web', confirmacionPedidoWeb);
 
 export default router;
