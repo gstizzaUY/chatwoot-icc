@@ -7,7 +7,8 @@ import {
     getCircuitBreakerStatus,
     initializeCredentials,
     testConversionEvent,
-    expoDgusto
+    expoDgusto,
+    leadPopupTonga
 } from '../controllers/rdStationControllers.js';
 import onboarding from '../controllers/onboardingController.js';
 import onboardingHsmStarterPack from '../controllers/onboardingHsmController.js';
@@ -29,6 +30,9 @@ router.post('/registro-demo', registrarDemo);
 
 // Endpoint para Expo D'Gusto
 router.post('/expo-dgusto', expoDgusto);
+
+// Endpoint para popup landing iChef x Tonga Reyno
+router.post('/lead-popup-tonga', leadPopupTonga);
 
 // Endpoint de test para eventos de conversión
 router.post('/test-conversion-event', testConversionEvent);

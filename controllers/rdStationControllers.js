@@ -2954,6 +2954,122 @@ const expoDgusto = async (req, res) => {
     });
 };
 
+/**
+ * Procesa leads del popup de la landing iChef x Tonga Reyno
+ * Crea/actualiza contacto en RD Station y Chatwoot, y dispara evento de conversión
+ */
+const leadPopupTonga = async (req, res) => {
+    const CONVERSION_EVENT = "conversion-popup-ichefxtongareyno";
+
+    try {
+        if (!credentialsValid) {
+            return res.status(500).json({
+                success: false,
+                error: "Configuración de RD Station incompleta."
+            });
+        }
+
+        const { nombre, email, celular } = req.body;
+
+        console.log("📩 Lead popup Tonga recibido:", { nombre, email, celular });
+
+        if (!nombre || !email || !celular) {
+            return res.status(400).json({
+                success: false,
+                error: "Faltan datos requeridos: nombre, email y celular son obligatorios."
+            });
+        }
+
+        // Dividir nombre completo en firstname y lastname
+        const nameParts = (nombre || "").trim().split(" ");
+        const firstname = nameParts[0] || "";
+        const lastname = nameParts.slice(1).join(" ") || "";
+
+        // Normalizar teléfono
+        const normalizedPhone = normalizeUruguayanPhone(celular);
+        const phoneForRD = celular;
+
+        // Validar email
+        let emailToUse = cleanEmail(email);
+        if (!isValidEmail(emailToUse)) {
+            console.log(`⚠️ Email inválido: ${emailToUse}, intentando generar desde teléfono`);
+            if (isValidPhone(celular)) {
+                emailToUse = generateEmailFromPhone(celular);
+            } else {
+                return res.status(400).json({
+                    success: false,
+                    error: "Email inválido y no se puede generar desde teléfono."
+                });
+            }
+        }
+
+        const contactData = {
+            email: emailToUse,
+            firstname: firstname,
+            lastname: lastname,
+            phone: phoneForRD,
+            mobile: phoneForRD,
+            cf_fuente_contacto: "popup-ichefxtongareyno",
+        };
+
+        // Buscar contacto existente en RD Station
+        let existingContact = null;
+        try {
+            existingContact = await findContactByEmail(emailToUse, contactData);
+        } catch (error) {
+            console.log(`❌ Error buscando contacto: ${error.message}`);
+        }
+
+        let contactAction = "";
+        if (existingContact) {
+            console.log(`✅ Contacto EXISTE: ${emailToUse} (uuid: ${existingContact.uuid})`);
+            const updateSuccess = await updateContact(existingContact.uuid, contactData);
+            contactAction = updateSuccess ? "UPDATED" : "UPDATE_FAILED";
+        } else {
+            console.log(`🆕 Contacto NUEVO: ${emailToUse}`);
+            const createSuccess = await createContact(contactData);
+            if (!createSuccess) {
+                return res.status(500).json({
+                    success: false,
+                    error: "No se pudo crear el contacto en RD Station."
+                });
+            }
+            contactAction = "CREATED";
+        }
+
+        // Disparar evento de conversión
+        const eventSuccess = await createConversionEvent(emailToUse, CONVERSION_EVENT, {
+            name: `${firstname} ${lastname}`.trim(),
+            email: emailToUse,
+            phone: phoneForRD,
+            source_url: "https://ichef.com.uy/ichefxtongareyno",
+        });
+
+        const responseData = {
+            success: true,
+            message: "Contacto procesado exitosamente.",
+            data: {
+                email: emailToUse,
+                contactAction: contactAction,
+                eventName: CONVERSION_EVENT,
+                eventCreated: eventSuccess,
+            },
+        };
+
+        if (!eventSuccess) {
+            responseData.message = "Contacto procesado pero el evento de conversión falló.";
+            responseData.warning = "El evento de conversión no se pudo crear.";
+        }
+
+        return res.status(200).json(responseData);
+    } catch (error) {
+        console.error("Error en leadPopupTonga:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Error interno del servidor.",
+        });
+    }
+};
 
 
 
@@ -2977,5 +3093,6 @@ export {
     actualizacionFirmwareNh2025101735,
     normalizeUruguayanPhone,
     normalizePhoneToDoubleZero,
-    expoDgusto
+    expoDgusto,
+    leadPopupTonga
 };
