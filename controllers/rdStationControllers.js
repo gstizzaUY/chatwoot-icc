@@ -267,45 +267,33 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  */
 const findChatwootContact = async (searchData) => {
     try {
-        const buildPayloadItem = (key, value) => {
-            if (!value) return null;
-            return {
-                attribute_key: key,
-                filter_operator: "equal_to",
-                values: [value],
-                query_operator: "OR"
-            };
-        };
+        // Usar el endpoint GET /contacts/search que es más confiable que el filter
+        let query = searchData.email || searchData.phone || "";
+        if (!query) return null;
 
-        const payload = {
-            payload: [
-                { id: searchData.id, key: 'id' },
-                { id: searchData.email, key: 'email' },
-                { id: searchData.phone, key: 'phone_number' }
-            ]
-                .map(item => buildPayloadItem(item.key, item.id))
-                .filter(Boolean)
-                .map((item, index, array) => ({
-                    ...item,
-                    query_operator: index === array.length - 1 ? null : "OR"
-                }))
-        };
+        const url = `${CHATWOOT_CONFIG.BASE_URL}/api/v1/accounts/${CHATWOOT_CONFIG.ACCOUNT_ID}/contacts/search?q=${encodeURIComponent(query)}`;
 
-        const response = await axios.post(
-            `${CHATWOOT_CONFIG.BASE_URL}/api/v1/accounts/${CHATWOOT_CONFIG.ACCOUNT_ID}/contacts/filter`,
-            payload,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'api_access_token': CHATWOOT_CONFIG.API_TOKEN,
-                },
-            }
-        );
+        console.log(`🔍 Buscando contacto en Chatwoot: q=${query}`);
 
-        if (response.data.meta.count > 0) {
-            return response.data.payload[0];
+        const response = await axios.get(url, {
+            headers: {
+                'Content-Type': 'application/json',
+                'api_access_token': CHATWOOT_CONFIG.API_TOKEN,
+            },
+        });
+
+        const contacts = response.data?.payload || [];
+        console.log(`   Resultados: ${contacts.length} contacto(s)`);
+
+        if (contacts.length === 0) return null;
+
+        // Si hay múltiples, buscar coincidencia exacta por email
+        if (searchData.email && contacts.length > 1) {
+            const exact = contacts.find(c => c.email?.toLowerCase() === searchData.email.toLowerCase());
+            if (exact) return exact;
         }
-        return null;
+
+        return contacts[0];
     } catch (error) {
         console.error('Error al buscar contacto en Chatwoot:', error.message);
         return null;
