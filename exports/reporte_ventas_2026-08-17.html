@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Ventas iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">17 ago. 2026, 11:02 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Ventas iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">18</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">12</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">6</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">2</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">11/8/2026 - 16/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Whatsapp</td><td class="val">17</td></tr><tr><td class="lbl">Api</td><td class="val">1</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-08-15</td><td class="val">5</td></tr><tr><td class="lbl">2026-08-13</td><td class="val">5</td></tr><tr><td class="lbl">2026-08-12</td><td class="val">3</td></tr><tr><td class="lbl">2026-08-14</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-11</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-16</td><td class="val">1</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">18</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">5 <em>(28%)</em></span></div>
+<div style="padding:6px 0 2px;line-height:1.8"><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f5a623;margin-right:4px"></span>⏳ Evaluando: <strong>3</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(38%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6b7280;margin-right:4px"></span>💬 Solo consulta: <strong>2</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(25%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#df1b41;margin-right:4px"></span>📭 Sin respuesta: <strong>2</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(25%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#635bff;margin-right:4px"></span>📋 Calificado: <strong>1</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(13%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    iChef Cuotas — 3 conversaciones (17%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15637</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Olga Di Genio</strong><br><small class="text-muted">59898902223@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15597</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Adriana Garcia da Rosa</strong><br><small class="text-muted">59894275209@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#df1b41;padding:2px 8px;border-radius:10px;background:#df1b4118">📭 Sin respuesta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15598</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nacho Iglesias</strong><br><small class="text-muted">59898220491@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#f5a623;padding:2px 8px;border-radius:10px;background:#f5a62318">⏳ Evaluando</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Financiación — 5 conversaciones (28%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15687</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Natalia</strong><br><small class="text-muted">59898935070@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#635bff;padding:2px 8px;border-radius:10px;background:#635bff18">📋 Calificado</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15637</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Olga Di Genio</strong><br><small class="text-muted">59898902223@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15597</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Adriana Garcia da Rosa</strong><br><small class="text-muted">59894275209@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#df1b41;padding:2px 8px;border-radius:10px;background:#df1b4118">📭 Sin respuesta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15598</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nacho Iglesias</strong><br><small class="text-muted">59898220491@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#f5a623;padding:2px 8px;border-radius:10px;background:#f5a62318">⏳ Evaluando</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15579</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Federico Bitancourt Fernandez</strong><br><small class="text-muted">silvanavm22@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#f5a623;padding:2px 8px;border-radius:10px;background:#f5a62318">⏳ Evaluando</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">11/8/2026 - 16/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">16 conv.</td></tr><tr><td class="lbl">Sin agente</td><td class="val">2 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Macarena</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Gina Ferrero</td><td class="val">1 conv.</td></tr><tr><td class="lbl">María Eugenia</td><td class="val">1 conv.</td></tr><tr><td class="lbl">MAIRA</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Mariana Analia Piquet Mancini</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p>No se pudo realizar el analisis con IA.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><p>No se pudo realizar el analisis con IA.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><p>Error: 400 Invalid body: failed to parse JSON value. Please check the value to ensure it is valid JSON. (Common errors include trailing commas, missing closing brackets, missing quotation marks, etc.)</p></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 17 ago. 2026, 11:02 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

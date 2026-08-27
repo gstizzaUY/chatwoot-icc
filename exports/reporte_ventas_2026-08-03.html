@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Ventas iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">3 ago. 2026, 11:03 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Ventas iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">186</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">101</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">85</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">3</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">28/7/2026 - 2/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">161</td></tr><tr><td class="lbl">Whatsapp</td><td class="val">20</td></tr><tr><td class="lbl">Email</td><td class="val">5</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-07-29</td><td class="val">43</td></tr><tr><td class="lbl">2026-07-28</td><td class="val">41</td></tr><tr><td class="lbl">2026-07-30</td><td class="val">33</td></tr><tr><td class="lbl">2026-07-31</td><td class="val">28</td></tr><tr><td class="lbl">2026-08-01</td><td class="val">26</td></tr><tr><td class="lbl">2026-08-02</td><td class="val">15</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">186</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">50 <em>(27%)</em></span></div>
+<div style="padding:6px 0 2px;line-height:1.8"><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#999;margin-right:4px"></span>—: <strong>92</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(100%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    iChef Cuotas — 42 conversaciones (23%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15285</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gricelda</strong><br><small class="text-muted">59891306630@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15226</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Cooperativa FAE</strong><br><small class="text-muted">59892316604@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15184</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Norma Reyes</strong><br><small class="text-muted">59898502780@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15339</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ramiro</strong><br><small class="text-muted">59897105656@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15326</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ana Sena</strong><br><small class="text-muted">59898365868@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15346</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Omar</strong><br><small class="text-muted">59899189257@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15301</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ximena Ottado</strong><br><small class="text-muted">59898632931@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15319</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Paola</strong><br><small class="text-muted">59896947590@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15320</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Christian Da Rosa</strong><br><small class="text-muted">59897998786@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15321</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Faustina</strong><br><small class="text-muted">59895595685@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15316</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Viviana</strong><br><small class="text-muted">59898109884@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15305</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>María Mirande</strong><br><small class="text-muted">59898704775@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15311</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Flor</strong><br><small class="text-muted">59898784077@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15206</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Wanesa Sima</strong><br><small class="text-muted">wanesa99@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15307</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sylvia</strong><br><small class="text-muted">59892838002@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15306</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jeni</strong><br><small class="text-muted">59895203046@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15298</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Danielo</strong><br><small class="text-muted">59896898717@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15262</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Esteban</strong><br><small class="text-muted">59891297438@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15299</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Dorys Delicias Pinkitorias</strong><br><small class="text-muted">59894749939@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15193</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nadia</strong><br><small class="text-muted">59898858969@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15278</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Claudia Merladett</strong><br><small class="text-muted">59899820382@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15265</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ivanna Diaz</strong><br><small class="text-muted">59894785004@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15244</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Amyy</strong><br><small class="text-muted">59894886556@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15276</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lili</strong><br><small class="text-muted">59892407334@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15266</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Zele</strong><br><small class="text-muted">59897123054@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15280</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Clau</strong><br><small class="text-muted">59892658524@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15274</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Eusebio</strong><br><small class="text-muted">59899658868@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15275</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lety</strong><br><small class="text-muted">59899652605@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15264</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Stephie</strong><br><small class="text-muted">59894836826@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15255</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Beti Pérez</strong><br><small class="text-muted">59893799599@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15153</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Maria Rondan</strong><br><small class="text-muted">maricelia581@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15214</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Alicia</strong><br><small class="text-muted">59899546523@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15148</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Diego Velara</strong><br><small class="text-muted">diego08velte@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15237</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Valentina Texeira</strong><br><small class="text-muted">valentinatexeira689@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15221</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gerardo Chaves</strong><br><small class="text-muted">59894577729@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15227</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Oddiss</strong><br><small class="text-muted">59894462278@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15218</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Marisel Sailbot</strong><br><small class="text-muted">lucy.mar@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15225</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Carmen</strong><br><small class="text-muted">59894569784@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15222</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agustina</strong><br><small class="text-muted">59892399295@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15207</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yessy</strong><br><small class="text-muted">59891360935@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15190</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>.</strong><br><small class="text-muted">59898466406@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15141</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Carolina</strong><br><small class="text-muted">59892512734@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Financiación — 50 conversaciones (27%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15285</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gricelda</strong><br><small class="text-muted">59891306630@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15226</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Cooperativa FAE</strong><br><small class="text-muted">59892316604@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15184</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Norma Reyes</strong><br><small class="text-muted">59898502780@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15339</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ramiro</strong><br><small class="text-muted">59897105656@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15326</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ana Sena</strong><br><small class="text-muted">59898365868@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15346</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Omar</strong><br><small class="text-muted">59899189257@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15301</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ximena Ottado</strong><br><small class="text-muted">59898632931@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15324</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Juan Caviglia Jetmar</strong><br><small class="text-muted">59892084693@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15319</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Paola</strong><br><small class="text-muted">59896947590@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15320</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Christian Da Rosa</strong><br><small class="text-muted">59897998786@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15321</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Faustina</strong><br><small class="text-muted">59895595685@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15322</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Pamela</strong><br><small class="text-muted">59892927240@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15316</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Viviana</strong><br><small class="text-muted">59898109884@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15305</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>María Mirande</strong><br><small class="text-muted">59898704775@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15311</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Flor</strong><br><small class="text-muted">59898784077@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15206</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Wanesa Sima</strong><br><small class="text-muted">wanesa99@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15307</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sylvia</strong><br><small class="text-muted">59892838002@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15306</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jeni</strong><br><small class="text-muted">59895203046@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15298</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Danielo</strong><br><small class="text-muted">59896898717@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15262</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Esteban</strong><br><small class="text-muted">59891297438@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15299</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Dorys Delicias Pinkitorias</strong><br><small class="text-muted">59894749939@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15193</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nadia</strong><br><small class="text-muted">59898858969@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15278</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Claudia Merladett</strong><br><small class="text-muted">59899820382@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15265</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ivanna Diaz</strong><br><small class="text-muted">59894785004@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15244</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Amyy</strong><br><small class="text-muted">59894886556@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15276</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lili</strong><br><small class="text-muted">59892407334@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15266</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Zele</strong><br><small class="text-muted">59897123054@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15280</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Clau</strong><br><small class="text-muted">59892658524@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15274</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Eusebio</strong><br><small class="text-muted">59899658868@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15275</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lety</strong><br><small class="text-muted">59899652605@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15264</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Stephie</strong><br><small class="text-muted">59894836826@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15255</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Beti Pérez</strong><br><small class="text-muted">59893799599@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15153</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Maria Rondan</strong><br><small class="text-muted">maricelia581@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15214</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Alicia</strong><br><small class="text-muted">59899546523@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15148</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Diego Velara</strong><br><small class="text-muted">diego08velte@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15111</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Micaela Bentancur</strong><br><small class="text-muted">59894539856@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15237</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Valentina Texeira</strong><br><small class="text-muted">valentinatexeira689@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15221</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gerardo Chaves</strong><br><small class="text-muted">59894577729@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15227</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Oddiss</strong><br><small class="text-muted">59894462278@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15218</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Marisel Sailbot</strong><br><small class="text-muted">lucy.mar@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15225</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Carmen</strong><br><small class="text-muted">59894569784@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15219</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Cesar Trindade</strong><br><small class="text-muted">59894467638@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15222</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agustina</strong><br><small class="text-muted">59892399295@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15207</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yessy</strong><br><small class="text-muted">59891360935@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15195</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Edith</strong><br><small class="text-muted">59898161276@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15190</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>.</strong><br><small class="text-muted">59898466406@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15141</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Carolina</strong><br><small class="text-muted">59892512734@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15140</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Rosy Lovers</strong><br><small class="text-muted">rosyta.ayala28@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15142</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Carla Navarro</strong><br><small class="text-muted">carlota0616@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15119</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gustavo</strong><br><small class="text-muted">guscamb@vera.com.uy</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">28/7/2026 - 2/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">186 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Valentina Lavista</td><td class="val">4 conv.</td></tr><tr><td class="lbl">Sofía</td><td class="val">3 conv.</td></tr><tr><td class="lbl">Serrana Alvarez</td><td class="val">3 conv.</td></tr><tr><td class="lbl">null null</td><td class="val">3 conv.</td></tr><tr><td class="lbl">Mel Fulco</td><td class="val">3 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-recetas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-0" aria-expanded="true" aria-controls="acc-recetas-0">
+                    General
+                </button>
+            </h2>
+            <div id="acc-recetas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-1" aria-expanded="true" aria-controls="acc-recetas-1">
+                    METODOLOGÍA Y LÍMITES
+                </button>
+            </h2>
+            <div id="acc-recetas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Base analizada: 186 conversaciones reales del equipo Ventas iChef, entre 2026-07-28 y 2026-08-02.</li><br><li>Canales: Api 161/186 (86.6%), Whatsapp 20/186 (10.8%), Email 5/186 (2.7%).</li><br><li>Estado general: 101/186 abiertas (54.3%) y 85/186 cerradas (45.7%).</li><br><li>Agente asignado: Melany Fulco en 186/186 conversaciones (100%), lo que marca un cuello de botella claro.</li><br><li>Promedio: 10.9 mensajes por conversación; volumen promedio diario 31 conversaciones/día.</li><br><li>Importante: la taxonomía de motivos no está completa en las 186; por eso, en los temas finos uso evidencia de la muestra de 25 casos y lo indico explícitamente para no inventar datos.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-2" aria-expanded="true" aria-controls="acc-recetas-2">
+                    MOTIVOS DE CONTACTO / TEMAS DETECTADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Captación de leads e interés inicial: 59/186 (31.7%) están etiquetadas como lead. Ejemplos: Serrana Alvarez (ID #15252) con &quot;Te pido factura con rut, puede ser?&quot; ya en etapa comercial; Carmen (ID #15225) con &quot;Quiero mas información sobre iChef!&quot;; Micaela Bentancur (ID #15111) con &quot;Quiero mas información sobre iChef!&quot;; Sandra Malnero (ID #15331) con &quot;Quiero mas información sobre iChef!&quot;.</li><br><li>Clientes / base instalada: 38/186 (20.4%) están etiquetadas cliente y 36/186 (19.4%) tiene_ichef. En conjunto, muestran un peso muy alto de conversaciones de postventa y uso, aunque hay solapamiento entre etiquetas. Ejemplos: Natalia Rutman (ID #15112) preguntó &quot;me podrían confirmar que esto está carga de cuota?&quot;; Luz Mary Sosa Gonzalez (ID #15272) reportó &quot;no se pudo realizar el cobro&quot;; Yanet (ID #15178) consultó &quot;Cómo puedo ver la receta de ñoquis si no aparece la Ñ&quot;.</li><br><li>Oportunidades de venta / cierre: 19/186 (10.2%) están etiquetadas oportunidad. Ejemplos: Marisel Sailbot (ID #15218) recibió oferta de cuotas y respondió &quot;Que bien.&quot;; Andrés Gerard (ID #15250) quedó en oportunidad por una incidencia de referidos; Natalia Rial (ID #15246) aparece en oportunidad junto a consulta operativa.</li><br><li>Comercial activo / derivación a humano: 3/186 (1.6%) están etiquetadas comercial. Ejemplo claro: Gricelda (ID #15285) eligió la opción comercial y preguntó &quot;Una pregunta quiero saber el precio&quot;.</li><br><li>MQL / lead calificado por automatización: 2/186 (1.1%) están etiquetadas mql. No hay suficiente detalle en el resumen para asociar IDs concretos adicionales sin riesgo de inventar.</li><br><li>Soporte técnico explícito: 1/186 (0.5%) está etiquetada soporte_tecnico. En la muestra aparece Matias (ID #15155) con una espera de actualización de software que ya lleva semanas.</li><br><li>Precio / financiación / cuotas: en la muestra de 25 aparecen al menos 7 casos claros (28% de la muestra), por ejemplo Marisel Sailbot (ID #15218) con plan iChef cuotas; Alicia (ID #15214) con &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot;; Cooperativa FAE (ID #15226) preguntó &quot;Cuánto sale?&quot;; Gricelda (ID #15285) pidió precio; Juan Caviglia Jetmar (ID #15324) preguntó &quot;Se puede hacer en 12 cuotas en vez de 24?&quot;.</li><br><li>Demo / asesoría comercial / agendamiento: en la muestra, 4/25 casos (16%) muestran agenda o intención de demo. Ejemplos: Eloísa Martínez (ID #15273) con &quot;Tenemos una demo online agendada hoy a las 16:30hs&quot;; Mariana Viera (ID #15176) eligió la opción 3 para hablar con comercial; Micaela Bentancur (ID #15111) y Nicole Andino Cabrera (ID #15167) piden más info y quedan a la espera.</li><br><li>Cobros, cuotas y administración de pagos: en la muestra, 3/25 (12%) son de cobranza o validación de cuotas. Ejemplos: Natalia Rutman (ID #15112) pidió confirmación de una cuota; Luz Mary Sosa Gonzalez (ID #15272) dijo &quot;Me llegó el aviso de Prex recién que no se pudo realizar el cobro si&quot;; Csilla (ID #15229) recibió datos de cuenta Santander para pago.</li><br><li>Uso del robot / funcionalidades / recetas: en la muestra, 3/25 (12%) tocan uso o acceso. Ejemplos: Yanet (ID #15178) con &quot;Cómo puedo ver la receta de ñoquis si no aparece la Ñ&quot;; Claudia Merladett (ID #15278) recibió explicación funcional; Matias (ID #15155) consulta por actualización del robot.</li><br><li>App / referidos / cupones: 1/25 (4%) muestra un bloqueo funcional. Andrés Gerard (ID #15250) dijo: &quot;Voy a herramientas, regalar cupón pero no me deja escribir en los campos indicados&quot;.</li><br><li>Facturación con RUT / datos fiscales: 1/25 (4%) muestra una necesidad B2B/B2C formal. Serrana Alvarez (ID #15252) pidió: &quot;Te pido factura con rut, puede ser?&quot;.</li><br><li>Accesorios / repuestos: 1/25 (4%) pregunta por accesorios. Cooperativa FAE (ID #15226) consultó por &quot;starter pack, vaporera, balanza&quot; y luego sobre precio; además se aclaró que &quot;El unico accesorio que se vende a parte es el Slicer&quot;.</li><br><li>Activación / registro / propiedad del equipo: 1/25 (4%) evidencia un problema de trazabilidad. Grisel Marachlian (ID #15174) dijo &quot;Sabés que no lo encuentro en la caja&quot; y explicó que el equipo fue regalado y no pudo usarlo por la balanza.</li><br><li>Actualizaciones / firmware / mantenimiento del robot: 1/25 (4%) aparece como incidencia abierta. Matias (ID #15155) indicó &quot;Han pasado varias semanas y esta no se ha actualiza&quot;.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-3" aria-expanded="true" aria-controls="acc-recetas-3">
+                    PRODUCTOS / SERVICIOS MENCIONADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>iChef robot como producto principal, con más de 20 funciones.</li><br><li>iChef Cuotas como plan de financiación propio; aparece como eje comercial repetido.</li><br><li>Portal de recetas con más de 2500 recetas y acceso vitalicio sin suscripción.</li><br><li>Comunidad iChef Lovers y derivación por WhatsApp / bots.</li><br><li>Garantía de 24 meses, mencionada implícitamente como parte del valor, aunque no aparece fuerte en la muestra.</li><br><li>Santander y datos de cuenta para pago de cuotas, como en Csilla (ID #15229).</li><br><li>Demo online y derivación comercial, como en Eloísa Martínez (ID #15273) y Mariana Viera (ID #15176).</li><br><li>Accesorios: slicer / madolina / cortadora; se aclara que no tienen peeler, como en Cooperativa FAE (ID #15226).</li><br><li>App y herramienta de referidos / cupones, como en Andrés Gerard (ID #15250).</li><br><li>Servicio de soporte administrativo / cobranza, como en Natalia Rutman (ID #15112) y Luz Mary Sosa Gonzalez (ID #15272).</li><br><li>Hallazgo crítico: se detectó contaminación de guion/producto en Claudia Merladett (ID #15278), donde se dijo que iChef &quot;sofríe, amasa, licúa, tritura, cocina al vapor, al vacío y demás&quot;; eso no está alineado con la propuesta real de iChef y puede inducir error comercial.</li><br><li>Hallazgo crítico 2: en Daniel Marquez (ID #15118) aparece un texto ajeno al negocio: &quot;Gracias por comunicarte con Cerrajería Marke&quot; y también &quot;suscripción&quot;; esto sugiere mezcla de plantillas o base de conocimiento de otro rubro.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-4" aria-expanded="true" aria-controls="acc-recetas-4">
+                    ETAPA DEL CLIENTE EN EL JOURNEY
+                </button>
+            </h2>
+            <div id="acc-recetas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Leads de primera conversación: predominan en la captación y representan 31.7% por etiqueta.</li><br><li>Oportunidades: 10.2% por etiqueta; son conversaciones con intención de compra o validación de financiación.</li><br><li>Clientes activos / postventa: 20.4% cliente y 19.4% tiene_ichef; el volumen de postventa es casi tan grande como el de captación.</li><br><li>Recuperación de clientes / cobros: visible en Natalia Rutman (ID #15112) y Luz Mary Sosa Gonzalez (ID #15272).</li><br><li>Onboarding D+1 / D+30 / D+90: no pude clasificarlo con precisión en el extracto porque no hay metadatos suficientes; no lo invento.</li><br><li>Referidos / viralidad: aparece Andrés Gerard (ID #15250), pero como incidencia de uso; puede ser una oportunidad si se corrige la herramienta.</li><br><li>Clientes en riesgo: Matias (ID #15155), Grisel Marachlian (ID #15174) y Yanet (ID #15178) muestran fricción funcional que, si se acumula, puede erosionar satisfacción.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-5" aria-expanded="true" aria-controls="acc-recetas-5">
+                    PATRONES REPETITIVOS
+                </button>
+            </h2>
+            <div id="acc-recetas-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>La financiación es el disparador comercial más repetido: cuotas, entrega inicial, aprobación crediticia, tarjeta y alternativas sin tarjeta.</li><br><li>El equipo está trabajando con un único agente visible en todo el período, lo que vuelve repetitiva la respuesta y muy sensible el backlog.</li><br><li>La automatización atiende muchos primeros contactos, pero no siempre cierra el pase a humano.</li><br><li>Hay una repetición de consultas de clientes ya instalados sobre pagos, cuotas, recetas y actualizaciones.</li><br><li>Se repiten dudas sobre la explicación de producto y de accesorios.</li><br><li>Se repite la necesidad de documentación fiscal (RUT / factura) y de datos formales.</li><br><li>Se repiten errores de copy / plantilla / contexto, especialmente en WhatsApp y en textos de bot.</li><br><li>Se repiten conversaciones que quedan abiertas o en snoozed sin una resolución visible.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-6" aria-expanded="true" aria-controls="acc-recetas-6">
+                    RECLAMOS / QUEJAS / INCIDENCIAS
+                </button>
+            </h2>
+            <div id="acc-recetas-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Andrés Gerard (ID #15250): &quot;Voy a herramientas, regalar cupón pero no me deja escribir en los campos indicados&quot;. Acción: derivar a soporte de producto/UX y validar si el flujo de referidos está roto.</li><br><li>Matias (ID #15155): &quot;Han pasado varias semanas y esta no se ha actualiza&quot;. Acción: escalado técnico inmediato para firmware/actualización.</li><br><li>Yanet (ID #15178): &quot;Cómo puedo ver la receta de ñoquis si no aparece la Ñ&quot;. Acción: revisar buscador/normalización de caracteres en el portal de recetas.</li><br><li>Daniel Marquez (ID #15118): texto ajeno &quot;Cerrajería Marke&quot; y oferta de &quot;suscripción&quot;. Acción: limpiar plantillas y bloquear reutilización cruzada de scripts.</li><br><li>Claudia Merladett (ID #15278): descripción funcional incorrecta con &quot;sofríe&quot; y &quot;al vacío&quot;. Acción: auditoría de guiones comerciales y capacitación del equipo.</li><br><li>Grisel Marachlian (ID #15174): &quot;Sabés que no lo encuentro en la caja&quot; y dificultad para identificar el producto. Acción: revisar registro de garantía/propiedad y flujo para regalos.</li><br><li>Luz Mary Sosa Gonzalez (ID #15272): &quot;no se pudo realizar el cobro&quot;. Acción: derivar a cobranzas y ofrecer reconexión de pago.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-7" aria-expanded="true" aria-controls="acc-recetas-7">
+                    CASOS DESTACADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-7" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Marisel Sailbot (ID #15218) responde con interés a un cierre financiero: &quot;Que bien.&quot;; es una oportunidad de conversión si se acelera la aprobación.</li><br><li>Eloísa Martínez (ID #15273) ya tenía demo online agendada: caso ideal para medir efectividad de agenda y asistencia.</li><br><li>Serrana Alvarez (ID #15252) pidió factura con RUT y dejó datos completos; es una compra muy cercana al cierre formal.</li><br><li>Cooperativa FAE (ID #15226) muestra una negociación clara de precio en canal Whatsapp; caso útil para cerrar accesorios y paquete completo.</li><br><li>Juan Caviglia Jetmar (ID #15324) pregunta si puede ser en 12 cuotas en vez de 24; buena señal de compra con objeción financiera concreta.</li><br><li>Nicole Andino Cabrera (ID #15167) pide &quot;más info&quot; por Whatsapp y quedó solo con bot; caso de riesgo por falta de handoff.</li><br><li>Mariana Viera (ID #15176) eligió la opción 3 para hablar con comercial; si no hay respuesta humana rápida, se enfría el lead.</li><br><li>No detecté en la muestra reclamos agresivos o insultos; el problema dominante es fricción funcional, no conflicto emocional.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-alertas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-0" aria-expanded="true" aria-controls="acc-alertas-0">
+                    ALERTAS PARA LA OPERACIÓN
+                </button>
+            </h2>
+            <div id="acc-alertas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-1" aria-expanded="true" aria-controls="acc-alertas-1">
+                    SIN RESPUESTA DEL AGENTE / SIN HANDOFF VISISIBLE EN LA MUESTRA
+                </button>
+            </h2>
+            <div id="acc-alertas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Nicole Andino Cabrera (ID #15167): último mensaje visible del cliente &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; la conversación quedó en snoozed y no se ve respuesta humana.</li><br><li>Mariana Viera (ID #15176): el cliente respondió &quot;3&quot; para hablar con un agente comercial, pero en el extracto no aparece el pase efectivo a un humano.</li><br><li>Micaela Bentancur (ID #15111): quedó en snoozed tras reaccionar con &quot;❤️&quot;; no se ve avance comercial posterior.</li><br><li>Eloísa Martínez (ID #15273): aparece &quot;Siii gracias&quot; luego de la coordinación de demo, pero no se observa el siguiente paso de confirmación en el extracto.</li><br><li>Juan Caviglia Jetmar (ID #15324): tras pedir 12 cuotas y enviar documentación, el extracto termina en &quot;Voy&quot; sin evidencia de continuidad.</li><br><li>Sandra Malnero (ID #15331): pregunta &quot;Quiero mas información sobre iChef!&quot; y el cierre visible es muy débil; falta una respuesta comercial clara y completa.</li><br><li>Nota: no tengo tiempos transcurridos exactos por conversación en el extracto, así que no los invento.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-2" aria-expanded="true" aria-controls="acc-alertas-2">
+                    INSATISFACCIÓN DETECTADA
+                </button>
+            </h2>
+            <div id="acc-alertas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Matias (ID #15155): &quot;Han pasado varias semanas y esta no se ha actualiza&quot;; la causa raíz probable es una actualización de software/firmware que no se completa.</li><br><li>Andrés Gerard (ID #15250): &quot;no me deja escribir en los campos indicados&quot;; frustración por fallo de herramienta de referidos.</li><br><li>Yanet (ID #15178): la dificultad con la &quot;Ñ&quot; no es enojo, pero sí una fricción real de experiencia de uso.</li><br><li>Grisel Marachlian (ID #15174): el hecho de no poder ubicar el equipo y no haberlo podido usar por la balanza apunta a una experiencia rota desde el origen.</li><br><li>En la muestra no veo insultos ni escaladas formales; sí veo molestias operativas que pueden transformarse en quejas si no se cierran rápido.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-3" aria-expanded="true" aria-controls="acc-alertas-3">
+                    CASOS URGENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Matias (ID #15155): bloqueo técnico de larga data; priorizar como urgencia alta.</li><br><li>Andrés Gerard (ID #15250): herramienta de referidos aparentemente rota; puede afectar crecimiento por referidos.</li><br><li>Claudia Merladett (ID #15278): el guion comercial contiene funcionalidades incorrectas; riesgo urgente de promesa de venta falsa.</li><br><li>Daniel Marquez (ID #15118): se mezcló texto de otra empresa y de &quot;suscripción&quot;; riesgo urgente de reputación y de confusión comercial.</li><br><li>Yanet (ID #15178): problema del buscador/portal de recetas con caracteres; no parece crítico, pero sí afecta uso recurrente.</li><br><li>Natalia Rutman (ID #15112) y Luz Mary Sosa Gonzalez (ID #15272): si las cuotas no se confirman ni se cobran bien, el caso puede escalar a mora.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-4" aria-expanded="true" aria-controls="acc-alertas-4">
+                    CONTACTOS RECURRENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>La metadata reporta frecuencias altas en Valentina Lavista (4), Sofía (3), Serrana Alvarez (3), null null (3) y Mel Fulco (3).</li><br><li>No puedo desglosar esos repetidos con ID porque el extracto no trae los IDs asociados a esos nombres repetidos.</li><br><li>A nivel operativo, eso sugiere seguimiento comercial o recontacto, pero falta trazabilidad limpia para confirmar si es onboarding normal o problema crónico.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-5" aria-expanded="true" aria-controls="acc-alertas-5">
+                    SIN AGENTE ASIGNADO
+                </button>
+            </h2>
+            <div id="acc-alertas-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>0/186 conversaciones (0%) sin agente asignado.</li><br><li>Todo está centralizado en Melany Fulco (186/186), así que el riesgo no es la falta de asignación sino la sobreconcentración.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-6" aria-expanded="true" aria-controls="acc-alertas-6">
+                    CANALES CON PROBLEMAS
+                </button>
+            </h2>
+            <div id="acc-alertas-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Api concentra 161/186 conversaciones (86.6%) y es donde más se ven los formularios, automatizaciones y la base de leads.</li><br><li>Whatsapp concentra 20/186 (10.8%) pero muestra más señales de bot/handoff incompleto y contaminación de plantilla.</li><br><li>Email es marginal con 5/186 (2.7%), por lo que no permite conclusiones firmes sobre desempeño.</li><br><li>Problema visible en WhatsApp: mensajes de bot que se quedan sin cierre humano, como en Mariana Viera (ID #15176) y Nicole Andino Cabrera (ID #15167).</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-7" aria-expanded="true" aria-controls="acc-alertas-7">
+                    RIESGOS POTENCIALES
+                </button>
+            </h2>
+            <div id="acc-alertas-7" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Riesgo de backlog: 101/186 abiertas (54.3%) es demasiado alto para una operación comercial sana con un solo agente.</li><br><li>Riesgo de desalineación de producto: si el equipo sigue diciendo que iChef &quot;sofríe&quot; o genera textos de otra empresa, se pierde confianza.</li><br><li>Riesgo de pérdida de conversión: leads que piden info o eligen agente comercial y quedan sin respuesta visible.</li><br><li>Riesgo de churn / mala experiencia: incidencias de actualización, referidos y portal de recetas pueden erosionar satisfacción si no se resuelven en 24 hs.</li><br><li>Riesgo de datos sucios: aparecen registros como &quot;null null&quot; y capturas tipo email con número de teléfono, lo que degrada analítica y segmentación.</li><br><li>Si no se corrige la automatización, la operación puede parecer activa en volumen pero estar perdiendo cierres por falta de handoff y consistencia.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-analisis">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-0" aria-expanded="true" aria-controls="acc-analisis-0">
+                    General
+                </button>
+            </h2>
+            <div id="acc-analisis-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-1" aria-expanded="true" aria-controls="acc-analisis-1">
+                    RESUMEN EJECUTIVO
+                </button>
+            </h2>
+            <div id="acc-analisis-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li>La semana cerró con 186 conversaciones en Ventas iChef, de las cuales 54.3% siguen abiertas y 45.7% cerradas: hay actividad, pero también backlog.</li><br><li>El 86.6% del tráfico llegó por Api, 10.8% por Whatsapp y 2.7% por Email; la operación está muy concentrada en el canal web/portal y en automatización.</li><br><li>Todo el período fue atendido por una sola agente visible, Melany Fulco (186/186), lo que convierte a la operación en muy frágil ante ausencias, picos o errores.</li><br><li>La demanda se movió de 43 conversaciones el 29/7 a 15 el 2/8, una caída de 65.1%; puede ser un efecto de fin de semana, cierre de backlog o menor demanda, pero no hay evidencia suficiente para afirmarlo.</li><br><li>El dato más relevante no es el volumen: es la combinación de backlog alto, un único agente y problemas de calidad de guion/automatización.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-2" aria-expanded="true" aria-controls="acc-analisis-2">
+                    INSIGHTS CLAVE
+                </button>
+            </h2>
+            <div id="acc-analisis-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Cuello de botella extremo en una sola persona</strong>: Melany Fulco atendió 186 de 186 conversaciones (100%). Eso no es escalabilidad; es dependencia total. Si ella se ausenta, la operación pierde continuidad comercial y de respuesta.</li><br><li><strong>Más de la mitad de la operación queda abierta</strong>: 101/186 conversaciones (54.3%) siguen abiertas. En ventas, este nivel de abierto es una alerta porque mezcla leads calientes, seguimiento comercial y posibles pendientes sin cierre.</li><br><li><strong>Api domina el embudo, pero no resuelve todo</strong>: 161/186 conversaciones (86.6%) entran por Api. Eso indica que el portal o la automatización captan bien, pero también que la primera respuesta humana y el handoff son críticos para no perder conversión.</li><br><li><strong>La postventa pesa tanto como la captación</strong>: 38/186 (20.4%) están etiquetadas cliente y 36/186 (19.4%) tiene_ichef. O sea: casi cuatro de cada diez contactos tienen base instalada. Si Ventas no responde bien a clientes, termina haciendo de soporte sin procesos claros.</li><br><li><strong>La financiación es el argumento comercial dominante</strong>: en la muestra aparecen repetidamente cuotas, entrega inicial, tarjeta y aprobación crediticia. Marisel Sailbot (ID #15218), Alicia (ID #15214), Cooperativa FAE (ID #15226) y Juan Caviglia Jetmar (ID #15324) lo prueban con frases como &quot;Te gustaria que hicieramos la aprobacion crediticia?&quot; y &quot;Se puede hacer en 12 cuotas en vez de 24?&quot;.</li><br><li><strong>Hay señales de conversión real, pero se enfrían por falta de seguimiento</strong>: Serrana Alvarez (ID #15252) dejó datos completos y pidió &quot;Te pido factura con rut, puede ser?&quot;; Eloísa Martínez (ID #15273) tenía demo online agendada; Mariana Viera (ID #15176) eligió hablar con comercial. Son leads muy valiosos que no deberían quedar sin cierre visible.</li><br><li><strong>La calidad del discurso comercial está comprometida</strong>: en Claudia Merladett (ID #15278) se dijo que iChef &quot;sofríe&quot; y cocina &quot;al vacío&quot;; además, Daniel Marquez (ID #15118) recibió el texto &quot;Gracias por comunicarte con Cerrajería Marke&quot;. Esto es grave porque mezcla producto incorrecto y hasta otro rubro.</li><br><li><strong>Los problemas técnicos sí están apareciendo en ventas</strong>: Andrés Gerard (ID #15250) no puede usar el flujo de referidos, Matias (ID #15155) espera una actualización que no llega y Yanet (ID #15178) no encuentra recetas por el carácter Ñ. No son solo consultas: son fricciones que pueden afectar recomendación y satisfacción.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-3" aria-expanded="true" aria-controls="acc-analisis-3">
+                    RECOMENDACIONES PRIORITARIAS
+                </button>
+            </h2>
+            <div id="acc-analisis-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Crear un segundo punto de cobertura comercial inmediato</strong></li><br><li>Qué hacer: sumar un backup real para responder leads abiertos y derivaciones de bot.</li><br><li>Dónde: equipo Ventas iChef, canal Api y Whatsapp.</li><br><li>Quién: gerencia operativa + coordinación comercial.</li><br><li>Impacto esperado: bajar el backlog abierto y reducir pérdidas de lead por espera.</li><br><li>Prioridad: Alta.</li><br><li><strong>Implementar handoff obligatorio desde el bot cuando el cliente elige comercial</strong></li><br><li>Qué hacer: si el usuario responde &quot;3&quot; o muestra intención de compra, pasar a humano con SLA y no dejar la conversación en bot.</li><br><li>Dónde: Whatsapp y flujo bot de Api.</li><br><li>Quién: operaciones + automatizaciones.</li><br><li>Impacto esperado: más cierres y menos conversaciones frías.</li><br><li>Prioridad: Alta.</li><br><li><strong>Auditar y bloquear plantillas contaminadas o desalineadas</strong></li><br><li>Qué hacer: revisar todos los scripts de bot y macros para borrar textos ajenos al negocio y corregir funciones mal descriptas.</li><br><li>Dónde: Whatsapp, Api y base de conocimiento comercial.</li><br><li>Quién: líder de operaciones + QA de contenidos.</li><br><li>Impacto esperado: menos riesgo reputacional y menos promesas incorrectas.</li><br><li>Prioridad: Alta.</li><br><li><strong>Separar ventas de soporte ligero / postventa administrativa</strong></li><br><li>Qué hacer: crear macros para cuotas, cobros, recetas, actualización y datos de cuenta, con derivación rápida cuando corresponda.</li><br><li>Dónde: flujo de ventas y postventa, especialmente clientes etiquetados cliente / tiene_ichef.</li><br><li>Quién: operaciones + postventa.</li><br><li>Impacto esperado: mejor resolución y menos tiempo ocupado en consultas repetidas.</li><br><li>Prioridad: Media-Alta.</li><br><li><strong>Arreglar la herramienta de referidos y la búsqueda del portal de recetas</strong></li><br><li>Qué hacer: pasar incidencias a producto/tech con casos reproducibles.</li><br><li>Dónde: app, portal y soporte técnico.</li><br><li>Quién: producto + soporte técnico.</li><br><li>Impacto esperado: retener clientes y habilitar recomendación orgánica.</li><br><li>Prioridad: Alta.</li><br><li><strong>Corregir el modelo de datos y limpieza de contactos</strong></li><br><li>Qué hacer: revisar campos como email, móvil, país, stage y nombres duplicados o nulos.</li><br><li>Dónde: Chatwoot + integraciones de captura.</li><br><li>Quién: data / CRM / automatizaciones.</li><br><li>Impacto esperado: mejor segmentación, menos ruido y mejor análisis.</li><br><li>Prioridad: Media.</li><br><li><strong>Unificar el discurso de producto con una ficha maestra</strong></li><br><li>Qué hacer: entregar a todos los agentes una ficha con lo que iChef sí hace y lo que no hace (por ejemplo, no fríe) y ejemplos aprobados de financiación.</li><br><li>Dónde: Ventas iChef.</li><br><li>Quién: gerencia comercial.</li><br><li>Impacto esperado: reducir errores como &quot;sofríe&quot; o plantillas de otro rubro.</li><br><li>Prioridad: Alta.</li><br><li><strong>Medir diariamente abiertos, handoffs y cierres por canal</strong></li><br><li>Qué hacer: dashboard simple con 3 KPIs: abiertos, convertidos y tiempos de primera respuesta.</li><br><li>Dónde: gerencia operativa.</li><br><li>Quién: operaciones.</li><br><li>Impacto esperado: visibilidad temprana de cuellos de botella.</li><br><li>Prioridad: Media.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-4" aria-expanded="true" aria-controls="acc-analisis-4">
+                    TEMPERATURA DE LA OPERACIÓN
+                </button>
+            </h2>
+            <div id="acc-analisis-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li>Calificación: 6/10.</li><br><li>Por qué no más alta: 54.3% de conversaciones abiertas, 100% del volumen en una sola agente y evidencia concreta de errores de contenido y handoff.</li><br><li>Por qué no más baja: hay volumen sostenido, varias oportunidades reales de compra y el canal Api está capturando demanda de forma consistente.</li><br><li>Si la gerencia corrige solo dos cosas esta semana, deberían ser: respaldo de cobertura humana y limpieza de guiones/automatizaciones.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-5" aria-expanded="true" aria-controls="acc-analisis-5">
+                    TENDENCIAS Y PROYECCIONES
+                </button>
+            </h2>
+            <div id="acc-analisis-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li>Si el equipo mantiene el patrón actual, la próxima semana seguirá entrando una mezcla de leads con objeciones de precio y clientes con consultas de uso/pagos.</li><br><li>La presión más fuerte va a seguir en financiación, porque aparece como el principal disparador comercial en la muestra.</li><br><li>Sin más capacidad humana, es probable que el porcentaje de abiertos se mantenga alto o suba cuando haya picos de entrada por Api.</li><br><li>Si no se corrigen las plantillas, los errores de contenido se van a repetir y van a afectar conversión y credibilidad.</li><br><li>Medida preventiva: poner una revisión de calidad diaria sobre 10 conversaciones aleatorias, enfocada en exactitud de producto, tono y handoff.</li><br><li>No haría una proyección numérica dura más allá de decir que el riesgo operativo de la próxima semana es repetición de los mismos frenos: cuotas, seguimiento y calidad de respuesta.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 3 ago. 2026, 11:03 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

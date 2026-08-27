@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Ventas iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">24 ago. 2026, 11:03 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Ventas iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">10</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">7</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">3</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">1</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">18/8/2026 - 21/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Whatsapp</td><td class="val">10</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-08-21</td><td class="val">4</td></tr><tr><td class="lbl">2026-08-19</td><td class="val">3</td></tr><tr><td class="lbl">2026-08-20</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-18</td><td class="val">1</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">10</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">4 <em>(40%)</em></span></div>
+<div style="padding:6px 0 2px;line-height:1.8"><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6b7280;margin-right:4px"></span>💬 Solo consulta: <strong>4</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(57%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#999;margin-right:4px"></span>SIN_RESPUESTA: <strong>2</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(29%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#635bff;margin-right:4px"></span>📋 Calificado: <strong>1</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(14%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    iChef Cuotas — 3 conversaciones (30%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15895</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yeni</strong><br><small class="text-muted">59899013957@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">SIN_RESPUESTA</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15853</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Matìas Delgado</strong><br><small class="text-muted">59899599814@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15860</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sergio</strong><br><small class="text-muted">59896528716@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Financiación — 4 conversaciones (40%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15895</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yeni</strong><br><small class="text-muted">59899013957@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">SIN_RESPUESTA</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15853</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Matìas Delgado</strong><br><small class="text-muted">59899599814@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15860</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sergio</strong><br><small class="text-muted">59896528716@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15825</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Gianca Carolina Rossi</strong><br><small class="text-muted">59898667279@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#635bff;padding:2px 8px;border-radius:10px;background:#635bff18">📋 Calificado</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">18/8/2026 - 21/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">10 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Vale</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Yeni</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Lucia Garcia</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Blanki</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Carolina Rossi</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p>Cobertura del período: 10 conversaciones (100%) en WhatsApp, con 7 abiertas (70%) y 3 cerradas/resueltas (30%). Promedio de 18.6 mensajes por conversación. La demanda está concentrada en 4 días: 21/8 con 4 casos (40%), 19/8 con 3 (30%), 20/8 con 2 (20%) y 18/8 con 1 (10%).</p><p>Motivo dominante 1 — precio / formas de pago / cuotas: 4 de 10 conversaciones (40%). Ejemplos: Cliente sin nombre visible (ID #15886) pidió «precios y formas de pago, gracias»; Sergio (ID #15860) preguntó «Hola q precio tiene?»; Gianca Carolina Rossi (ID #15825) consultó «Y como compramos en cuotas»; Valentina (ID #15875) avanzó dentro del menú de «¿Cuánto cuesta iChef? 💰».</p><p>Motivo dominante 2 — solicitudes de demo o validación post-demo: 2 de 10 (20%). Matías Delgado (ID #15853) recibió la oferta «Y tb puedo pasarte una demo grabada» y luego el agente sugirió una demo presencial si estaba en Montevideo; Blanki (ID #15904) confirmó «Si, la vimos y nos gustó», lo que muestra que la demo está funcionando como paso de confianza en el proceso de compra.</p><p>Motivo dominante 3 — consultas generales de producto / falta de detalle visible: 2 de 10 (20%). Vale (ID #15898) inició con «Quiero más info sobre el iChef Robot ¡Muchas gracias!» pero el extracto no muestra resolución humana; Yeni (ID #15895) figura con etiqueta comercial, pero no hay texto del cliente visible en la muestra, por lo que no se puede clasificar con más precisión.</p><p>Motivo dominante 4 — gestión de cobro / datos bancarios: 1 de 10 (10%). Lucia Garcia (ID #15907) escribió «Santander» y recibió inmediatamente los datos de cuenta corriente y el link de cobro por USD 305, por lo que este es un caso claro de post-venta/cobranza bien resuelto.</p><p>Motivo dominante 5 — cierre documental / compra en curso: 1 de 10 (10%). Carolina Rossi (ID #15834) escribió «Buenos días envío contrato firmado», señal de avance real en la conversión, aunque en el extracto no se ve una respuesta humana posterior.</p><p>Productos y servicios mencionados en la muestra: iChef robot aparece en 10 de 10 conversaciones (100%) como objeto central de consulta; la demo grabada y la demo presencial aparecen en 2 de 10 (20%); el portal de recetas aparece en 1 de 10 (10%); el cobro por Santander aparece en 1 de 10 (10%); y el contrato firmado aparece en 1 de 10 (10%).<br>Portal de recetas: Blanki (ID #15904) recibió el mensaje «respecto al portal de recetas lo tienen gratis, no deben pagar una suscripción para tener acceso», y además se mencionó que una vez entregado el robot hay capacitaciones gratis. Esto convierte al portal en un argumento comercial, no solo de soporte.<br>iChef como propuesta de valor: en la muestra no se discuten funciones técnicas profundas, pero sí se reconoce el producto como objeto de evaluación de compra. No hay menciones a freír, accesorios, repuestos o servicio técnico en estos 10 casos, por lo que no se puede afirmar demanda sobre esos subtemas.<br>Etapa del journey: 6 de 10 conversaciones (60%) están en primer contacto / lead temprano (#15886, #15860, #15825, #15898, #15895, #15875); 2 de 10 (20%) están en evaluación con demo (#15853, #15904); 1 de 10 (10%) está en cierre documental (#15834); y 1 de 10 (10%) corresponde a cliente activo / gestión de cobro (#15907).</p><p>Patrón repetitivo 1 — la compra se decide por precio y financiación: se repite en 4 conversaciones (40%) y domina el arranque comercial. Esto es importante porque indica que el discurso de valor todavía no está cerrando solo por producto; el plan de pago es parte central de la conversión.</p><p>Patrón repetitivo 2 — la demo aparece como gatillo de confianza: 2 de 10 (20%) casos pasan por demo y la reacción es positiva. Blanki (ID #15904) dijo «Si, la vimos y nos gustó», lo que sugiere que la demo no solo informa, sino que destraba objeciones.</p><p>Patrón repetitivo 3 — el canal está muy apoyado en automatización y handoff: en 3 de 10 conversaciones (30%) aparece explícitamente «No pude registrar tu opción» o la conversación queda derivada a humano sin resolución visible (#15860, #15834, #15875).<br>No se registran reclamos de producto, fallas del robot ni quejas formales sobre desempeño culinario en estas 10 conversaciones. La incidencia dominante es operativa/comercial: bot que no entiende o no deriva bien y conversaciones abiertas sin cierre visible.</p><p>Casos destacados positivos: Lucia Garcia (ID #15907) resolvió un pago por Santander y cerró con «En un ratito voy y veo cómo la traigo 😊»; Blanki (ID #15904) validó la demo con «Si, la vimos y nos gustó»; Carolina Rossi (ID #15834) envió contrato firmado, lo que muestra avance real del funnel.</p><p>Casos destacados de riesgo: Sergio (ID #15860) quedó en un loop de bot tras preguntar «Hola q precio tiene?»; Valentina (ID #15875) quedó navegando el menú después de elegir «1»; y Vale (ID #15898) pidió información general sin que se vea respuesta humana posterior.<br>Anomalías de datos: en #15904 se observan cambios automáticos de país «UY» → «ES» → «UY» en pocos segundos, lo que sugiere un problema de calidad de dato o de integración. En #15853 aparece un email capturado como «59899599814@email.com», que luce construido a partir del número telefónico y merece revisión de validación.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><p>Alerta operativa principal: 7 de 10 conversaciones (70%) no muestran respuesta humana visible luego del primer contacto o quedan abiertas/snoozed sin cierre claro. Esto no implica que no haya habido seguimiento fuera del extracto, pero sí marca un riesgo real de fuga comercial.<br>Cliente sin nombre visible (ID #15886): último mensaje visible «precios y formas de pago, gracias». No se ve respuesta humana posterior. Riesgo: lead caliente de precio que puede enfriarse rápido si no se toma en el momento.<br>Sergio (ID #15860): último mensaje visible «Hola q precio tiene?». El bot responde mal con «🤕Uy, perdón…No pude registrar tu opción» y deriva a humano, pero en el extracto no aparece el humano. Riesgo: pérdida por fricción en una consulta de alta intención.<br>Gianca Carolina Rossi (ID #15825): último mensaje visible «Y como compramos en cuotas». No se observa respuesta humana posterior. Riesgo: intención de compra clara con financiación, muy sensible a tiempos de respuesta.<br>Yeni (ID #15895): no hay texto del cliente visible en la muestra, la conversación queda pendiente/snoozed y solo se observa el arranque automático del bot. Al no poder ver el contenido, este caso es una alerta de trazabilidad, no de satisfacción.<br>Vale (ID #15898): escribió «Quiero más info sobre el iChef Robot ¡Muchas gracias!». No se observa respuesta humana posterior. Riesgo: lead nuevo que entra por interés general y puede quedar sin avance.<br>Carolina Rossi (ID #15834): escribió «Buenos días envío contrato firmado». No se ve una respuesta humana posterior en el extracto. Esto no es una queja, pero sí un caso de cierre documental que requiere confirmación rápida.<br>Valentina (ID #15875): interactuó con el menú del bot («1», luego «1») y el sistema eliminó a bot_activo sin que se vea resolución humana. Riesgo: el bot está cortando el flujo comercial en vez de convertirlo.<br>Insatisfacción explícita: no se detectan frases de enojo, reclamo o frustración directa del cliente en la muestra. La fricción visible es más bien silenciosa: abandono, espera y derivación fallida.<br>Casos urgentes: no hay evidencia de falla técnica del iChef ni de problemas de seguridad; la urgencia es comercial-operativa. Cada consulta de precio o cuotas sin respuesta visible es un lead en riesgo inmediato.<br>Contactos recurrentes: no hay casos confirmados de 2+ conversaciones con el mismo cliente dentro del período. Hay coincidencias parciales de apellido/nombre (#15825 y #15834 con Rossi), pero no alcanza para asegurar que sea la misma persona.<br>Sin agente asignado: 0 de 10. Todas las conversaciones figuran bajo Melany Fulco, por lo que el problema no es de asignación inicial sino de ejecución/seguimiento posterior.<br>Canales con problemas: no hay comparación multicanal porque el 100% del volumen vino por WhatsApp. El problema no está en el canal en sí, sino en la tasa de conversaciones que quedan abiertas sin cierre visible.<br>Riesgo potencial 1: el bot está generando un cuello de botella en lugar de aliviarlo. En 3 de 10 casos (30%) el sistema informa «No pude registrar tu opción» y deriva, pero no se ve una continuidad efectiva.<br>Riesgo potencial 2: el backlog comercial puede crecer. Con 7 abiertas sobre 10 (70%) y volumen concentrado en 21/8, si no se acelera la respuesta se acumulan leads fríos y baja la conversión.<br>Riesgo potencial 3: errores de datos maestros. Los cambios de país en #15904 y el email sintético en #15853 pueden afectar segmentación, seguimiento y reporting si no se corrigen en origen.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><p>Resumen ejecutivo: la semana muestra demanda sana para iChef, pero con una fricción operativa clara. Hubo 10 conversaciones, todas por WhatsApp, con 70% abiertas y solo 30% cerradas/resueltas. La consulta comercial domina el tablero y el punto débil no parece ser el interés del mercado, sino la capacidad de respuesta y el handoff entre bot y humano.<br>Dato más relevante del período: Melany Fulco atendió 10 de 10 conversaciones (100%). Esto simplifica la gestión, pero también concentra el riesgo operacional en una sola persona. Si Melany está fuera, la continuidad del equipo queda expuesta.<br>Insight 1 — La demanda está altamente orientada a precio y financiación: 4 de 10 conversaciones (40%) preguntan por «precio», «formas de pago» o «cuotas». Esto confirma que el freno de compra no es solo el producto, sino el esfuerzo financiero percibido.<br>Insight 2 — La demo sí mueve la aguja: 2 de 10 conversaciones (20%) involucran demo, y en ambos casos el tono es favorable. Blanki (ID #15904) dijo «Si, la vimos y nos gustó», lo cual es una señal muy positiva de avance en consideración.<br>Insight 3 — El bot está generando fuga en vez de ahorro: en 3 de 10 conversaciones (30%) aparece explícitamente el error «No pude registrar tu opción». En una operación comercial, eso es grave porque el usuario estaba a un clic de irse a un competidor.<br>Insight 4 — Hay un desbalance entre interés y cierre: 7 de 10 conversaciones (70%) están abiertas/snoozed y no se ve una respuesta humana posterior. Esto sugiere que el volumen no es el problema; el problema es cerrar el loop a tiempo.<br>Insight 5 — El portal de recetas funciona como argumento de venta, no como accesorio: en #15904 se remarca «lo tienen gratis, no deben pagar una suscripción». Esto sirve para bajar objeciones y diferenciar a iChef frente a alternativas con costos recurrentes.<br>Insight 6 — La cobranza por Santander está operando como caso manual resuelto, no como flujo estandarizado: Lucia Garcia (ID #15907) recibió cuenta y link de cobro, pero el proceso depende de atención humana. Hay oportunidad para convertirlo en una plantilla/automatización.<br>Insight 7 — Hay evidencia de calidad de datos deficiente: el cambio de país «UY» → «ES» → «UY» en #15904 y el email con formato numérico en #15853 son señales de que la captura automática necesita controles de validación.<br>Insight 8 — La muestra no muestra reclamos de producto ni soporte técnico del robot. Eso es positivo, porque sugiere que el dolor principal hoy no está en la experiencia de uso del iChef, sino en la conversión comercial y en la operación del contact center.<br>Recomendación 1 — Rediseñar el bot de ventas para intents de precio y cuotas. Qué hacer: agregar respuestas específicas, botones claros y una ruta corta a asesor humano cuando el lead pregunte por «precio», «cuotas», «formas de pago» o «demo». Dónde: WhatsApp/Ventas iChef. Quién: responsable de automatización + líder comercial. Impacto esperado: menos abandonos y más derivaciones calificadas. Prioridad: Alta.<br>Recomendación 2 — Implementar SLA de primera respuesta humana para leads calientes. Qué hacer: definir objetivo de respuesta en menos de 15 minutos para consultas de precio/financiación y alertas automáticas si quedan abiertas. Dónde: proceso de Ventas. Quién: gerencia operativa + coordinación comercial. Impacto esperado: menor fuga por demora. Prioridad: Alta.<br>Recomendación 3 — Crear un playbook único de precio y financiación. Qué hacer: preparar respuestas estándar con precio promocional, hasta 12 cuotas sin recargo, y plan iChef Cuotas sin tarjeta hasta 24/48 cuotas, más links listos para enviar. Dónde: equipo Ventas. Quién: comercial + operaciones. Impacto esperado: reducción de fricción y mayor consistencia del mensaje. Prioridad: Alta.<br>Recomendación 4 — Separar el flujo de demo en dos caminos: presencial y grabada. Qué hacer: cuando el cliente esté en Montevideo, ofrecer demo presencial; si está en el interior, empujar demo grabada con seguimiento agendado. Dónde: Ventas. Quién: sales ops. Impacto esperado: más demos efectivas y menos vueltas. Prioridad: Media.<br>Recomendación 5 — Estandarizar la respuesta de cobro/Santander. Qué hacer: convertir el mensaje de cuenta + link de cobro en plantilla con validación automática del monto y el nombre del comprador. Dónde: post-venta/cobranza. Quién: operaciones + finanzas/comercial. Impacto esperado: menos errores y menos tiempo manual por cobro. Prioridad: Media.<br>Recomendación 6 — Corregir validaciones de datos en Chatwoot y automatizaciones. Qué hacer: bloquear cambios de país inconsistentes y revisar el campo email para evitar capturas con formato tipo número@email.com. Dónde: integración/CRM. Quién: producto + data/automatización. Impacto esperado: mejor segmentación y menos ruido operativo. Prioridad: Alta.<br>Recomendación 7 — Agregar una cadencia de follow-up para conversaciones abiertas. Qué hacer: si un lead no responde dentro de 24 horas, disparar seguimiento humano con un mensaje corto y comercial, no dejarlo solo en snooze. Dónde: Ventas. Quién: Melany Fulco con soporte de automatización. Impacto esperado: recuperación de leads tibios. Prioridad: Alta.<br>Temperatura de la operación: 6/10. Hay interés comercial real y algunos cierres bien encaminados, pero la operación pierde puntos por dependencia de una sola agente, respuestas no visibles en 70% de los casos y fallas del bot en intentos de compra. No está mal, pero está lejos de estar aceitada.<br>Proyección para la próxima semana: si no se corrigen el bot y el SLA, lo más probable es que se repita un patrón similar de consultas de precio/cuotas con muchas conversaciones abiertas. Si se mejora el handoff y se responde más rápido, el volumen actual debería transformarse en más demos y más cierres, porque el interés ya existe.<br>Señal de oportunidad: la mezcla de «demo gustó» + «portal gratis» + «precio/cuotas» es muy vendible. Si el equipo logra convertir esa secuencia en un guion consistente, la tasa de cierre debería mejorar sin necesidad de aumentar tráfico.</p></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 24 ago. 2026, 11:03 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

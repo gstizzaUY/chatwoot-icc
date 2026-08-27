@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Ventas iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">27 jul. 2026, 11:05 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Ventas iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">240</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">176</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">64</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">3</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">21/7/2026 - 26/7/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">199</td></tr><tr><td class="lbl">Whatsapp</td><td class="val">21</td></tr><tr><td class="lbl">Email</td><td class="val">20</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-07-21</td><td class="val">96</td></tr><tr><td class="lbl">2026-07-22</td><td class="val">39</td></tr><tr><td class="lbl">2026-07-23</td><td class="val">31</td></tr><tr><td class="lbl">2026-07-24</td><td class="val">26</td></tr><tr><td class="lbl">2026-07-26</td><td class="val">24</td></tr><tr><td class="lbl">2026-07-25</td><td class="val">24</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">240</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">65 <em>(27%)</em></span></div>
+<div style="padding:6px 0 2px;line-height:1.8"><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#999;margin-right:4px"></span>—: <strong>112</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(100%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    iChef Cuotas — 47 conversaciones (20%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15053</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Marianella</strong><br><small class="text-muted">59899206818@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15001</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Virginia</strong><br><small class="text-muted">59899592813@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15068</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jorgelina Pricolo</strong><br><small class="text-muted">59892004242@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15066</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ana Velazquez</strong><br><small class="text-muted">59893980558@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15067</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Federico</strong><br><small class="text-muted">59894130472@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15070</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Silvana</strong><br><small class="text-muted">59899426066@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15063</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Leti</strong><br><small class="text-muted">59893980770@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14951</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Elvis</strong><br><small class="text-muted">59898560067@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15029</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Valu</strong><br><small class="text-muted">59894565300@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15042</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Mi Hija Mi Todo</strong><br><small class="text-muted">59891684438@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15049</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agus 24</strong><br><small class="text-muted">5491172548897@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15037</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Matias Varela</strong><br><small class="text-muted">59899234876@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14997</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>229149457289408</strong><br><small class="text-muted">229149457289408@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14995</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>54266978926839</strong><br><small class="text-muted">54266978926839@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15028</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Micaela Rodríguez</strong><br><small class="text-muted">59894047449@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15025</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Tatiana Garcia</strong><br><small class="text-muted">59897531341@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15031</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Martha</strong><br><small class="text-muted">59894548031@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15033</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Eugenia Bordet</strong><br><small class="text-muted">59891686135@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15023</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agus</strong><br><small class="text-muted">49096324845771@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15032</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>281363391475889</strong><br><small class="text-muted">281363391475889@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14999</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>203916591505644</strong><br><small class="text-muted">203916591505644@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15004</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jimena Castillo</strong><br><small class="text-muted">59891609776@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14990</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Maru</strong></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14992</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lu</strong><br><small class="text-muted">59898349579@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14974</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>63393901863160</strong><br><small class="text-muted">63393901863160@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14970</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>152248067874922</strong><br><small class="text-muted">152248067874922@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14966</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>40192438194381</strong><br><small class="text-muted">40192438194381@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14967</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Patricia</strong><br><small class="text-muted">59894618378@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14960</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Esteffy</strong><br><small class="text-muted">59893714728@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14959</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Patricia Cabral</strong><br><small class="text-muted">59899634940@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14954</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>118137437552694</strong><br><small class="text-muted">118137437552694@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14956</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>127298737041617</strong><br><small class="text-muted">127298737041617@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14952</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nancy da Silva</strong><br><small class="text-muted">59897558216@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14909</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>158265384120544</strong><br><small class="text-muted">158265384120544@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14911</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>97521611329596</strong><br><small class="text-muted">97521611329596@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14884</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sole</strong><br><small class="text-muted">59892526903@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14932</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>135905817935944</strong><br><small class="text-muted">135905817935944@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14891</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nelson</strong><br><small class="text-muted">59897126127@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14918</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yessica</strong><br><small class="text-muted">tarjetitasmisangeles@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14906</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>138010268061793</strong><br><small class="text-muted">138010268061793@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14885</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Natalia Liesegang</strong><br><small class="text-muted">elizben-2015@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14890</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>59896355853</strong><br><small class="text-muted">59896355853@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14881</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jacinta</strong><br><small class="text-muted">59899870337@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14886</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Veronica</strong></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14878</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Johana Arevalo</strong><br><small class="text-muted">johannarevalo@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14873</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Katherine</strong><br><small class="text-muted">59893964486@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14871</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Anita financiación</strong><br><small class="text-muted">59898170306@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Financiación — 65 conversaciones (27%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15076</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Miriam Viera</strong><br><small class="text-muted">59894303691@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15053</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Marianella</strong><br><small class="text-muted">59899206818@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15001</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Virginia</strong><br><small class="text-muted">59899592813@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14929</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jose De los Santos</strong><br><small class="text-muted">delosantos301991@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14993</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jorge Pelua</strong><br><small class="text-muted">jorgepelua@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14801</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>RD Station</strong><br><small class="text-muted">relatorios@rdstation.com.br</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14930</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jose De los Santos</strong><br><small class="text-muted">delosantos301991@gmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15068</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jorgelina Pricolo</strong><br><small class="text-muted">59892004242@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15066</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ana Velazquez</strong><br><small class="text-muted">59893980558@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15067</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Federico</strong><br><small class="text-muted">59894130472@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15070</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Silvana</strong><br><small class="text-muted">59899426066@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15063</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Leti</strong><br><small class="text-muted">59893980770@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15065</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Daniel</strong><br><small class="text-muted">59892921311@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14951</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Elvis</strong><br><small class="text-muted">59898560067@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15029</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Valu</strong><br><small class="text-muted">59894565300@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15040</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>null null</strong><br><small class="text-muted">154099316195492@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15042</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Mi Hija Mi Todo</strong><br><small class="text-muted">59891684438@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15049</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agus 24</strong><br><small class="text-muted">5491172548897@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15037</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Matias Varela</strong><br><small class="text-muted">59899234876@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14997</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>229149457289408</strong><br><small class="text-muted">229149457289408@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14995</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>54266978926839</strong><br><small class="text-muted">54266978926839@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15028</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Micaela Rodríguez</strong><br><small class="text-muted">59894047449@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15025</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Tatiana Garcia</strong><br><small class="text-muted">59897531341@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15031</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Martha</strong><br><small class="text-muted">59894548031@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15033</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Eugenia Bordet</strong><br><small class="text-muted">59891686135@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15023</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Agus</strong><br><small class="text-muted">49096324845771@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15032</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>281363391475889</strong><br><small class="text-muted">281363391475889@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14902</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jime</strong><br><small class="text-muted">59893935675@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14999</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>203916591505644</strong><br><small class="text-muted">203916591505644@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15006</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>256517290909927</strong><br><small class="text-muted">256517290909927@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15004</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jimena Castillo</strong><br><small class="text-muted">59891609776@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14990</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Maru</strong></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14992</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Lu</strong><br><small class="text-muted">59898349579@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14974</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>63393901863160</strong><br><small class="text-muted">63393901863160@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14969</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Ana Milano</strong><br><small class="text-muted">59899829198@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14970</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>152248067874922</strong><br><small class="text-muted">152248067874922@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14966</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>40192438194381</strong><br><small class="text-muted">40192438194381@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14967</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Patricia</strong><br><small class="text-muted">59894618378@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14960</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Esteffy</strong><br><small class="text-muted">59893714728@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14959</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Patricia Cabral</strong><br><small class="text-muted">59899634940@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14954</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>118137437552694</strong><br><small class="text-muted">118137437552694@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14957</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>276514356621447</strong><br><small class="text-muted">276514356621447@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14956</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>127298737041617</strong><br><small class="text-muted">127298737041617@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14952</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nancy da Silva</strong><br><small class="text-muted">59897558216@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14909</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>158265384120544</strong><br><small class="text-muted">158265384120544@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14911</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>97521611329596</strong><br><small class="text-muted">97521611329596@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14884</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Sole</strong><br><small class="text-muted">59892526903@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14932</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>135905817935944</strong><br><small class="text-muted">135905817935944@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14889</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Maria Chatwoot 3</strong><br><small class="text-muted">59894472420@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14894</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Victor Alvez</strong><br><small class="text-muted">alvez2001uy@yahoo.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14914</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nadia Di Matteo Garcia</strong><br><small class="text-muted">59895585087@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14877</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Daniela</strong><br><small class="text-muted">59894749535@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14891</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Nelson</strong><br><small class="text-muted">59897126127@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14918</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Yessica</strong><br><small class="text-muted">tarjetitasmisangeles@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14919</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>65519944241269</strong><br><small class="text-muted">65519944241269@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14915</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>59895770806</strong></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14906</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>138010268061793</strong><br><small class="text-muted">138010268061793@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14885</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Natalia Liesegang</strong><br><small class="text-muted">elizben-2015@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14890</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>59896355853</strong><br><small class="text-muted">59896355853@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14887</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Fernanda</strong><br><small class="text-muted">59898016457@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14881</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Jacinta</strong><br><small class="text-muted">59899870337@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14886</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Veronica</strong></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14878</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Johana Arevalo</strong><br><small class="text-muted">johannarevalo@hotmail.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14873</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Katherine</strong><br><small class="text-muted">59893964486@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#14871</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Anita financiación</strong><br><small class="text-muted">59898170306@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#999;padding:2px 8px;border-radius:10px;background:#99918">—</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">21/7/2026 - 26/7/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">239 conv.</td></tr><tr><td class="lbl">Sin agente</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Jorge Pelua</td><td class="val">6 conv.</td></tr><tr><td class="lbl">Nadia Di Matteo Garcia</td><td class="val">5 conv.</td></tr><tr><td class="lbl">Jose De los Santos</td><td class="val">4 conv.</td></tr><tr><td class="lbl">RD Station</td><td class="val">4 conv.</td></tr><tr><td class="lbl">Mel Fulco</td><td class="val">3 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p>Marco general del periodo: 240 conversaciones en Ventas iChef, con 176 abiertas (73,3%) y 64 cerradas (26,7%); el flujo está claramente cargado hacia captación y seguimiento, no hacia cierre. El 82,9% entra por Api (199/240), 8,8% por WhatsApp (21/240) y 8,3% por Email (20/240), lo que confirma que la operación depende fuerte de automatizaciones y formularios integrados.<br>Oportunidad es la etiqueta más pesada: 74 de 240 conversaciones (30,8%) llevan &quot;oportunidad&quot;; luego vienen lead con 47 (19,6%), tiene_ichef con 39 (16,3%) y cliente con 38 (15,8%). Como las etiquetas son combinables, esto muestra un embudo mixto: casi la tercera parte de los hilos ya fueron priorizados comercialmente, y otro tercio corresponde a base instalada que consulta o necesita soporte.<br>Motivo de contacto #1: precio y financiación. En la muestra visible, Miriam Viera (ID #15076) preguntó &quot;Cuanto cuesta en Uruguay&quot; y Leti (ID #15063) escribió &quot;Estuve viendo las funciones, quería info de costos y forma de pago&quot;. En total visible son 2 de 24 hilos (8,3%) con foco directo en costo/financiamiento; es un patrón de alta intención de compra.<br>Motivo de contacto #2: información general del robot y funciones. Axel (ID #15075) abrió con &quot;Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot; y Miriam Viera (ID #15076) volvió a la consulta de precio dentro del mismo interés. En el negocio, este tipo de consulta debería disparar un paquete estándar con propuesta de valor, funciones clave y financiamiento, porque el cliente todavía está comparando opciones.<br>Motivo de contacto #3: demos y visitas presenciales. Sebastián González (ID #15035) confirmó &quot;Tenemos una demo agendada hoy en nuestra casa central 11hs ¡Te esperamos!&quot; y respondió &quot;Buen día. Sí, ya estamos en camino. Gracias!&quot;. Es un caso positivo: la agenda comercial se materializa; conviene medir cuántas demos se convierten a venta porque en este extracto no aparece el cierre final.<br>Motivo de contacto #4: portal de recetas, accesorios y complementos. Darwin Vega (ID #14943) preguntó &quot;Que es el Slicer ?&quot; y luego &quot;Y que precio tienen esos accesorios ?&quot;; la respuesta de la operación fue &quot;Mandolina para cortar en rodajas o rallar zanaoira, por ejemplo&quot;. Esto revela una ventana de cross-sell: el cliente ya está dentro del ecosistema y pide entender accesorios, no solo el robot.<br>Motivo de contacto #5: soporte técnico, actualización y lectura de QR. Leticia Silva (ID #14983) dijo &quot;no me reconoce el QR que arroja&quot; y luego &quot;Ayer la llevamos al service a cambiar la goma&quot; / &quot;La enchufe ahora y me pasa esto&quot;; más tarde aclaró &quot;Listo ya lo solucione me llamaron de service&quot;. Maria Pia Tejera (IDs #15069 y #15074) consultó porque &quot;cuando voy a la configuración/actualización del sistema, no encuentro el bot&quot;. Son 3 de 24 hilos visibles (12,5%) con foco técnico/post-venta.<br>Motivo de contacto #6: automatización comercial y scoring. Matías González (ID #14810), Mariangeles Gibert (ID #14839), Patricia Romero (ID #14826), Alejandra Monnzon (ID #14854), Valentina Andresovas (ID #14825), Denise Possi (ID #14866), Neyra Martínez (ID #14832), Florencia Lagomarsino (ID #14809), Alma/Chatwoot (ID #14818) y Andrés Monteiro Mazzola (ID #14869) aparecen como oportunidades creadas por RD Station o por el bot. En la muestra visible, 11 de 24 hilos (45,8%) nacen como oportunidad automática, lo que confirma que el embudo entra muy fuerte desde scoring.<br>Producto/servicio mencionado: iChef robot. En la conversación de ventas se lo presenta como un asistente de cocina que cumple la función de casi 20 electrodomésticos y se conecta al portal de recetas. Este mensaje de propuesta de valor sí aparece en el extracto, pero todavía falta consistencia para que quede asociado a un argumento de cierre y no solo a una descripción técnica.<br>Producto/servicio mencionado: portal de recetas. En el caso de Darwin Vega (ID #14943) se afirmó que el portal tiene &quot;mas de 2500 recetas&quot; y que el acceso &quot;NO requiere pago de suscripcion. Es gratuito&quot;. La oportunidad comercial es clara: el portal no se vende como costo adicional, sino como refuerzo de valor y fidelización.<br>Producto/servicio mencionado: accesorios. Darwin Vega (ID #14943) preguntó por &quot;Slicer&quot; y &quot;accesorios&quot;; la respuesta fue una explicación funcional, no una tabla de precios ni una recomendación de uso. Acá hay hueco comercial: faltó un catálogo de accesorios con precio, uso y beneficio para completar el cierre.</p><p>Etapa del cliente en el journey: leads y oportunidades dominan el frente comercial, mientras que tiene_ichef y cliente concentran soporte y postventa. Sobre 240 conversaciones, 47 son lead (19,6%), 74 oportunidad (30,8%), 39 tiene_ichef (16,3%) y 38 cliente (15,8%). Esto muestra un pipeline con mucha entrada y una base activa significativa que sigue consultando.</p><p>Patrón repetitivo #1: el bot saluda, presenta opciones y marca pendiente, pero no siempre queda claro el handoff humano. En Miriam Viera (ID #15076) aparece &quot;Soy Marty, tu asistente virtual🤖&quot; y &quot;La conversación fue marcada como pendiente por Agente iChef&quot;; en Axel (ID #15075) sucede lo mismo. Esto se repite como patrón de entrada, no como cierre.</p><p>Patrón repetitivo #2: preguntas de precio y forma de pago aparecen al inicio del ciclo. Miriam Viera (ID #15076) y Leti (ID #15063) son ejemplos directos. Esto sugiere que el usuario ya llegó con interés real y necesita una respuesta estandarizada que incluya precio promo, 12 cuotas sin recargo e iChef Cuotas, sin vueltas.</p><p>Patrón repetitivo #3: consultas de soporte sobre actualización, QR y servicio son comunes en la base instalada. Leticia Silva (ID #14983) y Maria Pia Tejera (IDs #15069/#15074) muestran que el dolor no es el robot en sí, sino el mantenimiento, la actualización o la interacción con el sistema. Esto pide una guía de autoayuda más visible.<br>Anomalía #1: Mariangeles Gibert (ID #14839) recibió el mensaje &quot;EL NÚMERO NO EXISTE&quot;. No es un reclamo masivo, pero sí una señal de calidad de datos/contactabilidad que puede tumbar conversiones. La acción es validar normalización de teléfonos antes de que el agente intente contactar.<br>Anomalía #2: en varias conversaciones abiertas solo se ve el disparador automático y ningún intercambio humano posterior visible, como en Florencia Lagomarsino (ID #14809), Alejandra Monnzon (ID #14854) o Patricia Romero (ID #14826). No necesariamente es abandono, pero sí sugiere revisar si la cola comercial está tomando todos los leads.</p><p>Casos destacados positivos: Sebastián González (ID #15035) confirma asistencia a demo; Darwin Vega (ID #14943) abre una puerta a venta cruzada de accesorios; y Leticia Silva (ID #14983) logró resolver el problema tras hablar con service, cerrando el caso sin escalamiento adicional. Son ejemplos de fricción resuelta o de compra con intención alta.</p><p>Casos destacados de atención: Maria Pia Tejera (IDs #15069/#15074) muestra una confusión de producto/actualización con la frase &quot;no encuentro el bot&quot;; Axels y Miriam Viera son leads calientes con preguntas de precio; y Leti (ID #15063) pidió &quot;info de costos y forma de pago&quot;. Son conversaciones que deberían entrar al carril de respuesta rápida.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-alertas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-0" aria-expanded="true" aria-controls="acc-alertas-0">
+                    General
+                </button>
+            </h2>
+            <div id="acc-alertas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><p>Alerta macro: 176 de 240 conversaciones siguen abiertas (73,3%). Para Ventas, este nivel de apertura es alto y puede esconder backlog o falta de seguimiento consistente. Acción concreta: monitorear diariamente el stock abierto por antigüedad y exigir cierre, snooze con motivo o reasignación.<br>Alerta de concentración operativa: 239 de 240 conversaciones están asignadas a Melany Fulco (99,6%) y 1 queda sin agente. Esto es un riesgo claro de single point of failure. Acción: definir un agente backup y una regla automática de redistribución por cola o ausencias.<br>Alerta de canal: Api concentra 199 de 240 conversaciones (82,9%), muy por encima de WhatsApp (8,8%) y Email (8,3%). Si la automatización falla, la operación cae. Acción: auditar cada fuente de entrada y asegurar fallback humano cuando la automatización no completa el handoff.<br>Alerta de respuestas visibles: en la muestra visible hay varios hilos abiertos con consulta del cliente y sin respuesta humana visible, por ejemplo Miriam Viera (ID #15076) con &quot;Cuanto cuesta en Uruguay&quot;. Acción: disparar una macro de precio/financiación en menos de 15 minutos.<br>Alerta de respuestas visibles: Axel (ID #15075) escribió &quot;Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot; y no se ve una respuesta comercial posterior. Acción: asignación inmediata a un vendedor con script de descubrimiento y cierre.<br>Alerta de respuestas visibles: Diego (ID #15009) quedó en &quot;Una consulta&quot; y el hilo muestra solo la entrada del bot. Acción: programar un segundo intento de contacto con pregunta cerrada para calificar intención.<br>Alerta de respuestas visibles: Maria Pia Tejera (ID #15074) preguntó por la actualización y el hilo queda en &quot;Correcto?&quot; sin confirmar cierre visible. Acción: crear una macro de soporte que explique paso a paso dónde encontrar el bot y cómo actualizar.<br>Alerta de calidad de datos: Mariangeles Gibert (ID #14839) recibió el mensaje &quot;EL NÚMERO NO EXISTE&quot;. Es un caso puntual, pero de alto impacto comercial porque impide contactar. Acción: validación previa del teléfono con formato E.164 y reintento por otro canal si falla.<br>Alerta de conversaciones automáticas sin contenido cliente: varias oportunidades se abren solo por lead scoring o sistema, como Alejandra Monnzon (ID #14854), Florencia Lagomarsino (ID #14809) y Alma/Chatwoot (ID #14818). Riesgo: inflar el pipeline con hilos que todavía no tienen interacción real. Acción: distinguir en dashboard &quot;oportunidad real&quot; vs &quot;oportunidad automática&quot;.<br>Alerta de postventa recurrente: Leticia Silva (ID #14983) y Maria Pia Tejera (IDs #15069/#15074) muestran fricción después de la compra. Riesgo: si esto se repite, afecta NPS y recompras. Acción: enviar guía D+1/D+30 con QR, actualización y service.<br>Alerta de backoffice: el pico del 21/7 registra 96 de 240 conversaciones (40,0%), muy por encima del resto de los días. Sin el detalle horario no puedo afirmar causa, pero sí un posible cuello de botella. Acción: revisar si ese día hubo campaña, import masivo o saturación de cola.<br>Alerta de WhatsApp: en WhatsApp aparecen interacciones más conversacionales pero también más dependientes del bot, como Miriam Viera (ID #15076), Axel (ID #15075) y Diego (ID #15009). Riesgo: el cliente espera una respuesta rápida y se enfría. Acción: SLA específico para WhatsApp con intervención humana prioritaria.<br>Alerta de un solo hilo sin agente: el resumen reporta 1 conversación sin agente asignado (0,4%). El extracto no muestra el ID, por lo que no puedo identificar al cliente, pero sí el riesgo de pérdida por falta de ownership. Acción: regla de autoasignación obligatoria antes de que un lead quede visible.<br>Alerta de escasa evidencia de uso de portal_recetas: la etiqueta portal_recetas aparece solo en 3 de 240 conversaciones (1,3%). Esto puede significar baja demanda o baja visibilidad comercial. Acción: reforzar la mención del portal en los scripts de venta y postventa.<br>Alerta de seguimiento incompleto en hilos de demo: Sebastián González (ID #15035) confirma que &quot;ya estamos en camino&quot;, pero no vemos el resultado posterior de la demo. Riesgo: perder trazabilidad de conversión. Acción: crear un estado obligatorio de &quot;demo realizada&quot; con resultado.<br>Alerta de ruido comercial por bot: varios hilos abren con el bot &quot;Soy Marty, tu asistente virtual🤖&quot; y quedan en pendiente sin claridad de siguiente paso. Riesgo: pérdida de intención. Acción: revisar la lógica de handoff y el mensaje de &quot;pendiente&quot; para que incluya tiempo estimado de respuesta.<br>Alerta de contactos recurrentes: el extracto reporta como frecuentes a Jorge Pelua (6 contactos), Nadia Di Matteo Garcia (5), Jose De los Santos (4), RD Station (4) y Mel Fulco (3), pero no incluye IDs visibles. Esto impide medir si son seguimientos sanos o problemas crónicos. Acción: exportar el listado con ID para clasificar recurrencia por causa.<br>Alerta preventiva: no hay evidencia en el extracto de pedidos de baja, reclamos formales masivos o crisis reputacional; aun así, la tasa de abiertos y la concentración en un agente hacen recomendable un monitoreo intradiario. Acción: tablero con semáforo de abiertos &gt;24h, leads calientes y soporte técnico.</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-1" aria-expanded="true" aria-controls="acc-alertas-1">
+                    Sin alertas de crisis severa detectadas en el material visible, pero sí varios focos de riesgo operativo que conviene corregir ya.
+                </button>
+            </h2>
+            <div id="acc-alertas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><p>Resumen ejecutivo: Ventas iChef procesó 240 conversaciones en la semana, con predominio absoluto del canal Api (199/240, 82,9%) y un 73,3% de conversaciones aún abiertas (176/240). La operación está muy apalancada en automatización y concentrada en una sola agente: Melany Fulco tiene 239 de 240 hilos (99,6%). El dato más relevante es que el flujo comercial entra, pero la capacidad de seguimiento humano parece el principal cuello de botella.<br>Insight clave #1 — Riesgo de dependencia extrema en una sola persona: Melany Fulco lleva 239 de 240 conversaciones (99,6%); el único caso sin agente es 1 de 240 (0,4%). Aunque el equipo sea chico, esto es un riesgo operativo severo: cualquier ausencia frena toda la cola. Prioridad: máxima.<br>Insight clave #2 — El embudo entra fuerte por automatización, pero no necesariamente se cierra: 74 conversaciones son oportunidad (30,8%) y 47 son lead (19,6%). A la vez, 176 siguen abiertas (73,3%). Esto sugiere un pipeline nutrido, pero con fricción en seguimiento y cierre. Si no se controla el backlog, el scoring termina generando más ruido que ventas.<br>Insight clave #3 — El canal Api domina y eso cambia la naturaleza de la gestión: 199 de 240 (82,9%) entran por integración, muy por encima de WhatsApp (8,8%) y Email (8,3%). Relevancia: el negocio no depende solo de la calidad de la conversación, sino de la calidad del trigger y del enrutamiento automático. Si RD Station o la automatización fallan, la operación se desordena.<br>Insight clave #4 — Pico de demanda concentrado al inicio del período: el 21/7 se registraron 96 conversaciones (40,0% del total semanal), mientras que el resto de los días se movió entre 24 y 39 casos por día. Esto luce como un pico de campaña, importación o arranque de backlog. Relevancia: la dotación debe subir en días pico, no mantenerse plana toda la semana.<br>Insight clave #5 — Precio y financiación siguen siendo el gatillo principal de intención de compra: en la muestra visible, Miriam Viera (ID #15076) preguntó &quot;Cuanto cuesta en Uruguay&quot; y Leti (ID #15063) pidió &quot;info de costos y forma de pago&quot;. Son consultas directas, de alta intención, que deberían recibir un guion único y corto. Si el equipo tarda, la oportunidad se enfría.<br>Insight clave #6 — El soporte postventa aparece como una cola real, no residual: Leticia Silva (ID #14983) con &quot;no me reconoce el QR que arroja&quot; y Maria Pia Tejera (IDs #15069/#15074) con &quot;no encuentro el bot&quot; confirman que los clientes activos necesitan ayuda operativa. Relevancia: el onboarding y la actualización deben estar más industrializados; no conviene resolverlos caso a caso.<br>Insight clave #7 — Hay espacio comercial para accesorios y cross-sell: Darwin Vega (ID #14943) preguntó &quot;Que es el Slicer ?&quot; y &quot;Y que precio tienen esos accesorios ?&quot;. Esto no es solo soporte de producto; es una oportunidad de ticket promedio mayor. Relevancia: si ventas solo explica y no convierte el accesorio, se pierde margen.<br>Insight clave #8 — La automatización está creando oportunidades, pero muchas quedan vacías de contexto humano: Matías González (ID #14810), Mariangeles Gibert (ID #14839), Patricia Romero (ID #14826), Alejandra Monnzon (ID #14854), Florencia Lagomarsino (ID #14809) y otras aparecen como oportunidades creadas por scoring. Relevancia: el embudo puede inflarse con leads fríos si no se enriquecen antes de asignar.<br>Insight clave #9 — La etiqueta &quot;tiene_ichef&quot; y &quot;cliente&quot; tiene mucho peso (16,3% y 15,8% respectivamente), lo que indica una base instalada activa. Eso es bueno para fidelización, pero también exige una lógica de postventa distinta a la pre-venta. Si se atienden con el mismo script, el cliente siente que lo tratan como lead nuevo.<br>Insight clave #10 — El portal de recetas está subexplotado en la conversación de ventas: solo 3 de 240 hilos llevan la etiqueta portal_recetas (1,3%). Dado que el acceso es vitalicio y gratuito, debería usarse más como argumento de valor. Hoy no parece estar funcionando como ancla de conversión.<br>Insight clave #11 — La conversación bot-handoff está poco cerrada: en varios casos se ve &quot;Soy Marty, tu asistente virtual🤖&quot; y luego &quot;La conversación fue marcada como pendiente por Agente iChef&quot;. Eso es útil para capturar, pero si no hay una siguiente acción visible, el cliente queda en espera. Relevancia: el handoff tiene que ser medible.<br>Insight clave #12 — El mix de hilos abiertos/resueltos muestra una operación más orientada a entrada que a finalización: 176 abiertos vs 64 cerrados. Sin medir tiempos de primera respuesta no puedo afirmar SLA incumplido, pero sí backlog acumulado. Relevancia: a gerencia le interesa menos cuántos entraron y más cuántos avanzaron.<br>Recomendación #1 — Implementar backup comercial obligatorio. Qué hacer: asignar un segundo agente o guardia para tomar leads cuando Melany no esté; dónde: Ventas iChef, cola de Api y WhatsApp; quién: jefatura comercial + operaciones; impacto esperado: bajar riesgo de single point of failure; prioridad: Alta.<br>Recomendación #2 — Crear una macro única para precio y financiación. Qué hacer: responder en un solo bloque con precio promo U$S 1450, 12 cuotas sin recargo, iChef Cuotas y garantía 24 meses; dónde: WhatsApp y Api; quién: ventas; impacto: acelerar leads calientes como Miriam Viera (ID #15076) y Leti (ID #15063); prioridad: Alta.<br>Recomendación #3 — Definir SLA de handoff del bot a humano. Qué hacer: cuando el mensaje contenga &quot;precio&quot;, &quot;forma de pago&quot;, &quot;quiero más info&quot; o &quot;una consulta&quot;, escalar a humano en menos de 15 minutos; dónde: automatización y WhatsApp; quién: CRM/Automation + ventas; impacto: menos abandono; prioridad: Alta.<br>Recomendación #4 — Diseñar un flujo postventa para QR, actualización y service. Qué hacer: checklist paso a paso con capturas y video corto; dónde: Post-Venta y base de conocimiento; quién: soporte + contenido; impacto: resolver casos como Leticia Silva (ID #14983) y Maria Pia Tejera (IDs #15069/#15074) más rápido; prioridad: Alta.<br>Recomendación #5 — Separar &quot;oportunidad automática&quot; de &quot;oportunidad con contacto real&quot;. Qué hacer: en el dashboard y en Chatwoot, marcar si el lead ya habló con un humano; dónde: RD Station / Chatwoot; quién: operaciones y BI; impacto: pipeline más confiable; prioridad: Media.<br>Recomendación #6 — Lanzar un guion de cross-sell de accesorios. Qué hacer: cuando aparezcan consultas como la de Darwin Vega (ID #14943) sobre &quot;Slicer&quot; o accesorios, enviar catálogo corto con precio/uso/beneficio; dónde: ventas; quién: equipo comercial; impacto: subir ticket promedio; prioridad: Media.<br>Recomendación #7 — Auditar el pico del 21/7. Qué hacer: revisar si esos 96 casos (40,0%) fueron campaña, carga masiva o backlog heredado; dónde: operaciones y marketing; quién: analista de datos + responsable de campaña; impacto: evitar saturación futura; prioridad: Media.<br>Recomendación #8 — Construir un tablero diario con 5 métricas operativas. Qué hacer: abiertos, cerrados, abiertos &gt;24h, oportunidades nuevas y casos con respuesta humana visible; dónde: gerencia operativa; quién: BI/ops; impacto: toma de decisiones en tiempo real; prioridad: Alta.<br>Temperatura de la operación: 6/10. La operación está viva y trae volumen, pero tiene tres sombras claras: 73,3% de abiertos, 99,6% de concentración en una sola agente y 82,9% de dependencia del canal Api. A favor, hay muchas oportunidades y casos resueltos en soporte, lo que muestra potencial comercial y capacidad de cierre cuando el flujo funciona.<br>Tendencia probable para la próxima semana: si se repite un pico como el del 21/7 y no se corrige la capacidad de respuesta, el porcentaje de abiertos puede quedarse alto o subir. Si se implementan macros de precio/financiación y handoff rápido, la conversión de oportunidades debería mejorar sin necesidad de aumentar el tráfico. No puedo proyectar una tasa de conversión numérica real porque el extracto no trae cierre comercial final.<br>Riesgo a vigilar: el contenido de ventas está muy orientado a captación inicial y poco a ordenar el postventa. Si la base instalada sigue consultando por QR, actualización y service, Ventas terminará haciendo soporte impropio. La recomendación es mover esos casos a un carril de postventa con escalamiento claro.<br>Oportunidad de negocio: el portal de recetas, aunque casi no aparece en la conversación (1,3% de etiquetas), puede funcionar como argumento de retención y diferenciación porque es vitalicio y gratuito. Hay que meterlo más en la narrativa comercial, junto con la comunidad iChef Lovers y la IA Maia, para que el cliente perciba ecosistema y no solo un robot.<br>Cierre ejecutivo: Ventas iChef tiene demanda, tiene producto fuerte y tiene automatización; lo que le falta esta semana es distribución de carga, disciplina de seguimiento y una mejor transición entre bot, ventas y postventa. Si se corrigen esos tres puntos, la operación debería mejorar rápido sin cambiar la propuesta de valor.</p></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 27 jul. 2026, 11:05 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

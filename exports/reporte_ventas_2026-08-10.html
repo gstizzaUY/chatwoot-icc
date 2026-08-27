@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Ventas iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">10 ago. 2026, 11:02 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Ventas iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">12</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">11</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">1</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">2</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">4/8/2026 - 9/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Whatsapp</td><td class="val">10</td></tr><tr><td class="lbl">Api</td><td class="val">2</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-08-06</td><td class="val">5</td></tr><tr><td class="lbl">2026-08-09</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-04</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-08</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-07</td><td class="val">1</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">12</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">2 <em>(17%)</em></span></div>
+<div style="padding:6px 0 2px;line-height:1.8"><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#6b7280;margin-right:4px"></span>💬 Solo consulta: <strong>1</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(50%)</em></span><span style="display:inline-block;margin-right:10px;font-size:.75rem"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f5a623;margin-right:4px"></span>⏳ Evaluando: <strong>1</strong> <em style="color:var(--gray);font-weight:400;font-size:.7rem">(50%)</em></span></div><div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    iChef Cuotas — 0 conversaciones (0%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Financiación — 2 conversaciones (17%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15450</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>M. Natalia</strong><br><small class="text-muted">59896236529@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#6b7280;padding:2px 8px;border-radius:10px;background:#6b728018">💬 Solo consulta</span></td>
+            </tr><tr>
+                <td style="width:1%;white-space:nowrap;padding-right:8px"><span style="font-weight:700;color:var(--primary)">#15427</span></td>
+                <td style="white-space:nowrap;padding-right:10px"><strong>Paola Mazza</strong><br><small class="text-muted">59899859760@email.com</small></td>
+                <td style="white-space:nowrap"><span style="font-size:.7rem;font-weight:700;color:#f5a623;padding:2px 8px;border-radius:10px;background:#f5a62318">⏳ Evaluando</span></td>
+            </tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">4/8/2026 - 9/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">12 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Rosario</td><td class="val">2 conv.</td></tr><tr><td class="lbl">Lali</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Mariángeles Gorostiaga</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Veronica Kaufmann</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Kevin Beckmann</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-recetas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-0" aria-expanded="true" aria-controls="acc-recetas-0">
+                    TEMAS Y PATRONES DETECTADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-1" aria-expanded="true" aria-controls="acc-recetas-1">
+                    MOTIVOS DE CONTACTO (top 10-15 con %):
+                </button>
+            </h2>
+            <div id="acc-recetas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Solicitud de información inicial sobre iChef: 6 de 12 conversaciones (50.0%). Es el patrón dominante del período y aparece casi siempre con el mismo arranque: el cliente escribe, entra el bot Marty y la conversación queda en pendiente sin takeover humano. Ejemplos: Ángela Calleros Díaz (ID #15430) dijo &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; Emilia Luc Peña (ID #15432) escribió exactamente el mismo pedido; Mariángeles Gorostiaga (ID #15510), M. Natalia (ID #15450), Paola Mazza (ID #15427) y Yonatan (ID #15378) repiten la misma intención comercial.</li><br><li>Activación / uso inicial / soporte de primer uso: 2 de 12 (16.7%). Veronica Kaufmann (ID #15474) preguntó &quot;De donde lo saco?&quot; y el hilo muestra fricción de onboarding con la respuesta &quot;Hay que activar el robot&quot; y luego &quot;En realidad no necesitas una app, generalmente escaneas el QR con el cel&quot;. Victoria López (ID #15395) entra con etiqueta de soporte_tecnico y el intercambio termina derivado a humano; es un caso de asistencia técnica que no quedó documentado con claridad.</li><br><li>Oportunidades automáticas detectadas por scoring / API: 2 de 12 (16.7%). Rosario (ID #15503) y Rosario (ID #15502) aparecen como &quot;Oportunidad Abierta en rd-station a partir de lead scoring&quot; con tags oportunidad, tiene_ichef y cliente. No hay texto del cliente; la conversación existe por automatización, no por interacción humana.</li><br><li>Derivación a comercial desde el bot: 1 de 12 (8.3%). Kevin Beckmann (ID #15448) responde &quot;4&quot; en el menú y el bot interpreta &quot;Hablar con un Agente Comercial&quot;. Esto es una buena señal de intención de compra y de que el flujo sí logra capturar demanda más caliente.</li><br><li>Compra / canales / primeros pasos post-compra: 1 de 12 (8.3%). Lali (ID #15515) cierra con agradecimiento luego de recibir orientación de compra: &quot;Y tb puedes comprar por ichef.com.uy&quot; y &quot;SI compras en TI o Geant avisanos asi te ayudamos con los primero pasos&quot;. El hilo es positivo y orientado a conversión.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-2" aria-expanded="true" aria-controls="acc-recetas-2">
+                    PRODUCTOS/SERVICIOS MENCIONADOS:
+                </button>
+            </h2>
+            <div id="acc-recetas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>iChef Robot / iChef: es el producto central de 10 de 12 conversaciones si sumamos las consultas de info, activación y compra.</li><br><li>Bot Marty / Agente iChef / iChef Lover: aparece en casi todos los primeros contactos como puerta de entrada.</li><br><li>QR de activación y celular: Veronica Kaufmann (ID #15474) despeja una duda operativa clave con &quot;generalmente escaneas el QR con el cel&quot;.</li><br><li>Agente comercial: Kevin Beckmann (ID #15448) elige explícitamente &quot;Hablar con un Agente Comercial&quot;.</li><br><li>Soporte técnico: Victoria López (ID #15395) y la etiqueta soporte_tecnico marcan un frente de postventa que también entra por Ventas.</li><br><li>rd-station / lead scoring / oportunidad abierta: Rosario (ID #15503) y Rosario (ID #15502) muestran automatización comercial madura.</li><br><li>ichef.com.uy / Tienda Inglesa / Geant: Lali (ID #15515) recibe una orientación de compra multicanal.</li><br><li>Portal de recetas, demo, funcionamiento, soporte técnico: aparecen en el menú del bot en Kevin Beckmann (ID #15448), pero en esta muestra no se profundiza en recetas ni demos.</li><br><li>No hay evidencia en estas 12 conversaciones de preguntas sobre financiación, garantía, accesorios, repuestos o comunidad iChef Lovers; eso puede ser una oportunidad comercial, pero no se puede concluir ausencia real de demanda con esta muestra.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-3" aria-expanded="true" aria-controls="acc-recetas-3">
+                    ETAPA DEL CLIENTE EN EL JOURNEY:
+                </button>
+            </h2>
+            <div id="acc-recetas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Leads / primer contacto: 6 de 12 (50.0%) claramente están en TOFU puro y piden información inicial.</li><br><li>Leads con intención comercial más avanzada: 1 de 12 (8.3%), Kevin Beckmann (ID #15448), que elige hablar con un comercial.</li><br><li>Oportunidades automáticas: 2 de 12 (16.7%), Rosario (ID #15503) y Rosario (ID #15502), ya marcadas por scoring.</li><br><li>Onboarding / activación: 1 de 12 (8.3%), Veronica Kaufmann (ID #15474).</li><br><li>Soporte técnico / postventa: 1 de 12 (8.3%), Victoria López (ID #15395).</li><br><li>Compra / post-compra orientada a canales: 1 de 12 (8.3%), Lali (ID #15515).</li><br><li>Lectura gerencial: la muestra está sesgada hacia adquisición y activación temprana; hay muy poco contenido de fidelización, uso avanzado o reclamos complejos.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-4" aria-expanded="true" aria-controls="acc-recetas-4">
+                    PATRONES REPETITIVOS:
+                </button>
+            </h2>
+            <div id="acc-recetas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>El mismo texto de inicio se repite 6 veces: &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;. Eso indica un patrón de captación muy estándar, pero también demasiado genérico.</li><br><li>El bot se presenta y luego queda la conversación en pendiente sin respuesta humana en 6 de 12 casos; el patrón es &quot;saludo automático + silencio&quot;.</li><br><li>Las respuestas de menú funcionan como filtrado: Kevin Beckmann (ID #15448) responde &quot;4&quot; y en Victoria López (ID #15395) aparece un número como input. Hay usuarios que sí interactúan con menús, pero no siempre el flujo resuelve bien.</li><br><li>La solución de onboarding más repetida es la misma: no hay app, se usa QR. Esa aclaración aparece como valor real en Veronica Kaufmann (ID #15474).</li><br><li>Rosario aparece dos veces (ID #15503 y ID #15502) con la misma lógica de oportunidad automática. Eso sugiere recurrencia por automatización o posibles duplicados de CRM.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-5" aria-expanded="true" aria-controls="acc-recetas-5">
+                    RECLAMOS / QUEJAS / INCIDENCIAS:
+                </button>
+            </h2>
+            <div id="acc-recetas-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Victoria López (ID #15395): caso de soporte técnico con información muy pobre. La conversación arranca con &quot;6&quot;, se etiqueta soporte_tecnico, el bot se retira y el hilo se reabre. Acción propuesta: seguimiento humano prioritario para entender el problema real y cerrar el caso con nota de causa raíz.</li><br><li>Veronica Kaufmann (ID #15474): no hay queja explícita, pero sí fricción de activación. La duda &quot;De donde lo saco?&quot; y la respuesta &quot;Hay que activar el robot&quot; muestran un posible cuello de botella de onboarding. Acción propuesta: macro de activación con pasos visuales y link a guía.</li><br><li>Ángela Calleros Díaz (ID #15430), Emilia Luc Peña (ID #15432), Mariángeles Gorostiaga (ID #15510), M. Natalia (ID #15450), Paola Mazza (ID #15427) y Yonatan (ID #15378): no son quejas, pero sí incidencias operativas porque quedaron sin respuesta humana. Acción propuesta: takeover automático en menos de X minutos para leads con la frase &quot;Quiero más info&quot;.</li><br><li>Rosario (ID #15503) y Rosario (ID #15502): no hay reclamo, pero la duplicación de oportunidades automáticas merece revisión del CRM. Acción propuesta: auditar si son dos disparos reales o un duplicado por scoring.</li><br><li>Lali (ID #15515): caso positivo, no reclamo. Sirve como referencia de buena orientación comercial y cierre con agradecimiento.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-6" aria-expanded="true" aria-controls="acc-recetas-6">
+                    CASOS DESTACADOS:
+                </button>
+            </h2>
+            <div id="acc-recetas-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Veronica Kaufmann (ID #15474) es un caso de éxito operativo parcial: la clienta tenía fricción, el equipo explicó que &quot;generalmente escaneas el QR con el cel&quot; y logró resolverlo con un &quot;Ya lo logré! Gracias&quot;. Es valioso porque demuestra que una explicación simple destraba adopción.</li><br><li>Kevin Beckmann (ID #15448) es la mejor señal de intención de compra: el usuario eligió &quot;4&quot; para hablar con un comercial. Este tipo de lead debería entrar a prioridad alta.</li><br><li>Lali (ID #15515) deja una señal positiva de conversión omnicanal: la recomendación de compra en &quot;ichef.com.uy&quot; y en &quot;TI o Geant&quot; recibió respuesta de agradecimiento.</li><br><li>Rosario (ID #15503) y Rosario (ID #15502) son anómalos desde el punto de vista de trazabilidad: dos oportunidades automáticas, mismo nombre, sin texto del cliente. Puede ser normal por scoring o un síntoma de duplicación en la automatización.</li><br><li>La muestra no trae consultas sobre recetas, garantía, accesorios o financiación; eso no es malo per se, pero con 12 casos no se puede afirmar que no exista demanda.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-alertas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-0" aria-expanded="true" aria-controls="acc-alertas-0">
+                    ALERTAS PARA LA OPERACION
+                </button>
+            </h2>
+            <div id="acc-alertas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-1" aria-expanded="true" aria-controls="acc-alertas-1">
+                    SIN RESPUESTA DEL AGENTE:
+                </button>
+            </h2>
+            <div id="acc-alertas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body">6 de 12 conversaciones (50.0%) quedaron sin respuesta humana visible y se quedan en bot/pending. En todos los casos el cliente sí mostró intención clara de compra o información, pero no se ve takeover del equipo.<ul class="card-list"><li>Ángela Calleros Díaz (ID #15430): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana en la muestra.</li><br><li>Emilia Luc Peña (ID #15432): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana.</li><br><li>Mariángeles Gorostiaga (ID #15510): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana.</li><br><li>M. Natalia (ID #15450): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana.</li><br><li>Paola Mazza (ID #15427): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana.</li><br><li>Yonatan (ID #15378): último mensaje visible &quot;¡Hola, Marty! Quiero más info sobre el iChef Robot ¡Muchas gracias!&quot;; no hay respuesta humana.</li><br></ul>Nota: en la muestra no se ven timestamps por conversación, así que no puedo medir con precisión cuánto tiempo pasó; sí puedo afirmar que operativamente quedaron abiertas sin cierre humano.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-2" aria-expanded="true" aria-controls="acc-alertas-2">
+                    INSATISFACCION DETECTADA:
+                </button>
+            </h2>
+            <div id="acc-alertas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body">No hay quejas explícitas de enojo, insultos o pedidos de baja en la muestra. Lo más cercano a fricción es operacional, no emocional.<ul class="card-list"><li>Veronica Kaufmann (ID #15474): la duda &quot;De donde lo saco?&quot; refleja confusión de activación, pero terminó resuelta.</li><br><li>Victoria López (ID #15395): el caso es más de soporte técnico que de enojo; no se evidencia frustración textual, pero sí falta de contexto.</li><br></ul>Conclusión: no detecto insatisfacción dura, pero sí fricción de experiencia que puede escalar si se repite.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-3" aria-expanded="true" aria-controls="acc-alertas-3">
+                    CASOS URGENTES:
+                </button>
+            </h2>
+            <div id="acc-alertas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Victoria López (ID #15395): único caso que amerita atención inmediata por estar etiquetado como soporte_tecnico, reabierto por el bot y con una entrada muy ambigua (&quot;6&quot;). Hay riesgo de que el cliente siga sin resolver su problema si no se toma en humano hoy.</li><br><li>Veronica Kaufmann (ID #15474): no es crítico, pero sí un caso sensible de activación; si este tipo de duda se repite, impacta adopción temprana.</li><br></ul>No detecto en esta muestra fallas de hardware graves, pedidos de baja ni reclamos formales.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-4" aria-expanded="true" aria-controls="acc-alertas-4">
+                    CONTACTOS RECURRENTES:
+                </button>
+            </h2>
+            <div id="acc-alertas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Rosario (ID #15503) y Rosario (ID #15502) aparecen 2 veces en el período, lo que representa 2 de 12 conversaciones (16.7%). A simple vista no parece un problema de soporte, sino seguimiento automático de oportunidades; aun así, conviene validar si son dos disparos legítimos o un duplicado del CRM.</li><br><li>No hay otros contactos con 2+ conversaciones visibles en la muestra.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-5" aria-expanded="true" aria-controls="acc-alertas-5">
+                    SIN AGENTE ASIGNADO:
+                </button>
+            </h2>
+            <div id="acc-alertas-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body">0 de 12 conversaciones (0.0%) quedan sin agente responsable; todas figuran asignadas a Melany Fulco. Esto es positivo para trazabilidad, aunque no garantiza respuesta efectiva.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-6" aria-expanded="true" aria-controls="acc-alertas-6">
+                    CANALES CON PROBLEMAS:
+                </button>
+            </h2>
+            <div id="acc-alertas-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>WhatsApp concentra 10 de 12 conversaciones (83.3%) y es donde aparece el problema principal: 6 de esas 10 (60.0%) quedan sin respuesta humana visible.</li><br><li>Api concentra 2 de 12 (16.7%) y en ambos casos Rosario (ID #15503 y ID #15502) solo se ven eventos automáticos de oportunidad; no hay conversación humana. Esto no parece un problema del canal en sí, pero sí evidencia que la automatización no está generando seguimiento visible.</li><br><li>Diagnóstico: el cuello de botella no es el canal, sino el handoff bot→humano en WhatsApp.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-7" aria-expanded="true" aria-controls="acc-alertas-7">
+                    RIESGOS POTENCIALES:
+                </button>
+            </h2>
+            <div id="acc-alertas-7" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Riesgo de fuga de lead: 6 leads con intención comercial quedan sin respuesta humana. Si esto se repite, el costo es directo sobre conversión.</li><br><li>Riesgo de mala primera impresión: cuando el primer contacto es &quot;Quiero más info&quot; y la experiencia termina en bot/pending, la marca puede percibirse fría o lenta.</li><br><li>Riesgo de soporte mal clasificado: Victoria López (ID #15395) muestra que una consulta técnica puede entrar por Ventas y quedar sin resolución rápida.</li><br><li>Riesgo de duplicación/ruido de CRM: dos oportunidades de Rosario con la misma lógica de automation pueden inflar o distorsionar reportes si no se depuran.</li><br><li>Riesgo de documentación pobre: varias conversaciones tienen solo un número o un saludo; sin contexto, gerencia pierde capacidad de análisis causal.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-8" aria-expanded="true" aria-controls="acc-alertas-8">
+                    Sin otras alertas críticas detectadas en el período analizado.
+                </button>
+            </h2>
+            <div id="acc-alertas-8" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-analisis">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-0" aria-expanded="true" aria-controls="acc-analisis-0">
+                    General
+                </button>
+            </h2>
+            <div id="acc-analisis-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-1" aria-expanded="true" aria-controls="acc-analisis-1">
+                    RESUMEN EJECUTIVO:
+                </button>
+            </h2>
+            <div id="acc-analisis-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">La semana de Ventas iChef estuvo dominada por adquisición de leads y automatización. Sobre 12 conversaciones, 11 siguen abiertas (91.7%) y 1 quedó cerrada (8.3%), con WhatsApp como canal principal (10 de 12; 83.3%). El dato más relevante es que 6 de 12 conversaciones (50.0%) quedaron en el patrón &quot;bot + pendiente&quot; sin takeover humano visible, lo que sugiere fuga comercial en la primera respuesta. A la vez, hay señales buenas: Kevin Beckmann (ID #15448) eligió hablar con un comercial y Lali (ID #15515) recibió orientación de compra con respuesta positiva. El balance general es de operación funcional pero con una debilidad fuerte en speed-to-lead y en el pasaje de bot a humano.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-2" aria-expanded="true" aria-controls="acc-analisis-2">
+                    INSIGHTS CLAVE:
+                </button>
+            </h2>
+            <div id="acc-analisis-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>La mitad de la demanda entra como consulta genérica y se enfría en el bot</strong>: 6 de 12 conversaciones (50.0%) son el mismo patrón de primer contacto: Ángela Calleros Díaz (ID #15430), Emilia Luc Peña (ID #15432), Mariángeles Gorostiaga (ID #15510), M. Natalia (ID #15450), Paola Mazza (ID #15427) y Yonatan (ID #15378). Esto es crítico porque son leads con intención explícita de compra; si no hay respuesta humana, la oportunidad se diluye.</li><br><li><strong>WhatsApp está absorbiendo casi toda la carga comercial y ahí está el hueco operativo</strong>: 10 de 12 conversaciones (83.3%) llegan por WhatsApp, y 6 de esas 10 (60.0%) quedan sin respuesta humana visible. No es un problema de demanda; es un problema de ejecución del handoff.</li><br><li><strong>La automatización de oportunidades por API sí existe, pero no deja trazabilidad de gestión comercial</strong>: Rosario (ID #15503) y Rosario (ID #15502) aparecen con &quot;Oportunidad Abierta en rd-station a partir de lead scoring&quot;. Eso prueba que el motor comercial está funcionando, pero sin evidencia de seguimiento humano no sabemos si esas oportunidades avanzan o quedan en una cola invisible.</li><br><li><strong>El onboarding tiene una fricción simple y repetible: QR vs app</strong>: Veronica Kaufmann (ID #15474) se trabó con &quot;De donde lo saco?&quot; y el desbloqueo fue explicarle que &quot;no necesitas una app, generalmente escaneas el QR con el cel&quot;. Es un problema pequeño, pero muy rentable de resolver porque ocurre al comienzo del uso y puede evitar tickets posteriores.</li><br><li><strong>Hay intención comercial caliente que el flujo sí captura, pero no está siendo priorizada</strong>: Kevin Beckmann (ID #15448) responde &quot;4&quot; para hablar con un agente comercial. Ese es un lead que ya está levantando la mano; debería saltar a prioridad alta y no mezclarse con curiosos de primer contacto.</li><br><li><strong>El equipo está recibiendo algo de postventa/soporte, aunque mezclado con ventas</strong>: Victoria López (ID #15395) entra con etiqueta soporte_tecnico y el hilo se reabre luego de una derivación automática. Esto indica que la frontera entre Ventas y Post-Venta todavía no está del todo afinada.</li><br><li><strong>La orientación de compra multicanal funciona como cierre comercial</strong>: Lali (ID #15515) respondió con gratitud después de que se le indicara comprar por &quot;ichef.com.uy&quot; o en &quot;TI o Geant&quot;. Esa es una buena práctica a escalar: no solo informar, sino decir exactamente dónde comprar y cómo seguir.</li><br><li><strong>Los datos de conversación están demasiado escuetos en varios casos</strong>: muchos hilos tienen solo un saludo o un número. Eso limita el análisis de causa raíz y hace más difícil priorizar. En particular, Victoria López (ID #15395) y los seis leads bot-only muestran trazabilidad pobre.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-3" aria-expanded="true" aria-controls="acc-analisis-3">
+                    RECOMENDACIONES:
+                </button>
+            </h2>
+            <div id="acc-analisis-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Implementar SLA de takeover humano para leads bot-pending</strong>.</li><br><li>Qué hacer: disparar una tarea automática al equipo comercial si un lead escribe &quot;Quiero más info&quot; y en 5-10 minutos no hubo respuesta humana.</li><br><li>Dónde: WhatsApp / flujo de bot Marty / bandeja de Ventas.</li><br><li>Quién: supervisor de Ventas + responsable de automatización.</li><br><li>Impacto esperado: bajar el 50.0% de conversaciones bot-only y mejorar conversión temprana.</li><br><li>Prioridad: Alta.</li><br><li><strong>Reescribir el primer mensaje del bot para calificar antes de saludar</strong>.</li><br><li>Qué hacer: en vez de un saludo genérico, que Marty pregunte una sola cosa útil: &quot;¿Querés info, demo, precio o soporte?&quot;.</li><br><li>Dónde: bot de WhatsApp.</li><br><li>Quién: CRM/Automation + gerencia comercial.</li><br><li>Impacto esperado: segmentación más rápida y menos silencios.</li><br><li>Prioridad: Alta.</li><br><li><strong>Separar rutas de ventas y soporte técnico desde el primer input</strong>.</li><br><li>Qué hacer: si el usuario escribe números o palabras como &quot;no anda&quot;, &quot;error&quot;, &quot;soporte&quot;, mandar a postventa o soporte técnico sin pasar por ventas.</li><br><li>Dónde: flujo de bot y reglas de etiquetas.</li><br><li>Quién: Operations + Post-Venta.</li><br><li>Impacto esperado: menos casos como Victoria López (ID #15395) quedando mal atendidos.</li><br><li>Prioridad: Alta.</li><br><li><strong>Crear una macro de activación para objeciones de onboarding</strong>.</li><br><li>Qué hacer: incluir un mensaje estándar con QR, pasos de activación, y aclaración de que no hace falta app.</li><br><li>Dónde: WhatsApp / respuestas rápidas.</li><br><li>Quién: equipo de Ventas con apoyo de entrenamiento.</li><br><li>Impacto esperado: resolver más rápido dudas como las de Veronica Kaufmann (ID #15474).</li><br><li>Prioridad: Media-Alta.</li><br><li><strong>Auditar la automatización de oportunidades de Rosario</strong>.</li><br><li>Qué hacer: revisar si Rosario (ID #15503) y Rosario (ID #15502) son dos eventos reales o duplicados por scoring.</li><br><li>Dónde: RD Station / integración con Chatwoot.</li><br><li>Quién: CRM admin + marketing ops.</li><br><li>Impacto esperado: reportes más confiables y mejor priorización de leads.</li><br><li>Prioridad: Media.</li><br><li><strong>Exigir nota humana mínima en oportunidades abiertas por API</strong>.</li><br><li>Qué hacer: toda oportunidad que entre por API debe tener una nota breve de contexto y próximo paso.</li><br><li>Dónde: Chatwoot / pipeline comercial.</li><br><li>Quién: SDR o comercial asignado.</li><br><li>Impacto esperado: trazabilidad y seguimiento reales en Rosario (ID #15503) y Rosario (ID #15502).</li><br><li>Prioridad: Media-Alta.</li><br><li><strong>Estandarizar la respuesta de compra por canal</strong>.</li><br><li>Qué hacer: usar siempre un mismo bloque con iChef Center, iChef.com.uy, Tienda Inglesa, Geant, Mercado Libre y Santander, según aplique.</li><br><li>Dónde: scripts de ventas.</li><br><li>Quién: equipo comercial.</li><br><li>Impacto esperado: consistencia y menos improvisación.</li><br><li>Prioridad: Media.</li><br><li><strong>Medir y publicar el KPI de &quot;lead respondido por humano&quot;</strong>.</li><br><li>Qué hacer: agregar tablero semanal con porcentaje de leads que salieron de bot a humano.</li><br><li>Dónde: dashboard de gerencia.</li><br><li>Quién: BI / Operaciones.</li><br><li>Impacto esperado: visibilidad real del cuello de botella.</li><br><li>Prioridad: Alta.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-4" aria-expanded="true" aria-controls="acc-analisis-4">
+                    TEMPERATURA DE LA OPERACION:
+                </button>
+            </h2>
+            <div id="acc-analisis-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">Temperatura general: 6/10.</div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-5" aria-expanded="true" aria-controls="acc-analisis-5">
+                    Justificación con 3 datos concretos
+                </button>
+            </h2>
+            <div id="acc-analisis-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li>6 de 12 conversaciones (50.0%) quedaron sin respuesta humana visible.</li><br><li>10 de 12 conversaciones (83.3%) entraron por WhatsApp, y ahí se concentra el problema de abandono.</li><br><li>Solo 1 de 12 conversaciones (8.3%) cerró como resolved; el resto sigue abierta o fue derivada, lo que indica backlog operativo.</li><br></ul>Punto a favor: la automatización sí captura oportunidades, y hay cierres positivos como Veronica Kaufmann (ID #15474) y Lali (ID #15515). Pero hoy la operación está más cerca de &quot;funciona con fricción&quot; que de &quot;fluye&quot;.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-6" aria-expanded="true" aria-controls="acc-analisis-6">
+                    TENDENCIAS Y PROYECCIONES:
+                </button>
+            </h2>
+            <div id="acc-analisis-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">Si la mezcla del período se repite la próxima semana, podemos esperar que la mayor parte del volumen siga entrando por WhatsApp como primer contacto y que alrededor de la mitad quede en bot-only si no se corrige el takeover. Eso implica riesgo de pérdida de conversiones en leads fríos y tibios. En paralelo, las oportunidades por API seguirán apareciendo como automatizaciones, pero sin un humano que deje nota y próximo paso, el pipeline puede inflarse sin cerrar. Medida preventiva: activar SLA de primera respuesta y una cola prioritaria para leads con intención explícita de compra, antes de que el backlog crezca.</p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 10 ago. 2026, 11:02 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

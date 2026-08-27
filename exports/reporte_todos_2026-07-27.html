@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Todos los Canales</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">27 jul. 2026, 11:11 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Todos los Canales</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">268</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">192</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">76</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">3</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">2</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">21/7/2026 - 26/7/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">227</td></tr><tr><td class="lbl">Whatsapp</td><td class="val">21</td></tr><tr><td class="lbl">Email</td><td class="val">20</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-07-21</td><td class="val">100</td></tr><tr><td class="lbl">2026-07-22</td><td class="val">46</td></tr><tr><td class="lbl">2026-07-23</td><td class="val">38</td></tr><tr><td class="lbl">2026-07-24</td><td class="val">31</td></tr><tr><td class="lbl">2026-07-25</td><td class="val">28</td></tr><tr><td class="lbl">2026-07-26</td><td class="val">25</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p class="text-muted fst-italic small mb-0">No hay temas de seguimiento configurados para este equipo.</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">21/7/2026 - 26/7/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Melany Fulco</td><td class="val">239 conv.</td></tr><tr><td class="lbl">Neiff Cardozo</td><td class="val">28 conv.</td></tr><tr><td class="lbl">Sin agente</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Jorge Pelua</td><td class="val">6 conv.</td></tr><tr><td class="lbl">Nadia Di Matteo Garcia</td><td class="val">5 conv.</td></tr><tr><td class="lbl">Jose De los Santos</td><td class="val">4 conv.</td></tr><tr><td class="lbl">RD Station</td><td class="val">4 conv.</td></tr><tr><td class="lbl">Marina Siniscalco</td><td class="val">3 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-recetas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-0" aria-expanded="true" aria-controls="acc-recetas-0">
+                    TEMAS Y PATRONES DETECTADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><p><ul class="card-list"><li>INTENCIÓN COMERCIAL MUY MARCADA: 74 conversaciones etiquetadas como oportunidad (27.6% del total), 50 como lead (18.7%) y 8 como mql (3.0%). Esto confirma que casi 1 de cada 2 conversaciones trae alguna señal clara de compra o avance de embudo, aunque las etiquetas pueden superponerse.</li><br></ul>Ejemplos: Andrea Améndola (ID #14814) recibió &quot;Oportunidad Abierta en rd-station a partir de lead scoring&quot;; Belen maggi (ID #14828) recibió el mismo disparador; Carla Cuello (ID #14844) quedó en oportunidad/lead con la misma lógica.</p><p><ul class="card-list"><li>BASE DE CLIENTES YA ACTIVOS: 62 conversaciones etiquetadas como tiene_ichef (23.1%) y 60 como cliente (22.4%). Es un volumen relevante de post-venta y soporte de usuarios que ya compraron.</li><br></ul>Ejemplos: Marina Siniscalco (ID #15019) con &quot;¡Bienvenido/a a la familia iChef!&quot; y &quot;Starter Pack iChef&quot;; Marina Siniscalco (ID #15010) con &quot;Te paso la factura&quot;; Valentina Andresovas (ID #14825) con tiene_ichef, cliente y oportunidad.</p><p><ul class="card-list"><li>CONSULTAS DE PRECIO Y FINANCIACIÓN REPETIDAS: en la muestra aparecen reiteradamente preguntas por costo y formas de pago, lo que coincide con el mix de leads y oportunidades. Aunque no tenemos el conteo exacto por motivo en todo el período, el patrón es claro y aparece varias veces en la muestra.</li><br></ul>Ejemplos: Sole (ID #14884) preguntó &quot;Quería saber el precio&quot;; Nancy da Silva (ID #14952) preguntó &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot;; Leti (ID #15063) dijo &quot;Estuve viendo las funciones, quería info de costos y forma de pago&quot;.</p><p><ul class="card-list"><li>FINANCIACIÓN PROPIA COMO DRIVER DE CONVERSIÓN: el plan iChef Cuotas aparece como argumento comercial central. Esto es consistente con la propuesta de valor de compra sin tarjeta.</li><br></ul>Ejemplos: Nancy da Silva (ID #14952): &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot;; 59896355853 (ID #14890): &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot;; Leti (ID #15063) recibió la respuesta con &quot;El costo de nuestro robot iChef promo 2026 es de U$S 1450.-&quot; y mención a cuotas.</p><p><ul class="card-list"><li>CAPTURA AUTOMÁTICA DE DATOS Y ESCALAMIENTO DEL LEAD: la IA está capturando datos con bastante profundidad (nombre, apellido, celular, país, ciudad y stage). Esto es positivo porque reduce fricción y alimenta el CRM.</li><br></ul>Ejemplos visibles en la data del período: Jhonatan Hernández (ID no visible en la muestra, evento IA 2026-07-25 19:20) con firstname, lastname, mobile_phone, country y stage=lead; Tania Ferreira (ID no visible, evento IA 2026-07-26 15:02) con email, firstname, lastname, mobile_phone, city, country y stage=lead; y un caso con email capturado 59899206818@email.com (evento IA 2026-07-26 06:07).</p><p><ul class="card-list"><li>PRIMER CONTACTO MUY BASADO EN PREGUNTAS ABRUPTAS DE INTERÉS: el patrón &quot;Quiero más información&quot; / &quot;Quiero saber el precio&quot; / &quot;Ya conocías algún robot de cocina&quot; se repite y sugiere que el equipo está operando como filtro de calificación rápida.</li><br></ul>Ejemplos: Romina Pérez (ID #14898) dijo &quot;Quiero mas información sobre iChef!&quot;; 86874420945075 (ID #14996, contacto sin nombre visible) dijo &quot;Quiero mas información sobre iChef!&quot;; 158265384120544 (ID #14909, contacto sin nombre visible) dijo &quot;¡Hola! Quiero más información&quot;.</p><p><ul class="card-list"><li>ONBOARDING Y ENTREGA DE VALOR POST-COMPRA: se ve contenido de bienvenida, guía rápida y factura, lo que indica que Post-Venta está activo al menos en algunos casos.</li><br></ul>Ejemplos: Marina Siniscalco (ID #15019) recibió &quot;¡Bienvenido/a a la familia iChef!&quot; y &quot;Starter Pack iChef&quot;; Marina Siniscalco (ID #15010) recibió &quot;Te paso la factura&quot;; en otro caso se responde con envío de guía rápida de inicio.</p><p><ul class="card-list"><li>USO DE MARCAS / ALIAS EN LA ATENCIÓN: el equipo usa varios nombres de presentación (Mel, Branca), lo que puede mejorar cercanía pero también generar confusión si no hay consistencia.</li><br></ul>Ejemplos: Nelson (ID #14891) recibió &quot;Hola Nelson. Disculpa la hora&quot; y &quot;Si prefieres te paso a info mañana&quot;; Daniela (ID #14877) recibió &quot;Soy Branca de iCHef&quot;; Sole (ID #14884) recibió &quot;Te habla Mel&quot;.</p><p><ul class="card-list"><li>VOLUMEN DE COMUNICACIONES EN CANAL API MUY DOMINANTE: 227 de 268 conversaciones (84.7%) entran por Api, contra 21 por WhatsApp (7.8%) y 20 por Email (7.5%). Eso sugiere que el front de captación está muy apoyado en automatización/portal y no tanto en atención manual directa.</li></ul></p><p><ul class="card-list"><li>EL PORTAL/RECETAS AÚN TIENE POCA TRAZABILIDAD EN EL CHAT: solo 3 conversaciones etiquetadas como portal_recetas (1.1%). Es una señal de subuso o, al menos, de baja derivación explícita al contenido del portal.</li></ul></p><p><ul class="card-list"><li>LA CARGA SE CONCENTRA EN UN SOLO AGENTE: Melany Fulco atendió 239 de 268 conversaciones (89.2%), Neiff Cardozo 28 (10.4%) y 1 conversación quedó sin agente (0.4%). Esto es una fortaleza operativa si Melany está disponible, pero también un riesgo de continuidad.</li></ul></p><p><ul class="card-list"><li>PICO OPERATIVO FUERTE AL INICIO DEL PERÍODO: el 21/7 hubo 100 conversaciones, equivalentes al 37.3% del total semanal; luego el volumen cae a 46 (17.2%), 38 (14.2%), 31 (11.6%), 28 (10.4%) y 25 (9.3%). La tendencia es descendente y sugiere un pico inicial muy alto.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-1" aria-expanded="true" aria-controls="acc-recetas-1">
+                    PRODUCTOS / SERVICIOS MENCIONADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>iChef robot / robot de cocina: es el centro de la demanda comercial.</li><br><li>iChef Cuotas: aparece como solución clave para objeción de precio y falta de tarjeta.</li><br><li>Starter Pack iChef: pieza de onboarding post-compra.</li><br><li>Factura: aparece en el flujo de clientes existentes.</li><br><li>Portal de recetas / recetas: aparece poco en la muestra (3 tags portal_recetas, 1.1%).</li><br><li>Comunidad iChef Lovers: se menciona en piezas comerciales compartidas, pero no aparece fuerte en la muestra analizada.</li><br><li>IA Maia / agente IA: hay capturas automáticas de datos en múltiples conversaciones.</li><br><li>RD Station: aparece como origen de oportunidades por lead scoring.</li><br><li>iChef Center / canales retail: no se ven en la muestra con suficiente peso como para cuantificar.</li><br><li>Servicio técnico CNS, accesorios, repuestos, vaporera, balanza: no aparecen con evidencia suficiente en la muestra; no los cuantifico.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-2" aria-expanded="true" aria-controls="acc-recetas-2">
+                    ETAPA DEL CLIENTE EN EL JOURNEY
+                </button>
+            </h2>
+            <div id="acc-recetas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Leads: 50 conversaciones (18.7%) con etiqueta lead.</li><br><li>Oportunidades: 74 conversaciones (27.6%) con etiqueta oportunidad.</li><br><li>MQL: 8 conversaciones (3.0%).</li><br><li>Clientes: 60 conversaciones (22.4%) con etiqueta cliente.</li><br><li>Tiene iChef: 62 conversaciones (23.1%) con etiqueta tiene_ichef.</li><br><li>Onboarding D+1/D+30/D+90: la muestra sí muestra bienvenida, starter pack y factura, pero no alcanza para separar por cohortes.</li><br><li>Referidos: no hay evidencia suficiente en la muestra.</li><br><li>Clientes en riesgo: no hay evidencia textual suficiente para identificarlos con certeza.</li></ul></p><p>PATRONES REPETITIVOS (3+ conversaciones)<ul class="card-list"><li>&quot;Quiero más información sobre iChef!&quot; aparece en varios leads.</li><br><li>Preguntas por precio/financiación aparecen en varios contactos.</li><br><li>Automatización de lead scoring y asignación por rd-station aparece repetidamente.</li><br><li>Saludos de apertura muy genéricos: &quot;Buen dia&quot;, &quot;Buenas tardes&quot;, &quot;Buenas noches&quot; seguidos de calificación.</li><br><li>Bienvenida post-compra con guía/Starter Pack y factura.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-3" aria-expanded="true" aria-controls="acc-recetas-3">
+                    RECLAMOS / QUEJAS / INCIDENCIAS
+                </button>
+            </h2>
+            <div id="acc-recetas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>En la muestra revisada no se observan quejas graves, fallas de hardware ni reclamos formales con texto contundente.</li><br><li>No puedo afirmar insatisfacción fuerte sin inventar datos; la evidencia visible es mayormente comercial o de onboarding.</li><br><li>Sí hay una fricción recurrente de claridad comercial: preguntas sobre precio y financiación que requieren respuesta muy rápida.</li><br><li>Acción concreta: crear un macro/plantilla unificada para precio + cuotas + diferencia entre tarjeta e iChef Cuotas.</li><br><li>Acción concreta: reforzar la derivación a post-venta cuando el cliente ya tiene iChef y solo pide factura, guía o acceso.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-recetas-4" aria-expanded="true" aria-controls="acc-recetas-4">
+                    CASOS DESTACADOS
+                </button>
+            </h2>
+            <div id="acc-recetas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-recetas">
+                <div class="accordion-body"><ul class="card-list"><li>Marina Siniscalco (ID #15019) es un caso positivo de activación post-compra: &quot;¡Bienvenido/a a la familia iChef!&quot; y &quot;Starter Pack iChef&quot;.</li><br><li>Marina Siniscalco (ID #15010) muestra el valor administrativo: &quot;Te paso la factura&quot;.</li><br><li>Nelson (ID #14891) es un buen ejemplo de manejo horario: &quot;Disculpa la hora&quot; y &quot;Si prefieres te paso a info mañana&quot;.</li><br><li>Leti (ID #15063) muestra una oportunidad comercial fuerte: ya vio funciones y solo faltaba destrabar costo y forma de pago.</li><br><li>No hay en la muestra evidencia suficiente de casos negativos extremos; si existieron, no quedaron reflejados en estas 25 conversaciones.</li></ul></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-alertas">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-0" aria-expanded="true" aria-controls="acc-alertas-0">
+                    ALERTAS PARA LA OPERACION
+                </button>
+            </h2>
+            <div id="acc-alertas-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-1" aria-expanded="true" aria-controls="acc-alertas-1">
+                    SIN RESPUESTA DEL AGENTE
+                </button>
+            </h2>
+            <div id="acc-alertas-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No puedo listar con certeza casos de &quot;sin respuesta del agente&quot; solo con la muestra, porque varias conversaciones aparecen abiertas/snoozed pero no necesariamente abandonadas.</li><br><li>Dato de riesgo: 192 de 268 conversaciones (71.6%) siguen abiertas.</li><br><li>Eso no prueba silencio, pero sí marca un backlog grande que puede esconder demoras de respuesta.</li><br><li>Acción concreta: auditar en Chatwoot las abiertas con más de 24 horas y sacar un listado automático diario de SLA vencidos.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-2" aria-expanded="true" aria-controls="acc-alertas-2">
+                    INSATISFACCION DETECTADA
+                </button>
+            </h2>
+            <div id="acc-alertas-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No se detecta insatisfacción clara o reclamo duro en la muestra revisada.</li><br><li>No hay frases tipo &quot;no funciona&quot;, &quot;me quiero dar de baja&quot;, &quot;estoy molesto/a&quot; o similares en los 25 casos visibles.</li><br><li>Acción concreta: mantener un monitoreo semántico de palabras de riesgo para detectar frustración antes de que escale.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-3" aria-expanded="true" aria-controls="acc-alertas-3">
+                    CASOS URGENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No aparecen fallas técnicas críticas ni urgencias operativas duras en la muestra.</li><br><li>Sí aparecen casos que requieren rapidez comercial: Sole (ID #14884) dijo &quot;Quería saber el precio&quot; y Nancy da Silva (ID #14952) preguntó &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot;.</li><br><li>Esos casos no son urgencia técnica, pero sí urgencia comercial porque si tardan, se enfrían.</li><br><li>Acción concreta: priorizar en cola todos los mensajes con precio/financiación durante horario laboral.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-4" aria-expanded="true" aria-controls="acc-alertas-4">
+                    CONTACTOS RECURRENTES
+                </button>
+            </h2>
+            <div id="acc-alertas-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Jorge Pelua (ID no visible) aparece 6 veces (2.2% del total).</li><br><li>Nadia Di Matteo Garcia (ID no visible) aparece 5 veces (1.9%).</li><br><li>Jose De los Santos (ID no visible) aparece 4 veces (1.5%).</li><br><li>RD Station (ID no visible) aparece 4 veces (1.5%).</li><br><li>Marina Siniscalco (ID #15019 y #15010) aparece al menos 2 veces en el período visible, ambas ligadas a post-venta/administrativo.</li><br><li>No puedo asegurar si todos son seguimientos normales o un problema crónico; hace falta mirar el historial individual.</li><br><li>Acción concreta: clasificar los recurrentes en tres buckets: onboarding normal, consulta reiterada, y caso no resuelto.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-5" aria-expanded="true" aria-controls="acc-alertas-5">
+                    SIN AGENTE ASIGNADO
+                </button>
+            </h2>
+            <div id="acc-alertas-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>1 conversación de 268 (0.4%) quedó sin agente.</li><br><li>Impacto: aunque es un solo caso, es una falla de trazabilidad que complica tiempos y ownership.</li><br><li>La muestra no trae ID visible de esa conversación, así que no puedo identificarla sin inventar.</li><br><li>Acción concreta: activar alerta de asignación obligatoria en el flujo de entrada.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-6" aria-expanded="true" aria-controls="acc-alertas-6">
+                    CANALES CON PROBLEMAS
+                </button>
+            </h2>
+            <div id="acc-alertas-6" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>No veo un problema de volumen en WhatsApp o Email; el problema es la sobredominancia de Api (227/268, 84.7%).</li><br><li>Eso puede ser bueno por automatización, pero también puede ocultar conversaciones no atendidas si la cola se satura.</li><br><li>La señal más débil es Portal/recetas con solo 3 tags (1.1%), lo que sugiere baja derivación a contenido propio.</li><br><li>Acción concreta: revisar si el bot/automation está empujando bien hacia portal y comunidad.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-7" aria-expanded="true" aria-controls="acc-alertas-7">
+                    RIESGOS POTENCIALES
+                </button>
+            </h2>
+            <div id="acc-alertas-7" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"><ul class="card-list"><li>Riesgo 1: backlog alto de 192 abiertas (71.6%) si la tasa de cierre no mejora.</li><br><li>Riesgo 2: dependencia de un solo agente (89.2% Melany Fulco) con continuidad operativa frágil.</li><br><li>Riesgo 3: demasiadas preguntas repetidas de precio/financiación que consumen tiempo comercial.</li><br><li>Riesgo 4: bajo uso explícito de portal_recetas (1.1%), desaprovechando un activo de fidelización.</li><br><li>Acción concreta: revisar prioridades de atención y crear un playbook de respuestas para precio, cuotas, starter pack y acceso a recetas.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-alertas-8" aria-expanded="true" aria-controls="acc-alertas-8">
+                    Sin alertas críticas de satisfacción o técnica detectadas en la muestra visible, pero sí hay alertas operativas de backlog y concentración de carga.
+                </button>
+            </h2>
+            <div id="acc-alertas-8" class="accordion-collapse collapse show" data-bs-parent="#accordion-alertas">
+                <div class="accordion-body"></p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><div class="accordion accordion-flush accordion-i" id="accordion-analisis">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-0" aria-expanded="true" aria-controls="acc-analisis-0">
+                    General
+                </button>
+            </h2>
+            <div id="acc-analisis-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-1" aria-expanded="true" aria-controls="acc-analisis-1">
+                    RESUMEN EJECUTIVO
+                </button>
+            </h2>
+            <div id="acc-analisis-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">El período 21/7/2026 al 26/7/2026 cerró con 268 conversaciones, de las cuales 192 quedaron abiertas (71.6%) y 76 cerradas (28.4%). La operación está fuertemente concentrada en Api: 227 conversaciones (84.7%), muy por encima de WhatsApp (21, 7.8%) y Email (20, 7.5%).<br>La carga operativa quedó casi totalmente en manos de Melany Fulco, que gestionó 239 conversaciones (89.2%); Neiff Cardozo atendió 28 (10.4%) y hubo 1 sin agente (0.4%).<br>El volumen tuvo un pico muy fuerte el 21/7 con 100 conversaciones (37.3% del total semanal) y luego cayó de forma sostenida hasta 25 el 26/7 (9.3%).<br>En el mix de negocio dominan oportunidad (74, 27.6%), tiene_ichef (62, 23.1%), cliente (60, 22.4%) y lead (50, 18.7%), lo que muestra una operación que mezcla prospección y post-venta.<br>Mi lectura ejecutiva: la operación está viva y automatizada, pero con riesgo de backlog y dependencia excesiva de una sola persona.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-2" aria-expanded="true" aria-controls="acc-analisis-2">
+                    INSIGHTS CLAVE
+                </button>
+            </h2>
+            <div id="acc-analisis-2" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><strong>1) Dependencia operativa extrema de un solo agente</strong>: Melany Fulco manejó 239 de 268 conversaciones (89.2%). Eso es eficiente hoy, pero deja a la operación muy expuesta a ausencias, licencias o saturación. Ejemplos: Beatriz Rodrigo Fernandez (ID #15007), Marina Siniscalco (ID #15019), Romina Pérez (ID #14898) y Nancy da Silva (ID #14952) quedaron bajo la misma mano operativa. Acción: designar un backup formal y redistribuir al menos 20-25% del flujo a un segundo agente o cola de reserva.<br><strong>2) El backlog abierto es demasiado alto para la semana</strong>: 192 conversaciones abiertas equivalen al 71.6% del total. Sin saber el SLA exacto no puedo afirmar incumplimiento, pero sí una cola amplia que puede envejecer rápido. Acción: revisar las abiertas por antigüedad y atacar primero las de más de 24 horas.<br><strong>3) Api es el corazón del negocio, no un canal secundario</strong>: 227 de 268 (84.7%) entran por Api. Esto significa que la calidad del formulario, automatización y handoff desde web/ads define casi toda la experiencia inicial. Acción: auditar la primera respuesta automática y el traspaso a agente en Api.<br><strong>4) La demanda comercial está dominada por precio y financiación</strong>: la muestra lo confirma con frases textuales como &quot;Quería saber el precio&quot; (Sole, ID #14884) y &quot;Como es el plan iChef cuotas sin tocar la tarjeta de crédito?&quot; (Nancy da Silva, ID #14952). Esto no es un detalle: es la principal objeción de compra. Acción: convertir precio + financiación en un bloque estándar de respuesta en el primer contacto.<br><strong>5) Hay una base importante de clientes ya comprados</strong>: 62 conversaciones (23.1%) con tiene_ichef y 60 (22.4%) con cliente. La operación no es solo captación; también hay post-venta y administración. Marina Siniscalco (ID #15019) recibió &quot;¡Bienvenido/a a la familia iChef!&quot; y Marina Siniscalco (ID #15010) recibió &quot;Te paso la factura&quot;. Acción: separar claramente colas de ventas y post-venta para evitar mezclar leads con soporte administrativo.<br><strong>6) El pico del 21/7 sugiere un disparador externo</strong>: 100 conversaciones en un solo día (37.3% del total) y luego descenso continuo. Esto suele pasar cuando hay campaña, pauta o empuje comercial puntual. Acción: cruzar ese día con campañas de marketing para entender qué levantó el volumen y repetirlo de forma controlada.<br><strong>7) El portal y la comunidad todavía están subexplotados</strong>: solo 3 tags portal_recetas (1.1%) en toda la semana. Para una marca que vende experiencia + recetas + comunidad, esa cifra luce baja. Acción: meter CTAs al portal y a iChef Lovers en las respuestas de bienvenida y post-compra.<br><strong>8) La automatización está funcionando, pero hay que vigilar la calidad del dato</strong>: se observan eventos IA con firstname, lastname, mobile_phone, country, city y stage=lead. Ejemplos visibles: Jhonatan Hernández (evento 2026-07-25 19:20), Tania Ferreira (evento 2026-07-26 15:02) y un contacto con email capturado 59899206818@email.com (evento 2026-07-26 06:07). Relevancia: mejora el CRM, pero si el dato entra sucio, todo el embudo arrastra error. Acción: validar formatos y duplicados en la captura automática.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-3" aria-expanded="true" aria-controls="acc-analisis-3">
+                    RECOMENDACIONES
+                </button>
+            </h2>
+            <div id="acc-analisis-3" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body"><ul class="card-list"><li><strong>Crear una cola prioritaria de leads con pregunta de precio/financiación</strong>. Dónde: Equipo Ventas, canal Api. Quién: líder operativo + Melany + soporte de automatización. Impacto esperado: bajar tiempo de primera respuesta y subir tasa de avance de lead a oportunidad. Prioridad: Alta.</li><br><li><strong>Definir un backup real para Melany Fulco</strong>. Dónde: Todos los Canales. Quién: gerencia operativa. Impacto: reducir riesgo de parálisis si el agente principal no está disponible. Prioridad: Alta.</li><br><li><strong>Separar flujo comercial de flujo post-venta</strong>. Dónde: Chatwoot/automatizaciones. Quién: operaciones + CRM. Impacto: menos fricción para clientes que ya tienen iChef y no deberían pasar por un guion de venta. Prioridad: Alta.</li><br><li><strong>Instalar un playbook único de precio y cuotas</strong>. Dónde: ventas. Quién: supervisión comercial. Impacto: respuestas más rápidas y consistentes; menos improvisación. Prioridad: Alta.</li><br><li><strong>Hacer limpieza de backlog por antigüedad</strong>. Dónde: Todos los Canales. Quién: equipo operativo diario. Impacto: bajar riesgo de conversaciones abiertas envejecidas y mejorar percepción del servicio. Prioridad: Alta.</li><br><li><strong>Potenciar Portal/iChef Lovers en el onboarding</strong>. Dónde: post-venta y ventas. Quién: equipo de contenidos + post-venta. Impacto: más uso del portal, mayor fidelización y menos consultas repetidas básicas. Prioridad: Media.</li><br><li><strong>Auditar los picos diarios y su origen</strong>. Dónde: analítica comercial. Quién: gerencia + marketing. Impacto: entender qué campaña o fuente genera el salto de volumen para escalar mejor. Prioridad: Media.</li><br><li><strong>Crear una regla de etiquetado obligatoria para conversaciones sin clasificación</strong>. Dónde: Chatwoot/CRM. Quién: admin de operaciones. Impacto: mejorar visibilidad de embudo y evitar conversaciones &quot;?&quot; o sin agente. Prioridad: Media.</li></ul></p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-4" aria-expanded="true" aria-controls="acc-analisis-4">
+                    TEMPERATURA DE LA OPERACION
+                </button>
+            </h2>
+            <div id="acc-analisis-4" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">Le pongo un 6.5/10.<br>Justificación 1: el volumen está entrando y se está capturando bien el dato, con 227 conversaciones por Api (84.7%) y eventos IA que completan teléfono, país y etapa.<br>Justificación 2: hay demasiadas abiertas, 192 de 268 (71.6%), lo que baja la nota por riesgo de cola.<br>Justificación 3: la operación depende demasiado de una sola persona, 239 de 268 (89.2%) para Melany Fulco, lo que le quita robustez al sistema.</p><p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-analisis-5" aria-expanded="true" aria-controls="acc-analisis-5">
+                    TENDENCIAS Y PROYECCIONES
+                </button>
+            </h2>
+            <div id="acc-analisis-5" class="accordion-collapse collapse show" data-bs-parent="#accordion-analisis">
+                <div class="accordion-body">La tendencia visible es de caída progresiva del volumen diario: 100, 46, 38, 31, 28 y 25. Si no hay campaña nueva, lo razonable es esperar una semana siguiente más tranquila en volumen puro, pero con el problema de backlog todavía presente.<br>Si el patrón comercial sigue igual, los próximos días deberían seguir trayendo preguntas de precio, financiación e información general, porque es el principal disparador visible en la muestra.<br>Riesgo de corto plazo: si no se vacían las 192 abiertas, el embudo va a seguir acumulando conversaciones viejas y las oportunidades nuevas van a convivir con consultas atrasadas.<br>Medida preventiva: reservar una ventana diaria fija para limpiar abiertos y otra para leads nuevos, en vez de atender todo en una sola cola.<br>Medida preventiva adicional: revisar qué ocurrió el 21/7 para entender si el pico fue campaña, pauta, landing o derivación externa; si fue un éxito, conviene replicarlo pero con capacidad preparada.</p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 27 jul. 2026, 11:11 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

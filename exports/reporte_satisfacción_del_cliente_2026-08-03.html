@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Post-Venta iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">3 ago. 2026, 11:05 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Post-Venta iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">40</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">18</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">22</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">1</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">28/7/2026 - 2/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">40</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-07-30</td><td class="val">12</td></tr><tr><td class="lbl">2026-07-29</td><td class="val">8</td></tr><tr><td class="lbl">2026-07-28</td><td class="val">7</td></tr><tr><td class="lbl">2026-07-31</td><td class="val">6</td></tr><tr><td class="lbl">2026-08-02</td><td class="val">5</td></tr><tr><td class="lbl">2026-08-01</td><td class="val">2</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">40</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">0 <em>(0%)</em></span></div>
+<div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    Referidos — 0 conversaciones (0%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Recomendaciones a potenciales clientes — 0 conversaciones (0%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">28/7/2026 - 2/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Neiff Cardozo</td><td class="val">40 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">IChef Portal</td><td class="val">4 conv.</td></tr><tr><td class="lbl">Valentina Lavista</td><td class="val">3 conv.</td></tr><tr><td class="lbl">Marina Siniscalco</td><td class="val">2 conv.</td></tr><tr><td class="lbl">Katherin Garcia 🌸</td><td class="val">2 conv.</td></tr><tr><td class="lbl">ByGessi Sin gluten</td><td class="val">2 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;contexto_de_lectura&quot;:{&quot;periodo&quot;:&quot;28/7/2026 - 2/8/2026&quot;,&quot;equipo&quot;:&quot;Post-Venta iChef&quot;,&quot;total_conversaciones_periodo&quot;:40,&quot;muestra_disponible&quot;:25,&quot;canal&quot;:&quot;Api (40/40 = 100%)&quot;,&quot;limitacion&quot;:&quot;La muestra trae 25 conversaciones textuales; para cuantificar el periodo completo uso las estadísticas agregadas provistas y, cuando corresponde, aclaro que el hallazgo surge de la muestra.&quot;},&quot;motivos_de_contacto&quot;:[{&quot;motivo&quot;:&quot;Onboarding post-venta D+1 / D+7 / D+30&quot;,&quot;peso_sobre_total&quot;:&quot;6 de 40 (15%) en la muestra del período&quot;,&quot;patron&quot;:&quot;Es el flujo más repetido y el más estructurado. Aparecen consultas de primer uso, seguimiento y reactivación por etapas. La mayor parte de estas conversaciones entra por automatización y queda abierta sin respuesta humana visible.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15245&quot;,&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot; / \&quot;Primer contacto post-venta, verificar que recibió el Starter Pack y resolver dudas iniciales sobre configuración y primeras recetas.\&quot;&quot;},{&quot;id&quot;:&quot;#15217&quot;,&quot;nombre&quot;:&quot;Jorge Pelua&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot;&quot;},{&quot;id&quot;:&quot;#15343&quot;,&quot;nombre&quot;:&quot;Anabela&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+7\&quot; / \&quot;Consultar sobre la experiencia, recomendar recetas y funcionalidades de la app.\&quot;&quot;},{&quot;id&quot;:&quot;#15323&quot;,&quot;nombre&quot;:&quot;Cristina de Moraes&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+7\&quot;&quot;},{&quot;id&quot;:&quot;#15340&quot;,&quot;nombre&quot;:&quot;Diego Rochaguillen&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+30\&quot; / \&quot;Seguimiento mensual. Consultar recetas favoritas, ofrecer contenido nuevo y reforzar el uso de funcionalidades avanzadas.\&quot;&quot;}]},{&quot;motivo&quot;:&quot;Acceso a la comunidad iChef Lovers desde Portal&quot;,&quot;peso_sobre_total&quot;:&quot;5 de 40 (12.5%) en la muestra&quot;,&quot;patron&quot;:&quot;Hay una señal consistente de interés por comunidad/recetas/contenido. En varios casos el flujo nace desde el Portal de Recetas y se completa con actualización de Chatwoot y RD Station.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15341&quot;,&quot;nombre&quot;:&quot;Matilde Arbiza&quot;,&quot;frase&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;},{&quot;id&quot;:&quot;#15208&quot;,&quot;nombre&quot;:&quot;Pablo Sarasua&quot;,&quot;frase&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;},{&quot;id&quot;:&quot;#15213&quot;,&quot;nombre&quot;:&quot;Victoria Carolina Varela Gimenez&quot;,&quot;frase&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;},{&quot;id&quot;:&quot;#15125&quot;,&quot;nombre&quot;:&quot;Annia&quot;,&quot;frase&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;},{&quot;id&quot;:&quot;#15173&quot;,&quot;nombre&quot;:&quot;Lic. Psic. Grisel Marachlian&quot;,&quot;frase&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;}]},{&quot;motivo&quot;:&quot;Capacitaciones online y reprogramación por horarios&quot;,&quot;peso_sobre_total&quot;:&quot;3 de 40 (7.5%) en la muestra&quot;,&quot;patron&quot;:&quot;El interés por entrenamientos remotos aparece como necesidad real y como oportunidad comercial/fidelización. La limitante recurrente es el horario laboral del cliente.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15139&quot;,&quot;nombre&quot;:&quot;IChef Portal&quot;,&quot;frase&quot;:&quot;\&quot;hay una persona que quiere una capacitacion virtual trabaja en el dia y se le dificulta. Vos podes hacerla una desde tu casa???\&quot;&quot;},{&quot;id&quot;:&quot;#15147&quot;,&quot;nombre&quot;:&quot;Andrea Mizraji&quot;,&quot;frase&quot;:&quot;\&quot;tengo horarios que no son compatibles con los que tienen uds para la capacitación de 9- a 15\&quot;&quot;},{&quot;id&quot;:&quot;#15269&quot;,&quot;nombre&quot;:&quot;ByGessi Sin gluten&quot;,&quot;frase&quot;:&quot;\&quot;Te pongo representante de Ichef y algo más que quieras sumar?\&quot;&quot;}]},{&quot;motivo&quot;:&quot;Actualización del robot / manual / cómo hacerlo&quot;,&quot;peso_sobre_total&quot;:&quot;2 de 40 (5%) en la muestra&quot;,&quot;patron&quot;:&quot;Se repiten dudas de uso y mantenimiento. Son consultas de fricción baja-media, pero si no se resuelven rápido se transforman en mala experiencia y mayor dependencia del soporte.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15256&quot;,&quot;nombre&quot;:&quot;Sara&quot;,&quot;frase&quot;:&quot;\&quot;Me pasas el manual para actualizar el robot, porque no lo encuentro\&quot;&quot;},{&quot;id&quot;:&quot;#15168&quot;,&quot;nombre&quot;:&quot;Florencia Wohler&quot;,&quot;frase&quot;:&quot;\&quot;Me pasaron este cel para comunicarme porque tengo que actualizar mi ichef y no se como hacerlo\&quot;&quot;}]},{&quot;motivo&quot;:&quot;Consultas de uso / piezas / configuración física del equipo&quot;,&quot;peso_sobre_total&quot;:&quot;1 de 40 (2.5%) en la muestra&quot;,&quot;patron&quot;:&quot;Aparecen dudas sobre el estado correcto de componentes o sobre cómo debería estar armado el robot. No es un incidente crítico, pero sí un disparador típico de inseguridad de uso.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15329&quot;,&quot;nombre&quot;:&quot;Silvana Borges&quot;,&quot;frase&quot;:&quot;\&quot;En el otro robot esto no se sale es así o lo tendría que haber sacado el primer día?\&quot;&quot;}]},{&quot;motivo&quot;:&quot;Saludo / contacto inicial sin caso explícito&quot;,&quot;peso_sobre_total&quot;:&quot;5 de 40 (12.5%) en la muestra&quot;,&quot;patron&quot;:&quot;Hay varios ingresos donde el cliente abre con un saludo genérico y todavía no explicita el problema. Esto sugiere que el primer toque del agente es clave para destrabar el motivo real.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15197&quot;,&quot;nombre&quot;:&quot;Maria Tejera&quot;,&quot;frase&quot;:&quot;\&quot;Buenas tardes como estás?\&quot;&quot;},{&quot;id&quot;:&quot;#15122&quot;,&quot;nombre&quot;:&quot;Freddy Pizarro Mutte&quot;,&quot;frase&quot;:&quot;\&quot;Hola buenas tardes!!\&quot;&quot;},{&quot;id&quot;:&quot;#15156&quot;,&quot;nombre&quot;:&quot;Matias&quot;,&quot;frase&quot;:&quot;\&quot;¡Hola Neiff! Tengo una consulta ☺️\&quot;&quot;},{&quot;id&quot;:&quot;#15251&quot;,&quot;nombre&quot;:&quot;Andrés Gerard&quot;,&quot;frase&quot;:&quot;\&quot;¡Hola Neiff! Tengo una consulta ☺️\&quot;&quot;},{&quot;id&quot;:&quot;#15291&quot;,&quot;nombre&quot;:&quot;Andrea Mizraji&quot;,&quot;frase&quot;:&quot;\&quot;Hola Neiff\&quot;&quot;}]}],&quot;productos_servicios_mencionados&quot;:[{&quot;item&quot;:&quot;iChef robot&quot;,&quot;presencia_en_muestra&quot;:&quot;Alta&quot;,&quot;comentario&quot;:&quot;Es el centro de casi todas las conversaciones, aunque muchas no describen una falla sino el uso cotidiano.&quot;},{&quot;item&quot;:&quot;Starter Pack&quot;,&quot;presencia_en_muestra&quot;:&quot;Media&quot;,&quot;comentario&quot;:&quot;Aparece explícitamente en onboarding D+1 como parte del chequeo inicial.&quot;},{&quot;item&quot;:&quot;Manual / ayuda para actualizar&quot;,&quot;presencia_en_muestra&quot;:&quot;Alta&quot;,&quot;comentario&quot;:&quot;Es uno de los puntos de fricción más concretos.&quot;},{&quot;item&quot;:&quot;Portal de Recetas&quot;,&quot;presencia_en_muestra&quot;:&quot;Alta&quot;,&quot;comentario&quot;:&quot;Es una fuente directa de demanda hacia comunidad y acceso a iChef Lovers.&quot;},{&quot;item&quot;:&quot;iChef Lovers&quot;,&quot;presencia_en_muestra&quot;:&quot;Alta&quot;,&quot;comentario&quot;:&quot;La comunidad aparece como beneficio y como motivo de contacto.&quot;},{&quot;item&quot;:&quot;Capacitación online / virtual&quot;,&quot;presencia_en_muestra&quot;:&quot;Media&quot;,&quot;comentario&quot;:&quot;Se repite como oportunidad de servicio y fidelización.&quot;},{&quot;item&quot;:&quot;App iChef / funcionalidades avanzadas&quot;,&quot;presencia_en_muestra&quot;:&quot;Media&quot;,&quot;comentario&quot;:&quot;Aparece dentro de los scripts de onboarding, pero en la muestra no hay una queja técnica específica sobre la app.&quot;},{&quot;item&quot;:&quot;Garantía 24 meses&quot;,&quot;presencia_en_muestra&quot;:&quot;Baja&quot;,&quot;comentario&quot;:&quot;No aparece mencionada explícitamente en la muestra.&quot;},{&quot;item&quot;:&quot;Servicio técnico CNS&quot;,&quot;presencia_en_muestra&quot;:&quot;Nula en la muestra&quot;,&quot;comentario&quot;:&quot;No hay referencias textuales en las 25 conversaciones compartidas.&quot;},{&quot;item&quot;:&quot;iChef Center / Tienda Inglesa / Geant / Mercado Libre / Santander&quot;,&quot;presencia_en_muestra&quot;:&quot;Nula en la muestra&quot;,&quot;comentario&quot;:&quot;No aparecen como canal de origen o de derivación en este extracto.&quot;},{&quot;item&quot;:&quot;Accesorios, repuestos, vaporera, balanza&quot;,&quot;presencia_en_muestra&quot;:&quot;Nula en la muestra&quot;,&quot;comentario&quot;:&quot;No se ven menciones directas en el material compartido.&quot;}],&quot;etapa_del_cliente_en_el_journey&quot;:[{&quot;etapa&quot;:&quot;Leads / captación&quot;,&quot;peso_sobre_total&quot;:&quot;11 de 40 etiquetadas como lead (27.5%)&quot;,&quot;lectura&quot;:&quot;La captación desde Portal y comunidades está activa, pero el valor está en convertir esa señal en onboarding y uso real.&quot;},{&quot;etapa&quot;:&quot;MQL&quot;,&quot;peso_sobre_total&quot;:&quot;5 de 40 etiquetadas como mql (12.5%)&quot;,&quot;lectura&quot;:&quot;Hay tráfico calificado de interés, aunque la muestra no deja ver métricas de conversión posteriores.&quot;},{&quot;etapa&quot;:&quot;Oportunidad&quot;,&quot;peso_sobre_total&quot;:&quot;2 de 40 etiquetadas como oportunidad (5%)&quot;,&quot;lectura&quot;:&quot;Es un volumen bajo dentro del período y conviene revisar si se está sub-registrando en el flujo.&quot;},{&quot;etapa&quot;:&quot;Cliente activo / posventa&quot;,&quot;peso_sobre_total&quot;:&quot;22 de 40 etiquetadas como cliente (55%)&quot;,&quot;lectura&quot;:&quot;Predomina el trabajo de acompañamiento a clientes ya instalados, lo cual es consistente con Post-Venta.&quot;},{&quot;etapa&quot;:&quot;Clientes con iChef&quot;,&quot;peso_sobre_total&quot;:&quot;20 de 40 etiquetadas como tiene_ichef (50%)&quot;,&quot;lectura&quot;:&quot;La mitad del período trabaja sobre base instalada. Esto es bueno para fidelización, pero exige foco en resolución y autoservicio.&quot;}],&quot;patrones_repetitivos&quot;:[{&quot;patron&quot;:&quot;Automatización que dispara seguimiento, pero el caso queda abierto&quot;,&quot;evidencia&quot;:&quot;En varias conversaciones sólo aparecen mensajes de onboarding o de portal sin respuesta humana posterior visible.&quot;,&quot;impacto&quot;:&quot;Se genera backlog y sensación de espera en un canal que el cliente percibe como inmediato.&quot;},{&quot;patron&quot;:&quot;La comunidad iChef Lovers funciona como anzuelo de valor&quot;,&quot;evidencia&quot;:&quot;La frase repetida \&quot;Solicitud de Acceso a la comunidad iChef Lovers\&quot; aparece en múltiples tickets.&quot;,&quot;impacto&quot;:&quot;Es un activo de fidelización, pero también un flujo operativo que hay que cerrar bien.&quot;},{&quot;patron&quot;:&quot;Las dudas de uso son más frecuentes que las fallas duras&quot;,&quot;evidencia&quot;:&quot;\&quot;Me pasas el manual para actualizar el robot\&quot; y \&quot;no se como hacerlo\&quot; son más frecuentes que reclamos de rotura.&quot;,&quot;impacto&quot;:&quot;La operación debería priorizar contenido de ayuda antes que intervención caso a caso.&quot;},{&quot;patron&quot;:&quot;Horarios y formato de capacitación son barrera recurrente&quot;,&quot;evidencia&quot;:&quot;\&quot;trabaja en el dia\&quot; / \&quot;horarios que no son compatibles\&quot;.&quot;,&quot;impacto&quot;:&quot;Existe demanda potencial de capacitación asincrónica o nocturna.&quot;},{&quot;patron&quot;:&quot;El saludo inicial suele ser genérico&quot;,&quot;evidencia&quot;:&quot;\&quot;Hola Neiff\&quot; / \&quot;Tengo una consulta\&quot; / \&quot;Buenas tardes como estás?\&quot;&quot;,&quot;impacto&quot;:&quot;El agente necesita guiar más rápido al motivo real para evitar intercambios largos y poco productivos.&quot;}],&quot;reclamos_quejas_incidencias&quot;:[{&quot;id&quot;:&quot;#15256&quot;,&quot;nombre&quot;:&quot;Sara&quot;,&quot;frase&quot;:&quot;\&quot;Me pasas el manual para actualizar el robot, porque no lo encuentro\&quot;&quot;,&quot;tipo&quot;:&quot;Fricción de autoservicio&quot;,&quot;accion_propuesta&quot;:&quot;Responder con un macro que incluya el manual, el link directo y un video corto de actualización.&quot;},{&quot;id&quot;:&quot;#15168&quot;,&quot;nombre&quot;:&quot;Florencia Wohler&quot;,&quot;frase&quot;:&quot;\&quot;tengo que actualizar mi ichef y no se como hacerlo\&quot;&quot;,&quot;tipo&quot;:&quot;Fricción de uso / actualización&quot;,&quot;accion_propuesta&quot;:&quot;Derivar a una guía paso a paso y validar si el equipo ya pasó por soporte previo.&quot;},{&quot;id&quot;:&quot;#15329&quot;,&quot;nombre&quot;:&quot;Silvana Borges&quot;,&quot;frase&quot;:&quot;\&quot;En el otro robot esto no se sale es así o lo tendría que haber sacado el primer día?\&quot;&quot;,&quot;tipo&quot;:&quot;Duda de armado o uso&quot;,&quot;accion_propuesta&quot;:&quot;Responder con instrucción visual y una foto de referencia del componente.&quot;},{&quot;id&quot;:&quot;#15139&quot;,&quot;nombre&quot;:&quot;IChef Portal&quot;,&quot;frase&quot;:&quot;\&quot;hay una persona que quiere una capacitacion virtual trabaja en el dia y se le dificulta. Vos podes hacerla una desde tu casa???\&quot;&quot;,&quot;tipo&quot;:&quot;Oportunidad de servicio&quot;,&quot;accion_propuesta&quot;:&quot;Definir política formal de capacitaciones remotas, con cupos y agenda.&quot;}],&quot;casos_destacados&quot;:[{&quot;id&quot;:&quot;#15147&quot;,&quot;nombre&quot;:&quot;Andrea Mizraji&quot;,&quot;hallazgo&quot;:&quot;Caso claro de necesidad horaria que puede transformarse en producto.&quot;,&quot;evidencia&quot;:&quot;\&quot;tengo horarios que no son compatibles con los que tienen uds para la capacitación de 9- a 15\&quot;&quot;},{&quot;id&quot;:&quot;#15125&quot;,&quot;nombre&quot;:&quot;Annia&quot;,&quot;hallazgo&quot;:&quot;Ingreso por portal con datos parciales, útil para medir calidad de captura.&quot;,&quot;evidencia&quot;:&quot;\&quot;Email: nyimann@gmail.co\&quot;&quot;},{&quot;id&quot;:&quot;#15269&quot;,&quot;nombre&quot;:&quot;ByGessi Sin gluten&quot;,&quot;hallazgo&quot;:&quot;Interacción con potencial de contenido/UGC/representación de marca.&quot;,&quot;evidencia&quot;:&quot;\&quot;Te pongo representante de Ichef y algo más que quieras sumar?\&quot;&quot;},{&quot;id&quot;:&quot;#15257&quot;,&quot;nombre&quot;:&quot;Marce&quot;,&quot;hallazgo&quot;:&quot;Anomalía de conversación vacía o borrada.&quot;,&quot;evidencia&quot;:&quot;\&quot;Este mensaje se ha eliminado\&quot;&quot;},{&quot;id&quot;:&quot;#15189&quot;,&quot;nombre&quot;:&quot;sandra sum&quot;,&quot;hallazgo&quot;:&quot;Caso que termina en derivación telefónica.&quot;,&quot;evidencia&quot;:&quot;\&quot;Te llamo Sandra\&quot;&quot;}]}</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;sin_respuesta_del_agente&quot;:[{&quot;id&quot;:&quot;#15343&quot;,&quot;nombre&quot;:&quot;Anabela&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+7\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15245&quot;,&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15340&quot;,&quot;nombre&quot;:&quot;Diego Rochaguillen&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+30\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15217&quot;,&quot;nombre&quot;:&quot;Jorge Pelua&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15330&quot;,&quot;nombre&quot;:&quot;Victoria Montero&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15323&quot;,&quot;nombre&quot;:&quot;Cristina de Moraes&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+7\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15341&quot;,&quot;nombre&quot;:&quot;Matilde Arbiza&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15173&quot;,&quot;nombre&quot;:&quot;Lic. Psic. Grisel Marachlian&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15208&quot;,&quot;nombre&quot;:&quot;Pablo Sarasua&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15329&quot;,&quot;nombre&quot;:&quot;Silvana Borges&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;Estimada iChef lovers. Nuestro horario de atención es de lunes a Sábados de 13:15 a 21 hs. Nos comunicaremos a la brevedad.\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;},{&quot;id&quot;:&quot;#15257&quot;,&quot;nombre&quot;:&quot;Marce&quot;,&quot;ultimo_mensaje_visible&quot;:&quot;\&quot;Este mensaje se ha eliminado\&quot;&quot;,&quot;estado_en_muestra&quot;:&quot;open&quot;,&quot;tiempo_transcurrido&quot;:&quot;No disponible en la exportación compartida&quot;}],&quot;insatisfaccion_detectada&quot;:[{&quot;id&quot;:&quot;#15168&quot;,&quot;nombre&quot;:&quot;Florencia Wohler&quot;,&quot;frase&quot;:&quot;\&quot;no se como hacerlo\&quot;&quot;,&quot;causa_raiz_inferida&quot;:&quot;Falta de guía de actualización clara y accesible.&quot;},{&quot;id&quot;:&quot;#15256&quot;,&quot;nombre&quot;:&quot;Sara&quot;,&quot;frase&quot;:&quot;\&quot;porque no lo encuentro\&quot;&quot;,&quot;causa_raiz_inferida&quot;:&quot;El material de soporte existe pero no está siendo encontrado rápido.&quot;},{&quot;id&quot;:&quot;#15329&quot;,&quot;nombre&quot;:&quot;Silvana Borges&quot;,&quot;frase&quot;:&quot;\&quot;En el otro robot esto no se sale\&quot;&quot;,&quot;causa_raiz_inferida&quot;:&quot;Duda de armado/uso que puede generar inseguridad o percepción de defecto.&quot;}],&quot;casos_urgentes&quot;:[{&quot;id&quot;:&quot;#15340&quot;,&quot;nombre&quot;:&quot;Diego Rochaguillen&quot;,&quot;prioridad&quot;:&quot;Media&quot;,&quot;motivo&quot;:&quot;Onboarding D+30 abierto sin respuesta visible; si el cliente ya pasó un mes y sigue sin interacción, el riesgo de abandono aumenta.&quot;},{&quot;id&quot;:&quot;#15245&quot;,&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;prioridad&quot;:&quot;Media&quot;,&quot;motivo&quot;:&quot;Onboarding D+1 abierto; es el momento más sensible del journey.&quot;},{&quot;id&quot;:&quot;#15256&quot;,&quot;nombre&quot;:&quot;Sara&quot;,&quot;prioridad&quot;:&quot;Media&quot;,&quot;motivo&quot;:&quot;No encuentra el manual de actualización; si no se resuelve rápido, se frena el uso.&quot;}],&quot;contactos_recurrentes&quot;:[{&quot;nombre&quot;:&quot;IChef Portal&quot;,&quot;cantidad_en_periodo&quot;:&quot;4&quot;,&quot;peso_sobre_total&quot;:&quot;10%&quot;,&quot;lectura&quot;:&quot;Es un hub recurrente de solicitudes de comunidad, recetas y capacitación.&quot;},{&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;cantidad_en_periodo&quot;:&quot;3&quot;,&quot;peso_sobre_total&quot;:&quot;7.5%&quot;,&quot;lectura&quot;:&quot;Requiere seguimiento de onboarding; es un caso sensible porque aparece temprano en el ciclo.&quot;},{&quot;nombre&quot;:&quot;Marina Siniscalco&quot;,&quot;cantidad_en_periodo&quot;:&quot;2&quot;,&quot;peso_sobre_total&quot;:&quot;5%&quot;,&quot;lectura&quot;:&quot;Repetición moderada; conviene revisar si quedó algo pendiente.&quot;},{&quot;nombre&quot;:&quot;Katherin Garcia 🌸&quot;,&quot;cantidad_en_periodo&quot;:&quot;2&quot;,&quot;peso_sobre_total&quot;:&quot;5%&quot;,&quot;lectura&quot;:&quot;Repetición moderada; no hay suficiente detalle textual para inferir problema crónico.&quot;},{&quot;nombre&quot;:&quot;ByGessi Sin gluten&quot;,&quot;cantidad_en_periodo&quot;:&quot;2&quot;,&quot;peso_sobre_total&quot;:&quot;5%&quot;,&quot;lectura&quot;:&quot;Repetición asociada a interacción de marca/representación, más que a reclamo.&quot;},{&quot;nombre&quot;:&quot;Andrea Mizraji&quot;,&quot;cantidad_en_periodo&quot;:&quot;2&quot;,&quot;peso_sobre_total&quot;:&quot;5%&quot;,&quot;lectura&quot;:&quot;Aparece dos veces en la muestra por el mismo tema de capacitación horaria.&quot;}],&quot;sin_agente_asignado&quot;:{&quot;conteo&quot;:&quot;0 de 40&quot;,&quot;comentario&quot;:&quot;No se observan conversaciones sin responsable; todas están asignadas a Neiff Cardozo.&quot;},&quot;canales_con_problemas&quot;:{&quot;canal&quot;:&quot;Api&quot;,&quot;hallazgo&quot;:&quot;No hay problema de canal en sí; el 100% del volumen entra por Api.&quot;,&quot;riesgo_operativo&quot;:&quot;El riesgo está en la saturación del flujo automatizado y no en la tecnología del canal.&quot;},&quot;riesgos_potenciales&quot;:[{&quot;riesgo&quot;:&quot;Acumulación de conversaciones abiertas&quot;,&quot;detalle&quot;:&quot;18 de 40 (45%) siguen abiertas en el período. Si se mantiene esta tasa, el backlog puede crecer.&quot;},{&quot;riesgo&quot;:&quot;Dependencia de una sola persona&quot;,&quot;detalle&quot;:&quot;Neiff Cardozo atiende 40 de 40 conversaciones (100%).&quot;},{&quot;riesgo&quot;:&quot;Demasiadas respuestas tipo macro&quot;,&quot;detalle&quot;:&quot;El texto de horario de atención aparece repetido y puede estar sustituyendo resolución real.&quot;},{&quot;riesgo&quot;:&quot;Datos de contacto incompletos&quot;,&quot;detalle&quot;:&quot;Casos como \&quot;59897106846\&quot; o nombres parciales dificultan la trazabilidad.&quot;},{&quot;riesgo&quot;:&quot;Conversión débil desde Portal&quot;,&quot;detalle&quot;:&quot;Hay muchas solicitudes de acceso a iChef Lovers, pero no vemos la etapa posterior de activación o compra.&quot;}]}</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;resumen_ejecutivo&quot;:{&quot;diagnostico&quot;:&quot;Post-Venta iChef muestra una operación funcional pero muy concentrada y con backlog visible.&quot;,&quot;lectura&quot;:&quot;En 40 conversaciones del período, 22 están cerradas (55%) y 18 abiertas (45%). El volumen llega 100% por Api y lo maneja un único agente, Neiff Cardozo (40/40).&quot;,&quot;mensaje_clave&quot;:&quot;La operación no está en crisis por calidad de producto; el principal problema es de capacidad, priorización y velocidad de respuesta sobre temas de onboarding y autoservicio.&quot;},&quot;insights_clave&quot;:[{&quot;titulo&quot;:&quot;Carga totalmente concentrada en un solo agente&quot;,&quot;dato&quot;:&quot;Neiff Cardozo atendió 40 de 40 conversaciones (100%).&quot;,&quot;por_que_importa&quot;:&quot;Si Neiff se ausenta, el servicio se frena. Esto no es eficiente para una operación con 18 chats abiertos.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;Todas&quot;,&quot;nombre&quot;:&quot;Neiff Cardozo&quot;,&quot;frase&quot;:&quot;\&quot;Agente: Neiff Cardozo\&quot;&quot;}]},{&quot;titulo&quot;:&quot;El backlog abierto es alto para la escala del equipo&quot;,&quot;dato&quot;:&quot;18 de 40 conversaciones están abiertas (45%).&quot;,&quot;por_que_importa&quot;:&quot;Para posventa, un 45% abierto sugiere que el ciclo de resolución está por encima de lo ideal y que hay casos esperando demasiado.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15245&quot;,&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+1\&quot;&quot;},{&quot;id&quot;:&quot;#15340&quot;,&quot;nombre&quot;:&quot;Diego Rochaguillen&quot;,&quot;frase&quot;:&quot;\&quot;📋 Onboarding - Cliente en la etapa D+30\&quot;&quot;}]},{&quot;titulo&quot;:&quot;La base instalada domina el trabajo&quot;,&quot;dato&quot;:&quot;22 de 40 (55%) tienen etiqueta cliente y 20 de 40 (50%) tienen_iChef.&quot;,&quot;por_que_importa&quot;:&quot;Post-Venta está haciendo lo correcto en términos de acompañamiento a clientes reales, pero eso exige respuestas rápidas y material de ayuda muy claro.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15256&quot;,&quot;nombre&quot;:&quot;Sara&quot;,&quot;frase&quot;:&quot;\&quot;Me pasas el manual para actualizar el robot, porque no lo encuentro\&quot;&quot;}]},{&quot;titulo&quot;:&quot;El onboarding aparece como el flujo más sensible&quot;,&quot;dato&quot;:&quot;Al menos 6 de 40 conversaciones (15%) son onboarding D+1/D+7/D+30 visibles en la muestra.&quot;,&quot;por_que_importa&quot;:&quot;Son los momentos donde más se define la retención y la recomendación futura.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15245&quot;,&quot;nombre&quot;:&quot;Valentina Lavista&quot;,&quot;frase&quot;:&quot;\&quot;Primer contacto post-venta\&quot;&quot;},{&quot;id&quot;:&quot;#15343&quot;,&quot;nombre&quot;:&quot;Anabela&quot;,&quot;frase&quot;:&quot;\&quot;Seguimiento después de una semana de uso\&quot;&quot;}]},{&quot;titulo&quot;:&quot;La comunidad iChef Lovers está funcionando como imán de valor&quot;,&quot;dato&quot;:&quot;5 de 40 conversaciones (12.5%) se relacionan con acceso a iChef Lovers desde Portal.&quot;,&quot;por_que_importa&quot;:&quot;La comunidad no es sólo contenido; es un motivo concreto de contacto y una oportunidad de fidelización.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15341&quot;,&quot;nombre&quot;:&quot;Matilde Arbiza&quot;,&quot;frase&quot;:&quot;\&quot;Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas\&quot;&quot;}]},{&quot;titulo&quot;:&quot;Hay fricción de autoservicio en actualizaciones y manuales&quot;,&quot;dato&quot;:&quot;2 de 40 (5%) consultan por manual o actualización; en la práctica, son más porque la muestra es parcial.&quot;,&quot;por_que_importa&quot;:&quot;Este tipo de consulta es barata de resolver si existe contenido bien indexado; cara si obliga a intervención manual.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15168&quot;,&quot;nombre&quot;:&quot;Florencia Wohler&quot;,&quot;frase&quot;:&quot;\&quot;no se como hacerlo\&quot;&quot;}]},{&quot;titulo&quot;:&quot;La capacitación online aparece como oportunidad de monetización/fidelización&quot;,&quot;dato&quot;:&quot;3 de 40 (7.5%) piden o conversan sobre capacitación virtual.&quot;,&quot;por_que_importa&quot;:&quot;Hay demanda real para sesiones remotas y flexibles; eso puede mejorar adopción y reducir tickets repetitivos.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15139&quot;,&quot;nombre&quot;:&quot;IChef Portal&quot;,&quot;frase&quot;:&quot;\&quot;Vos podes hacerla una desde tu casa???\&quot;&quot;},{&quot;id&quot;:&quot;#15147&quot;,&quot;nombre&quot;:&quot;Andrea Mizraji&quot;,&quot;frase&quot;:&quot;\&quot;tengo horarios que no son compatibles\&quot;&quot;}]},{&quot;titulo&quot;:&quot;Hay señales de calidad de datos mejorable&quot;,&quot;dato&quot;:&quot;Aparecen registros con nombre parcial o poco consistente, por ejemplo \&quot;Marce\&quot; o un teléfono como nombre visible.&quot;,&quot;por_que_importa&quot;:&quot;Sin datos limpios, se complica el seguimiento de CRM, la trazabilidad y la automatización de posventa.&quot;,&quot;evidencia&quot;:[{&quot;id&quot;:&quot;#15257&quot;,&quot;nombre&quot;:&quot;Marce&quot;,&quot;frase&quot;:&quot;\&quot;Este mensaje se ha eliminado\&quot;&quot;},{&quot;id&quot;:&quot;#15125&quot;,&quot;nombre&quot;:&quot;Annia&quot;,&quot;frase&quot;:&quot;\&quot;59897106846\&quot;&quot;}]}],&quot;recomendaciones&quot;:[{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Crear una cola exclusiva de onboarding D+1/D+7/D+30 con SLA de respuesta.&quot;,&quot;donde&quot;:&quot;Post-Venta / Api&quot;,&quot;quien&quot;:&quot;Líder operativo + Neiff Cardozo + backup designado&quot;,&quot;impacto_esperado&quot;:&quot;Bajar el backlog abierto y mejorar retención temprana.&quot;,&quot;detalle&quot;:&quot;Los casos como Valentina Lavista (#15245), Jorge Pelua (#15217) y Diego Rochaguillen (#15340) no deberían quedar sólo con automatización.&quot;},{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Armar macros con links directos a manual de actualización, video corto y FAQ.&quot;,&quot;donde&quot;:&quot;Post-Venta / soporte de autoservicio&quot;,&quot;quien&quot;:&quot;Operaciones + contenido + soporte&quot;,&quot;impacto_esperado&quot;:&quot;Resolver en el primer toque las consultas de Sara (#15256) y Florencia Wohler (#15168).&quot;,&quot;detalle&quot;:&quot;La meta es que no dependan de respuestas manuales para un problema repetitivo.&quot;},{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Definir backup operativo para Neiff Cardozo y una segunda persona entrenada.&quot;,&quot;donde&quot;:&quot;Equipo Post-Venta&quot;,&quot;quien&quot;:&quot;Gerencia operativa&quot;,&quot;impacto_esperado&quot;:&quot;Reducir riesgo de continuidad y evitar un punto único de falla.&quot;,&quot;detalle&quot;:&quot;Hoy hay 40/40 conversaciones asignadas a un único agente.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Convertir la demanda de capacitación virtual en producto formal.&quot;,&quot;donde&quot;:&quot;Post-Venta + Ventas&quot;,&quot;quien&quot;:&quot;Operaciones + comercial&quot;,&quot;impacto_esperado&quot;:&quot;Mejor adopción, menos fricción por horarios y mayor satisfacción.&quot;,&quot;detalle&quot;:&quot;Casos como IChef Portal (#15139) y Andrea Mizraji (#15147) muestran disposición a pagar/coordinar por este servicio.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Revisar el flujo Portal -&gt; iChef Lovers -&gt; Chatwoot -&gt; RD Station para asegurar que se complete la activación.&quot;,&quot;donde&quot;:&quot;Portal / CRM / Automatizaciones&quot;,&quot;quien&quot;:&quot;Equipo de automatización + CRM&quot;,&quot;impacto_esperado&quot;:&quot;Mejor conversión de leads y menor fuga entre sistemas.&quot;,&quot;detalle&quot;:&quot;Se observan múltiples solicitudes de acceso pero no se ve el cierre del ciclo.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Implementar una regla de limpieza de datos de contacto desde Portal.&quot;,&quot;donde&quot;:&quot;Formulario web / portal&quot;,&quot;quien&quot;:&quot;Producto + CRM&quot;,&quot;impacto_esperado&quot;:&quot;Mejor trazabilidad y menos tickets con nombres parciales o teléfonos como identificador.&quot;,&quot;detalle&quot;:&quot;Casos como Annia (#15125) o Marce (#15257) muestran riesgo de datos incompletos.&quot;},{&quot;prioridad&quot;:&quot;Baja&quot;,&quot;que_hacer&quot;:&quot;Publicar una mini-pieza de contenido sobre 'cómo actualizar tu iChef' dentro del portal y la comunidad.&quot;,&quot;donde&quot;:&quot;Portal de recetas + iChef Lovers&quot;,&quot;quien&quot;:&quot;Contenido / comunidad&quot;,&quot;impacto_esperado&quot;:&quot;Menos consultas repetidas sobre el mismo tema.&quot;,&quot;detalle&quot;:&quot;Ayudaría a bajar consultas como las de Sara (#15256) y Florencia Wohler (#15168).&quot;},{&quot;prioridad&quot;:&quot;Baja&quot;,&quot;que_hacer&quot;:&quot;Marcar y revisar todos los casos abiertos de la semana con checklist de cierre.&quot;,&quot;donde&quot;:&quot;Tablero operativo diario&quot;,&quot;quien&quot;:&quot;Líder de turno&quot;,&quot;impacto_esperado&quot;:&quot;Evitar que queden chats sin seguimiento.&quot;,&quot;detalle&quot;:&quot;Especialmente importante para Anabela (#15343), Pablo Sarasua (#15208) y Grisel Marachlian (#15173).&quot;}],&quot;temperatura_de_la_operacion&quot;:{&quot;score_sobre_10&quot;:6.5,&quot;justificacion&quot;:[&quot;Hay una tasa de cierre aceptable (22 de 40 = 55%), pero el 45% abierto sigue siendo alto.&quot;,&quot;Todo el volumen está concentrado en un solo agente (40/40), lo que eleva el riesgo operativo.&quot;,&quot;La mayoría de los casos son de fricción baja o media, no crisis técnicas graves; eso indica que la operación puede mejorar rápido con mejores macros y priorización.&quot;]},&quot;tendencias_y_proyecciones&quot;:{&quot;proxima_semana&quot;:&quot;Si no cambia el esquema, lo más probable es que el volumen se mantenga en un rango similar, con picos en onboarding y solicitudes desde Portal.&quot;,&quot;riesgo&quot;:&quot;La cola abierta puede seguir creciendo si no se acelera la respuesta a D+1/D+7 y a las solicitudes de comunidad.&quot;,&quot;medidas_preventivas&quot;:[&quot;Crear macros de respuesta para manual/actualización y comunidad.&quot;,&quot;Asignar un backup a Neiff.&quot;,&quot;Cerrar diariamente los onboards abiertos más antiguos.&quot;,&quot;Formalizar la capacitación virtual como oferta estándar.&quot;]}}</p></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 3 ago. 2026, 11:05 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

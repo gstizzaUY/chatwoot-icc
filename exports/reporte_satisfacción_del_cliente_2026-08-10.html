@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>iChef Analytics — Post-Venta iChef</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #509F2C;
+            --primary-light: #eef7ea;
+            --secondary: #37564E;
+            --secondary-light: #e8eeec;
+            --coral: #FC846B;
+            --coral-light: #fff0ed;
+            --success: #509F2C;
+            --success-light: #eef7ea;
+            --warning: #FC846B;
+            --warning-light: #fff0ed;
+            --danger: #FC846B;
+            --danger-light: #fff0ed;
+            --info: #37564E;
+            --info-light: #e8eeec;
+            --purple: #37564E;
+            --purple-light: #e8eeec;
+            --dark: #373737;
+            --gray: #6b7280;
+            --light-bg: #f8faf7;
+            --card-border: #e5ebe3;
+        }
+        body { background: var(--light-bg); color: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+        .container { max-width: 1280px; }
+
+        .hero-i { 
+            background: linear-gradient(135deg, #37564E 0%, #509F2C 100%); 
+            padding: 32px 0 28px; 
+            color: white; 
+            box-shadow: 0 4px 20px rgba(55,86,78,0.18);
+        }
+        .hero-i .brand { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+        .hero-i .brand span { color: #FC846B; }
+        .hero-i h1 { font-size: 1.75rem; font-weight: 700; margin-top: 18px; margin-bottom: 4px; }
+        .hero-i .subtitle { opacity: .8; font-size: .9rem; color: rgba(255,255,255,.9); }
+        .hero-i .date { opacity: .85; font-size: .85rem; font-weight: 500; }
+
+        .kpi-card { 
+            background: #fff; 
+            border-radius: 14px; 
+            padding: 20px 18px; 
+            border: 1px solid var(--card-border); 
+            box-shadow: 0 2px 8px rgba(55,86,78,0.06);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            height: 100%;
+            position: relative;
+            overflow: hidden;
+        }
+        .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(55,86,78,0.1); }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--primary);
+        }
+        .kpi-card.green::before { background: var(--secondary); }
+        .kpi-card.accent::before { background: var(--coral); }
+        .kpi-card .kpi-val { font-size: 1.8rem; font-weight: 800; color: var(--dark); line-height: 1.2; }
+        .kpi-card .kpi-lbl { font-size: .68rem; color: var(--gray); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; margin-top: 6px; }
+        .kpi-card.green .kpi-val { color: var(--secondary); }
+        .kpi-card.accent .kpi-val { color: var(--coral); }
+        .kpi-icon {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            background: var(--primary-light);
+            color: var(--primary);
+        }
+        .kpi-card.green .kpi-icon { background: var(--secondary-light); color: var(--secondary); }
+        .kpi-card.accent .kpi-icon { background: var(--coral-light); color: var(--coral); }
+
+        .card-dash { 
+            border-radius: 14px; 
+            border: 1px solid var(--card-border); 
+            overflow: hidden; 
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(55,86,78,0.05);
+            transition: box-shadow 0.2s ease;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .card-dash:hover { box-shadow: 0 8px 20px rgba(55,86,78,0.1); }
+        .card-dash .card-header { 
+            background: #fff; 
+            border-bottom: 1px solid var(--card-border); 
+            font-weight: 700; 
+            font-size: .92rem; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            padding: 14px 18px;
+            color: var(--dark);
+            flex-shrink: 0;
+        }
+        .card-dash .card-body { 
+            padding: 14px 18px; 
+            font-size: .82rem; 
+            line-height: 1.5; 
+            color: #2d3348; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            flex: 1 1 auto;
+        }
+        .card-dash .card-body strong { color: var(--dark); font-weight: 700; }
+        .card-dash .card-body p { margin-bottom: 0.7rem; }
+        .card-dash .card-body p:last-child { margin-bottom: 0; }
+        .card-dash.error { border-left: 4px solid var(--coral); }
+
+        .icon-i { width: 34px; height: 34px; border-radius: 10px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+        .icon-i.blue { background: var(--primary-light); color: var(--primary); }
+        .icon-i.green { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.amber { background: var(--coral-light); color: var(--coral); }
+        .icon-i.purple { background: var(--secondary-light); color: var(--secondary); }
+        .icon-i.teal { background: var(--info-light); color: var(--info); }
+        .icon-i.red { background: var(--coral-light); color: var(--coral); }
+
+        .subtitle { 
+            font-size: .68rem; 
+            font-weight: 800; 
+            text-transform: uppercase; 
+            letter-spacing: .6px; 
+            color: var(--primary); 
+            margin: 12px 0 8px; 
+            padding-bottom: 4px; 
+            border-bottom: 1px solid var(--primary-light);
+        }
+        .subtitle:first-child { margin-top: 0; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 7px 0; font-size: .85rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .card-list { padding-left: 0; list-style: none; margin: 6px 0 8px; }
+        .card-list li { 
+            position: relative; 
+            padding: 4px 0 4px 16px; 
+            margin-bottom: 3px; 
+            font-size: .8rem; 
+            overflow-wrap: break-word; 
+            word-break: break-word; 
+            line-height: 1.45;
+        }
+        .card-list li::before { 
+            content: ''; 
+            position: absolute; 
+            left: 0; 
+            top: 9px; 
+            width: 6px; 
+            height: 6px; 
+            border-radius: 50%; 
+            background: var(--primary); 
+        }
+        .card-list li strong { color: var(--dark); }
+
+        .accordion-i { --bs-accordion-bg: transparent; --bs-accordion-border-width: 0; --bs-accordion-btn-padding-x: 0; --bs-accordion-btn-padding-y: 6px; --bs-accordion-btn-bg: transparent; --bs-accordion-active-bg: transparent; --bs-accordion-active-color: var(--dark); --bs-accordion-btn-focus-box-shadow: none; --bs-accordion-body-padding-x: 0; --bs-accordion-body-padding-y: 4px; }
+        .accordion-i .accordion-item { background: transparent; border: none; border-bottom: 1px solid #f0f2f5; }
+        .accordion-i .accordion-item:last-child { border-bottom: none; }
+        .accordion-i .accordion-button { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--primary); padding-left: 0; padding-right: 0; box-shadow: none; }
+        .accordion-i .accordion-button::after { width: 12px; height: 12px; background-size: 12px; }
+        .accordion-i .accordion-button:not(.collapsed) { color: var(--dark); background: transparent; }
+        .accordion-i .accordion-body { padding-top: 0; padding-bottom: 6px; }
+
+        .stat-compact { display: flex; justify-content: space-between; align-items: baseline; padding: 3px 0; font-size: .75rem; border-bottom: 1px solid #f5f5f7; }
+        .stat-compact:last-child { border-bottom: none; }
+        .stat-compact .lbl { color: var(--gray); }
+        .stat-compact .val { color: var(--dark); font-weight: 700; }
+        .stat-compact .val em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .mini-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0; }
+        .mini-table tr { border-bottom: 1px solid #f0f2f5; }
+        .mini-table tr:last-child { border-bottom: none; }
+        .mini-table td { padding: 3px 0; font-size: .73rem; }
+        .mini-table td.lbl { color: var(--gray); }
+        .mini-table td.val { color: var(--dark); font-weight: 700; text-align: right; }
+
+        .stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; border-bottom: 1px solid #f0f2f5; font-size: .78rem; }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-row .stat-label { color: var(--gray); font-size: .76rem; }
+        .stat-row .stat-value { color: var(--dark); font-weight: 700; font-size: .78rem; }
+        .stat-row .stat-value em { color: var(--gray); font-style: normal; font-weight: 500; font-size: .68rem; }
+
+        .alert-box {
+            background: var(--danger-light);
+            border-left: 3px solid var(--danger);
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: var(--danger);
+            font-size: .83rem;
+            font-weight: 500;
+        }
+
+        .footer-text { color: #8b95a5; font-size: .78rem; margin-top: 20px; }
+
+        @media (max-width: 768px) {
+            .kpi-card .kpi-val { font-size: 1.5rem; }
+            .hero-i h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+<div class="hero-i">
+    <div class="container">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="brand"><strong>iChef</strong> <span>Analytics</span></div>
+            <div class="date">10 ago. 2026, 11:05 a. m.</div>
+        </div>
+        <h1 class="mt-3 mb-1">Post-Venta iChef</h1>
+        <div class="subtitle">Tablero de Comando — Análisis con IA (gpt-5.4-mini)</div>
+    </div>
+</div>
+<div class="container" style="margin-top:-14px">
+    <div class="row g-3">
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">💬</span><div class="kpi-val">29</div><div class="kpi-lbl">Conversaciones</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card green"><span class="kpi-icon">📥</span><div class="kpi-val">8</div><div class="kpi-lbl">Abiertas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">✅</span><div class="kpi-val">21</div><div class="kpi-lbl">Cerradas</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card accent"><span class="kpi-icon">📱</span><div class="kpi-val">1</div><div class="kpi-lbl">Canales</div></div></div>
+        <div class="col-6 col-md-4 col-lg"><div class="kpi-card"><span class="kpi-icon">👤</span><div class="kpi-val">1</div><div class="kpi-lbl">Agentes</div></div></div>
+    </div>
+    <div class="row g-4 mt-1">
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📊</span> Volumen
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">4/8/2026 - 9/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-volumen">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-0" aria-expanded="true" aria-controls="acc-volumen-0">
+                    Conversaciones por canal
+                </button>
+            </h2>
+            <div id="acc-volumen-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Api</td><td class="val">29</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-volumen-1" aria-expanded="true" aria-controls="acc-volumen-1">
+                    Por día
+                </button>
+            </h2>
+            <div id="acc-volumen-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-volumen">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">2026-08-08</td><td class="val">10</td></tr><tr><td class="lbl">2026-08-05</td><td class="val">7</td></tr><tr><td class="lbl">2026-08-06</td><td class="val">5</td></tr><tr><td class="lbl">2026-08-07</td><td class="val">3</td></tr><tr><td class="lbl">2026-08-09</td><td class="val">2</td></tr><tr><td class="lbl">2026-08-04</td><td class="val">2</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i amber">🎯</span> Seguimiento de Temas
+                </div>
+                <div class="card-body d-flex flex-column">
+<div class="stat-compact"><span class="lbl">Total conversaciones analizadas</span><span class="val">29</span></div>
+<div class="stat-compact"><span class="lbl">Conversaciones con temas de seguimiento</span><span class="val">0 <em>(0%)</em></span></div>
+<div class="accordion accordion-flush accordion-i" id="accordion-topic-tracking">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-0" aria-expanded="true" aria-controls="acc-topic-tracking-0">
+                    Referidos — 0 conversaciones (0%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-topic-tracking-1" aria-expanded="true" aria-controls="acc-topic-tracking-1">
+                    Recomendaciones a potenciales clientes — 0 conversaciones (0%)
+                </button>
+            </h2>
+            <div id="acc-topic-tracking-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-topic-tracking">
+                <div class="accordion-body"><p class="text-muted fst-italic small mb-0">Sin conversaciones con este tema.</p></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i purple">👥</span> Actividad
+                </div>
+                <div class="card-body d-flex flex-column"><div class="stat-compact"><span class="lbl">Rango de fechas</span><span class="val">4/8/2026 - 9/8/2026</span></div><div class="accordion accordion-flush accordion-i" id="accordion-actividad">
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-0" aria-expanded="true" aria-controls="acc-actividad-0">
+                    Agentes más activos
+                </button>
+            </h2>
+            <div id="acc-actividad-0" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Neiff Cardozo</td><td class="val">29 conv.</td></tr></tbody></table></div>
+            </div>
+        </div>
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button py-1 px-0" type="button" data-bs-toggle="collapse" data-bs-target="#acc-actividad-1" aria-expanded="true" aria-controls="acc-actividad-1">
+                    Contactos con más conversaciones
+                </button>
+            </h2>
+            <div id="acc-actividad-1" class="accordion-collapse collapse show" data-bs-parent="#accordion-actividad">
+                <div class="accordion-body"><table class="mini-table"><tbody><tr><td class="lbl">Victoria Montero</td><td class="val">2 conv.</td></tr><tr><td class="lbl">Jorge Pelua</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Sofi</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Jimena Alzugaray</td><td class="val">1 conv.</td></tr><tr><td class="lbl">Sofía Trabuco Bentancurt</td><td class="val">1 conv.</td></tr></tbody></table></div>
+            </div>
+        </div></div></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i teal">💬</span> Temas
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;contexto_general&quot;:[&quot;Se analizaron 29 conversaciones del equipo Post-Venta iChef en el período 2026-08-04 a 2026-08-09.&quot;,&quot;La muestra detallada provista contiene 25 conversaciones visibles, equivalente al 86.2% del total del período; las 4 restantes no fueron incluidas en el extracto compartido.&quot;,&quot;El 100% de las conversaciones llegaron por canal Api (29/29), por lo que no hay comparación contra WhatsApp u otros canales en este corte.&quot;,&quot;Neiff Cardozo atendió las 29 conversaciones (29/29 = 100%), lo que define una operación altamente concentrada en una sola persona.&quot;,&quot;Hubo 21 conversaciones cerradas (72.4%) y 8 abiertas (27.6%), por lo que existe una cola de seguimiento relevante al cierre del período.&quot;,&quot;Las etiquetas más frecuentes fueron tiene_ichef (25/29 = 86.2%) y cliente (25/29 = 86.2%), señal de una cartera mayormente post-venta y no de prospección pura.&quot;,&quot;También aparecen oportunidad (5/29 = 17.2%), mql (2/29 = 6.9%), lead (2/29 = 6.9%) y serial_registrado (1/29 = 3.4%).&quot;,&quot;El promedio de 7.1 mensajes por conversación sugiere intercambios relativamente cortos, con foco en seguimiento, confirmación y aclaraciones puntuales.&quot;,&quot;La distribución diaria muestra un pico el 2026-08-08 con 10 conversaciones (34.5% del total), seguido por 2026-08-05 con 7 (24.1%).&quot;,&quot;En términos de temperatura operativa, la agenda está dominada por onboarding, uso intensivo del producto, comunidad y referidos; no se observan incidentes técnicos graves de hardware en la muestra.&quot;],&quot;motivos_de_contacto&quot;:[{&quot;motivo&quot;:&quot;Onboarding D+90 / referidos / testimonial&quot;,&quot;porcentaje_sobre_total&quot;:&quot;6/29 (20.7%)&quot;,&quot;patron_observado&quot;:&quot;Es el bloque más visible de la semana. Son clientes ya consolidados, con uso habitual del robot, y la conversación se orienta a fidelización, referidos y prueba social. El tono es muy positivo y el objetivo comercial está bien alineado con post-venta.&quot;,&quot;ejemplos&quot;:[&quot;Natalia (ID #15452): \&quot;Estamos en contacto frecuente con naty, está usando casi todos los días su iChef. Se le anima a referir en el portal y se le explica como hacerlo.\&quot;&quot;,&quot;Verónica D’ Oliveira Flores (ID #15518): \&quot;usa su iChef todos los días y también aprendio a usarla manual con el video de la capacitación, estan re contentos con la iChef ella y su familia.\&quot;&quot;,&quot;Ana Bonilla (ID #15487): \&quot;Ana esta muy copada con la iChef. cocina todos los días en iChef, pidió acceso para entrar a la comunidad, dado que la invitación que le compartí previamente se había vencido.\&quot;&quot;]},{&quot;motivo&quot;:&quot;Onboarding D+30 / profundización de uso&quot;,&quot;porcentaje_sobre_total&quot;:&quot;4/29 (13.8%)&quot;,&quot;patron_observado&quot;:&quot;Aparece una etapa de consolidación del hábito. En vez de problemas, predominan recetas adaptadas, uso frecuente y pedidos de acceso a comunidad. Es un momento ideal para reforzar funciones avanzadas y contenidos.&quot;,&quot;ejemplos&quot;:[&quot;Sofía Trabuco Bentancurt (ID #15423): \&quot;Sofía ya no realiza tantas consultas como al pricipio per está muy activa en la comunidad, desde un inicio quiso adaptar las recetas de su estilo a la iChef.\&quot;&quot;,&quot;Pablo (ID #15498): \&quot;Cliente muy conforme con la iChef, la usan casi todos los días. pidió acceso a la comunidad, le envié la invitación.\&quot;&quot;,&quot;Andrea Caruso (ID #15425): conversación abierta con objetivo \&quot;📋 Onboarding - Cliente en la etapa D+30\&quot;; no se ve respuesta del cliente en el extracto.&quot;]},{&quot;motivo&quot;:&quot;Onboarding D+7 / chequeo de adopción temprana&quot;,&quot;porcentaje_sobre_total&quot;:&quot;4/29 (13.8%)&quot;,&quot;patron_observado&quot;:&quot;La primera semana confirma adopción positiva. Los clientes cuentan que ya están cocinando, pero suelen tener poco tiempo para conversar. Este momento funciona mejor con mensajes breves y concretos.&quot;,&quot;ejemplos&quot;:[&quot;Victoria Montero (ID #15490): \&quot;hablamos dos veces, en ambas llamadas contaba con poco tiempo viene muy contenta con su iChef, cocinando todos los días, ya pidió acceso a la comunidad.\&quot;&quot;,&quot;Jorge Pelua (ID #15406): conversación en estado pending con objetivo D+7; no hay texto del cliente en el extracto.&quot;,&quot;Natalia Rial (ID #15446): conversación abierta con objetivo D+7; en la muestra no aparece respuesta del cliente.&quot;]},{&quot;motivo&quot;:&quot;Onboarding D+1 / instalación, primeras dudas y confirmación de uso&quot;,&quot;porcentaje_sobre_total&quot;:&quot;4/29 (13.8%)&quot;,&quot;patron_observado&quot;:&quot;El primer contacto post-venta se usa para validar recepción, resolver dudas básicas y detectar fricciones iniciales. En esta semana predominó una buena recepción del producto, con pocos bloqueos reales.&quot;,&quot;ejemplos&quot;:[&quot;Jimena Alzugaray (ID #15438): \&quot;son dos personas vienen usando todos los días la iChef, re contentos con la compra. quedé a las ordenes para cualquier consulta y o sugerencia\&quot;&quot;,&quot;Veronica Kaufmann (ID #15516): \&quot;le costó al inicio sincronizar las recetas pero no necesitó ayuda inicial, cuano la llame estaba ocupada pero de todas maneras me dijo que si necesitaba ayuda que me llamaba\&quot;&quot;,&quot;Sofi (ID #15412): \&quot;no responde las llamadas.-\&quot; y luego \&quot;me comentó en llamada que hace una semana se quedaron sin gas y aún no han rec...\&quot;&quot;]},{&quot;motivo&quot;:&quot;Solicitud de acceso o activación de comunidad iChef Lovers&quot;,&quot;porcentaje_sobre_total&quot;:&quot;6/29 (20.7%)&quot;,&quot;patron_observado&quot;:&quot;La comunidad aparece como uno de los principales drivers de engagement. No es solo soporte; funciona como extensión de valor, fidelización y generación de contenido/recetas.&quot;,&quot;ejemplos&quot;:[&quot;Victoria Montero (ID #15490): \&quot;ya pidió acceso a la comunidad, se la agrega dado que la viene usando todos los\&quot;&quot;,&quot;Victoria Montero (ID #15453): \&quot;[Agente IA] *Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas*\&quot;&quot;,&quot;Lety (ID #15506): \&quot;está muy copada con su iChef y también activa en la comunidad dado que ha subido y modificado recetas\&quot;&quot;]},{&quot;motivo&quot;:&quot;Consultas de configuración, portal y recuperación de acceso&quot;,&quot;porcentaje_sobre_total&quot;:&quot;2/29 (6.9%)&quot;,&quot;patron_observado&quot;:&quot;Son dudas operativas puntuales y de baja complejidad, resueltas con respuestas breves. Esto sugiere que el portal y el contenido de ayuda sí están cumpliendo, aunque hay oportunidad de autoservicio mejor documentado.&quot;,&quot;ejemplos&quot;:[&quot;Bettina Quinteros (ID #15442): \&quot;desde el portal de recetas, tenes la opción de reestablecerla 😉\&quot;&quot;,&quot;Lourdes Sambognia (ID #15499): \&quot;El relleno de las empanadas es una pre cocción, es para luego finalizar la preparación en el horno, junto con la masa\&quot;&quot;,&quot;Victoria López (ID #15397): \&quot;Ese es el ID\&quot;&quot;]},{&quot;motivo&quot;:&quot;Dificultad de contacto / llamadas sin respuesta&quot;,&quot;porcentaje_sobre_total&quot;:&quot;2/29 (6.9%)&quot;,&quot;patron_observado&quot;:&quot;La fricción principal no parece ser el producto, sino la contactabilidad. Hay clientes que no atienden o tienen poco tiempo, lo que demora el ciclo de onboarding y obliga a reintentos.&quot;,&quot;ejemplos&quot;:[&quot;Sofi (ID #15412): \&quot;no responde las llamadas.-\&quot;&quot;,&quot;Juan Perez (ID #15466): \&quot;no responde a las llamadas, salta el correo de voz\&quot;&quot;,&quot;Jorge Pelua (ID #15406): estado pending, sin mensaje del cliente visible en la muestra&quot;]},{&quot;motivo&quot;:&quot;Leads / MQL / seguimiento pre-venta o híbrido&quot;,&quot;porcentaje_sobre_total&quot;:&quot;2/29 (6.9%)&quot;,&quot;patron_observado&quot;:&quot;Aparecen pocos casos de lead/MQL dentro de Post-Venta, lo que sugiere o bien una mezcla de colas o bien problemas de clasificación. No es el foco principal del equipo, pero conviene revisar si estos contactos están bien enroutados.&quot;,&quot;ejemplos&quot;:[&quot;Graciela Mendez (ID #15424): etiquetas mql y lead; el agente registra \&quot;Te estuve llamando\&quot;.&quot;,&quot;Estiven Quintero Cardona (ID #15501): aparece con etiqueta lead y una respuesta de otra línea: \&quot;👋 ¡Hola! te damos la bienvenida a la línea de ucm falck.\&quot;&quot;,&quot;Sofi (ID #15412): en la automatización se agrega la etiqueta lead, aunque el contenido real corresponde a onboarding de cliente&quot;]},{&quot;motivo&quot;:&quot;Registro de serial / identificación del equipo&quot;,&quot;porcentaje_sobre_total&quot;:&quot;1/29 (3.4%)&quot;,&quot;patron_observado&quot;:&quot;Es un caso aislado, de baja complejidad, pero útil para trazabilidad y post-venta.&quot;,&quot;ejemplos&quot;:[&quot;Victoria López (ID #15397): se registra el serial \&quot;6825DDA873A8\&quot; y el cliente aclara \&quot;Ese es el ID\&quot;.&quot;]}],&quot;productos_y_servicios_mencionados&quot;:[&quot;iChef robot: aparece como producto central en prácticamente todos los onboarding y seguimientos.&quot;,&quot;Starter Pack: se menciona en el objetivo del D+1, asociado a confirmación de recepción y primeras dudas.&quot;,&quot;Portal de recetas: aparece en consultas de acceso y recuperación, por ejemplo en Bettina Quinteros (ID #15442).&quot;,&quot;iChef Lovers: emerge como activo de fidelización y comunidad en Victoria Montero (ID #15453), Ana Bonilla (ID #15487), Pablo (ID #15498) y Lety (ID #15506).&quot;,&quot;Video de capacitación / uso manual: Verónica D’ Oliveira Flores (ID #15518) \&quot;aprendio a usarla manual con el video de la capacitación\&quot;.&quot;,&quot;Sincronización de recetas: Veronica Kaufmann (ID #15516) menciona que \&quot;le costó al inicio sincronizar las recetas\&quot;.&quot;,&quot;Referidos / programa de referidos: Natalia (ID #15452), Verónica D’ Oliveira Flores (ID #15518), Ana Bonilla (ID #15487) y Lety (ID #15506).&quot;,&quot;No se observaron menciones explícitas en la muestra a garantía, servicio técnico CNS, taller/demo, iChef Center, accesorios específicos (vaporera, balanza) ni a fallas de hardware.&quot;],&quot;etapas_del_journey&quot;:[&quot;Leads/MQL: aparecen 2 casos claros (Graciela Mendez #15424 y Estiven Quintero Cardona #15501), más un posible desajuste de etiquetado en Sofi #15412.&quot;,&quot;D+1: Jimena Alzugaray #15438, Veronica Kaufmann #15516, Sofi #15412 y Juan Perez #15466.&quot;,&quot;D+7: Victoria Montero #15490, Jorge Pelua #15406, Natalia Rial #15446 y Valentina Lavista #15422.&quot;,&quot;D+30: Anabella Dal Piva #15444, Andrea Caruso #15425, Pablo #15498 y Sofía Trabuco Bentancurt #15423.&quot;,&quot;D+90: Natalia #15452, Verónica D’ Oliveira Flores #15518, Lucía Mendez #15421, Ana Bonilla #15487, Lety #15506 y el caso abierto #15488 sin nombre visible.&quot;,&quot;Clientes activos y satisfechos: se concentran sobre todo en D+30/D+90, con alto uso semanal y diario.&quot;,&quot;Clientes en riesgo operacional: los abiertos sin respuesta visible y los casos con llamadas sin respuesta.&quot;,&quot;Referidos/testimoniales: aparecen como objetivo natural en D+90, pero todavía con potencial de sistematización.&quot;],&quot;patrones_repetitivos&quot;:[&quot;Uso intensivo del producto: 7/29 conversaciones (24.1%) mencionan explícitamente uso diario o casi diario.&quot;,&quot;Pedido de comunidad iChef Lovers: 6/29 conversaciones (20.7%) muestran interés directo por entrar o seguir activos en la comunidad.&quot;,&quot;Seguimiento post-venta con tono positivo: la gran mayoría de los casos visibles están en clave de satisfacción y adopción.&quot;,&quot;Dudas de baja complejidad resueltas en una sola interacción: portal, recetas, serial e identificación.&quot;,&quot;Dificultad para coordinar llamadas: varios clientes no atienden o tienen poco tiempo, lo que estira el ciclo de cierre.&quot;,&quot;Uso de contenido educativo: el video de capacitación y el portal aparecen como herramientas que ayudan a la autonomía del cliente.&quot;,&quot;La emoción dominante es positiva: expresiones como \&quot;re contentos\&quot;, \&quot;muy contenta\&quot;, \&quot;muy copada\&quot;, \&quot;re contentos\&quot; y \&quot;muy conforme\&quot; se repiten.&quot;,&quot;El momento D+90 está funcionando como disparador natural para referidos y testimonials, pero depende mucho de la intervención manual del agente.&quot;],&quot;reclamos_y_quejas&quot;:[{&quot;caso&quot;:&quot;Sofi (ID #15412)&quot;,&quot;frase_textual&quot;:&quot;\&quot;no responde las llamadas.-\&quot; y \&quot;se quedaron sin gas\&quot;&quot;,&quot;lectura&quot;:&quot;No hay una queja sobre iChef en sí; el bloqueo fue externo (quedarse sin gas) y además hubo dificultad de contacto.&quot;,&quot;accion_concreta&quot;:&quot;Pasar el seguimiento a WhatsApp con un mensaje corto y ofrecer una franja horaria alternativa para evitar que el caso quede estancado.&quot;},{&quot;caso&quot;:&quot;Juan Perez (ID #15466)&quot;,&quot;frase_textual&quot;:&quot;\&quot;no responde a las llamadas, salta el correo de voz\&quot;&quot;,&quot;lectura&quot;:&quot;Es un caso de contactabilidad, no de insatisfacción del producto.&quot;,&quot;accion_concreta&quot;:&quot;Aplicar protocolo de reintento: 2 llamadas + 1 WhatsApp con propuesta de horario concreto y cierre por asincronía si no responde.&quot;},{&quot;caso&quot;:&quot;Veronica Kaufmann (ID #15516)&quot;,&quot;frase_textual&quot;:&quot;\&quot;le costó al inicio sincronizar las recetas\&quot;&quot;,&quot;lectura&quot;:&quot;Fricción inicial leve, ya resuelta sin asistencia intensa.&quot;,&quot;accion_concreta&quot;:&quot;Agregar una macro de ayuda con pasos visuales para sincronización de recetas en el portal y reducir tiempos de explicación.&quot;},{&quot;caso&quot;:&quot;Bettina Quinteros (ID #15442)&quot;,&quot;frase_textual&quot;:&quot;\&quot;desde el portal de recetas, tenes la opción de reestablecerla 😉\&quot;&quot;,&quot;lectura&quot;:&quot;Consulta de autoservicio; no es queja, pero revela necesidad de mejor señalización.&quot;,&quot;accion_concreta&quot;:&quot;Mejorar la visibilidad del botón o paso de recuperación dentro del portal con un microtutorial.&quot;},{&quot;caso&quot;:&quot;Estiven Quintero Cardona (ID #15501)&quot;,&quot;frase_textual&quot;:&quot;\&quot;👋 ¡Hola! te damos la bienvenida a la línea de ucm falck.\&quot;&quot;,&quot;lectura&quot;:&quot;No es una queja del cliente, sino un desvío de routing/anomalía operativa.&quot;,&quot;accion_concreta&quot;:&quot;Auditar la automatización de entrada para evitar contaminación de colas de otra marca/servicio.&quot;}],&quot;casos_destacados&quot;:[&quot;Victoria Montero (ID #15490) combina alta satisfacción, uso diario y solicitud de comunidad; es una candidata natural para referral y testimonial.&quot;,&quot;Victoria Montero (ID #15453) muestra una solicitud automática desde portal, con actualización de \&quot;tiene_ichef\&quot; a \&quot;Sí\&quot; y sincronización con RD Station; es un buen ejemplo de integración que sí está funcionando.&quot;,&quot;Sofía Trabuco Bentancurt (ID #15423) se destaca por personalización: \&quot;quiso adaptar las recetas de su estilo a la iChef\&quot; y por actividad comunitaria.&quot;,&quot;Lety (ID #15506) es un caso de usuario avanzado: activa en comunidad, modifica recetas y está abierta a referir.&quot;,&quot;Verónica D’ Oliveira Flores (ID #15518) indica aprendizaje autónomo con el video de capacitación, lo que valida el contenido educativo.&quot;,&quot;Estiven Quintero Cardona (ID #15501) es la anomalía más clara del período por estar relacionado con otra línea/servicio.&quot;,&quot;Lucía Mendez (ID #15421) y Anabella Dal Piva (ID #15444) quedan abiertas sin texto visible del cliente, por lo que son prioridad de seguimiento operativo aunque no sean casos de riesgo del producto.&quot;,&quot;Victoria López (ID #15397) es un caso puntual de trazabilidad serial bien resuelto, útil para control de activos.&quot;]}</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i red">⚠️</span> Alertas
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;sin_respuesta_del_agente&quot;:[&quot;Anabella Dal Piva (ID #15444): conversación open con objetivo D+30; en el extracto no se ve respuesta del agente ni del cliente.&quot;,&quot;Andrea Caruso (ID #15425): conversación open con objetivo D+30; no hay texto visible posterior al sistema de asignación.&quot;,&quot;Caso sin nombre visible (ID #15488): conversación open con objetivo D+90; no se muestra respuesta del cliente en la muestra.&quot;,&quot;Lucía Mendez (ID #15421): conversación open con objetivo D+90; queda sin cierre visible.&quot;,&quot;Natalia Rial (ID #15446): conversación open con objetivo D+7; no se observa intercambio en la muestra.&quot;,&quot;Valentina Lavista (ID #15422): conversación open con objetivo D+7; no se ve respuesta del cliente ni cierre.&quot;,&quot;Importante: en estas conversaciones no se puede calcular el tiempo exacto transcurrido porque el extracto no trae timestamps intra-día.&quot;],&quot;insatisfaccion_detectada&quot;:[&quot;✅ Sin insatisfacción detectada en el período analizado.&quot;,&quot;No aparecen frases de enojo, reclamos formales, baja del servicio ni referencias a fallas del iChef que impidan usarlo.&quot;,&quot;Las únicas tensiones visibles son de contacto y coordinación, no de producto.&quot;,&quot;La lectura general es de satisfacción alta: \&quot;re contentos\&quot;, \&quot;muy contenta\&quot;, \&quot;muy copada\&quot;, \&quot;muy conforme\&quot;.&quot;],&quot;casos_urgentes&quot;:[&quot;Estiven Quintero Cardona (ID #15501): el texto de bienvenida corresponde a \&quot;la línea de ucm falck\&quot; y no a iChef. Es la anomalía operativa más urgente porque puede indicar un error de routing o contaminación de colas.&quot;,&quot;Sofi (ID #15412): \&quot;no responde las llamadas.-\&quot; y además hay una situación externa \&quot;se quedaron sin gas\&quot;. No es una urgencia de producto, pero sí amerita desvío inmediato a WhatsApp para evitar que el onboarding quede colgado.&quot;,&quot;Juan Perez (ID #15466): \&quot;no responde a las llamadas, salta el correo de voz\&quot;. Requiere reintento multicanal, aunque no hay evidencia de urgencia técnica.&quot;,&quot;No se observan fallas de hardware, activación, sobrecalentamiento, error crítico o imposibilidad total de uso del robot en la muestra.&quot;],&quot;contactos_recurrentes&quot;:[&quot;Victoria Montero (ID #15490 y ID #15453): 2 conversaciones en el período. Es un patrón normal de onboarding + activación de comunidad, no un problema crónico.&quot;,&quot;No hay otros contactos repetidos en la muestra visible; por lo tanto, no se detecta una recurrencia problemática aparte de Victoria Montero.&quot;,&quot;La recurrencia observada parece saludable: más engagement y más servicios de valor, no más reclamos.&quot;],&quot;sin_agente_asignado&quot;:[&quot;0/29 conversaciones sin agente asignado.&quot;,&quot;Todas las conversaciones quedaron bajo Neiff Cardozo, por lo que no hay huecos de ownership.&quot;,&quot;El riesgo no es la falta de asignación, sino la excesiva dependencia de una sola persona.&quot;],&quot;canales_con_problemas&quot;:[&quot;El 100% del volumen entra por Api (29/29), así que no hay benchmark entre canales en este corte.&quot;,&quot;No se puede afirmar que el canal Api tenga problemas de abandono; la muestra no trae tiempos de respuesta ni SLA por canal.&quot;,&quot;Sí aparece un posible problema de enrutamiento o contaminación de cola en Estiven Quintero Cardona (ID #15501), que recibió un mensaje de otra línea.&quot;,&quot;Como no hay WhatsApp en la muestra, no es posible comparar rendimiento entre canales.&quot;],&quot;riesgos_potenciales&quot;:[&quot;Dependencia extrema de una sola persona: 29/29 conversaciones con Neiff Cardozo.&quot;,&quot;Backlog real: 8 conversaciones abiertas al cierre del período (27.6%).&quot;,&quot;Riesgo de demora en seguimiento D+7/D+30/D+90 por dificultades para coordinar llamadas.&quot;,&quot;Riesgo de desalineación de etiquetas: Sofi (ID #15412) aparece con tag lead aunque el contenido es claramente de post-venta/onboarding.&quot;,&quot;Riesgo de enrutamiento incorrecto: caso #15501 de otra marca/servicio.&quot;,&quot;Riesgo de perder momentum comercial: varios clientes están listos para referidos, pero el pedido de testimonial no está todavía estandarizado.&quot;,&quot;Riesgo de dejar valor en manos de procesos manuales: comunidad, referidos y recuperación de acceso dependen mucho del seguimiento del agente.&quot;,&quot;Riesgo de que los abiertos sean percibidos como atrasos si no se cierra la cola antes del próximo corte semanal.&quot;]}</p></div>
+                
+            </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 mb-3 d-flex align-items-stretch admin-only-card" style="min-width:0">
+            <div class="card card-dash w-100">
+                <div class="card-header">
+                    <span class="icon-i blue">📋</span> Análisis General
+                </div>
+                <div class="card-body d-flex flex-column"><p>{&quot;resumen_ejecutivo&quot;:[&quot;La semana muestra una operación post-venta sana en sentimiento, pero altamente concentrada y con una cola abierta que conviene ordenar.&quot;,&quot;De 29 conversaciones, 21 quedaron cerradas (72.4%) y 8 abiertas (27.6%), con 100% del volumen atendido por Neiff Cardozo.&quot;,&quot;La mayor parte del trabajo no es soporte reactivo, sino onboarding y fidelización: clientes que usan el robot todos los días, piden comunidad y se muestran muy conformes.&quot;,&quot;No se detectan incidentes graves de producto; las fricciones más visibles son de contactabilidad, coordinación de llamadas y algún caso de routing incorrecto.&quot;,&quot;El principal hallazgo de negocio es que post-venta está funcionando como motor de retención y advocacy, pero todavía muy apoyado en gestión manual.&quot;],&quot;insights_clave&quot;:[{&quot;titulo&quot;:&quot;<strong>Operación 100% concentrada en un solo agente</strong>&quot;,&quot;dato&quot;:&quot;Neiff Cardozo atendió 29 de 29 conversaciones (100%).&quot;,&quot;por_que_importa&quot;:&quot;Esto expone a iChef a un riesgo operativo fuerte: si Neiff no está disponible, la operación se enlentece o se detiene. También dificulta escalar buenas prácticas y medir capacidad real.&quot;,&quot;ejemplos&quot;:[&quot;Jimena Alzugaray (ID #15438)&quot;,&quot;Victoria Montero (ID #15490)&quot;,&quot;Graciela Mendez (ID #15424)&quot;],&quot;lectura_gerencial&quot;:&quot;Hay que pensar cobertura, backup y estandarización, no solo performance individual.&quot;},{&quot;titulo&quot;:&quot;<strong>La cartera está madura y satisfecha, no en modo rescate</strong>&quot;,&quot;dato&quot;:&quot;25/29 conversaciones (86.2%) tienen etiquetas tiene_ichef y cliente; además, 18/29 (62.1%) corresponden a onboarding D+1/D+7/D+30/D+90.&quot;,&quot;por_que_importa&quot;:&quot;Post-venta está operando como capa de adopción, no como área de crisis. Eso es bueno, pero exige un enfoque de fidelización y expansión de valor.&quot;,&quot;ejemplos&quot;:[&quot;Natalia (ID #15452): \&quot;está usando casi todos los días su iChef\&quot;&quot;,&quot;Pablo (ID #15498): \&quot;La usan casi todos los días\&quot;&quot;,&quot;Ana Bonilla (ID #15487): \&quot;cocina todos los días en iChef\&quot;&quot;],&quot;lectura_gerencial&quot;:&quot;El discurso comercial debería pasar de soporte básico a comunidad, referidos y contenido avanzado.&quot;},{&quot;titulo&quot;:&quot;<strong>La comunidad iChef Lovers es un activo de retención real</strong>&quot;,&quot;dato&quot;:&quot;6/29 conversaciones (20.7%) muestran solicitud, activación o actividad en la comunidad.&quot;,&quot;por_que_importa&quot;:&quot;La comunidad no es un accesorio: está funcionando como motor de engagement, creatividad y permanencia. Quien entra, participa y modifica recetas, se pega más al producto.&quot;,&quot;ejemplos&quot;:[&quot;Victoria Montero (ID #15490): \&quot;ya pidió acceso a la comunidad\&quot;&quot;,&quot;Victoria Montero (ID #15453): \&quot;Solicitud de Acceso a la comunidad iChef Lovers desde el Portal de Recetas\&quot;&quot;,&quot;Lety (ID #15506): \&quot;está muy copada con su iChef y también activa en la comunidad\&quot;&quot;],&quot;lectura_gerencial&quot;:&quot;Hay oportunidad de automatizar la invitación a comunidad justo cuando el cliente muestra satisfacción.&quot;},{&quot;titulo&quot;:&quot;<strong>El problema principal no es el producto, sino la contactabilidad</strong>&quot;,&quot;dato&quot;:&quot;2 casos explícitos de llamadas sin respuesta (Sofi #15412 y Juan Perez #15466) y 1 pendiente (Jorge Pelua #15406).&quot;,&quot;por_que_importa&quot;:&quot;Si el equipo depende solo de llamadas, parte del onboarding se cae por fricción externa. Eso puede retrasar resolución, feedback y activación de comunidad.&quot;,&quot;ejemplos&quot;:[&quot;Sofi (ID #15412): \&quot;no responde las llamadas.-\&quot;&quot;,&quot;Juan Perez (ID #15466): \&quot;no responde a las llamadas, salta el correo de voz\&quot;&quot;,&quot;Jorge Pelua (ID #15406): estado pending&quot;],&quot;lectura_gerencial&quot;:&quot;Hay que migrar parte del seguimiento a WhatsApp, con mensajes breves y horario acordado.&quot;},{&quot;titulo&quot;:&quot;<strong>Hay backlog real, pero no necesariamente problema de calidad</strong>&quot;,&quot;dato&quot;:&quot;8/29 conversaciones están abiertas (27.6%). En la muestra visible, 6 abiertas no muestran respuesta del cliente ni cierre.&quot;,&quot;por_que_importa&quot;:&quot;Aunque muchas pueden ser seguimientos proactivos, la cola abierta consume capacidad y puede generar sensación de lentitud si no se ordena por prioridad.&quot;,&quot;ejemplos&quot;:[&quot;Anabella Dal Piva (ID #15444)&quot;,&quot;Andrea Caruso (ID #15425)&quot;,&quot;Lucía Mendez (ID #15421)&quot;],&quot;lectura_gerencial&quot;:&quot;Hace falta un SLA claro para pendientes y una rutina diaria de cierre.&quot;},{&quot;titulo&quot;:&quot;<strong>Hay una anomalía de routing que merece auditoría inmediata</strong>&quot;,&quot;dato&quot;:&quot;Estiven Quintero Cardona (ID #15501) recibe una respuesta de \&quot;la línea de ucm falck\&quot;.&quot;,&quot;por_que_importa&quot;:&quot;No es un reclamo del cliente, pero sí una señal de posible mezcla de colas o automatización mal configurada. Eso contamina la experiencia y la trazabilidad.&quot;,&quot;ejemplos&quot;:[&quot;Estiven Quintero Cardona (ID #15501): \&quot;👋 ¡Hola! te damos la bienvenida a la línea de ucm falck.\&quot;&quot;],&quot;lectura_gerencial&quot;:&quot;Es la alerta operativa más seria del período por potencial de impacto sistémico.&quot;},{&quot;titulo&quot;:&quot;<strong>El contenido educativo sí destraba uso autónomo</strong>&quot;,&quot;dato&quot;:&quot;Verónica D’ Oliveira Flores (ID #15518) aprende con el video de capacitación; Bettina Quinteros (ID #15442) resuelve por el portal; Lourdes Sambognia (ID #15499) recibe una aclaración culinaria precisa.&quot;,&quot;por_que_importa&quot;:&quot;Cuando la ayuda está bien empaquetada, el equipo baja el tiempo de gestión y el cliente resuelve solo.&quot;,&quot;ejemplos&quot;:[&quot;Verónica D’ Oliveira Flores (ID #15518): \&quot;aprendio a usarla manual con el video de la capacitación\&quot;&quot;,&quot;Bettina Quinteros (ID #15442): \&quot;desde el portal de recetas, tenes la opción de reestablecerla\&quot;&quot;,&quot;Lourdes Sambognia (ID #15499): \&quot;El relleno de las empanadas es una pre cocción\&quot;&quot;],&quot;lectura_gerencial&quot;:&quot;Hay oportunidad de convertir estas respuestas en macros, FAQ y mini tutoriales.&quot;},{&quot;titulo&quot;:&quot;<strong>Hay un momento comercial ideal para pedir testimonios y referidos</strong>&quot;,&quot;dato&quot;:&quot;En D+90 abundan frases de satisfacción y uso diario; varios clientes ya están listos para referir.&quot;,&quot;por_que_importa&quot;:&quot;Post-venta tiene una ventana de oro para crecimiento orgánico. Si no se sistematiza, se pierden testimonios y referidos de alta intención.&quot;,&quot;ejemplos&quot;:[&quot;Natalia (ID #15452): \&quot;Se le anima a referir en el portal\&quot;&quot;,&quot;Ana Bonilla (ID #15487): \&quot;pidió acceso para entrar a la comunidad\&quot;&quot;,&quot;Lety (ID #15506): \&quot;Se le anima a referir en el portal\&quot;&quot;],&quot;lectura_gerencial&quot;:&quot;Se debería institucionalizar el pedido de referidos en D+90 con script y checklist.&quot;}],&quot;recomendaciones&quot;:[{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Armar una cola diaria de abiertos con SLA de cierre y priorización por antigüedad y etapa (D+1/D+7 primero, D+30/D+90 después).&quot;,&quot;donde&quot;:&quot;Post-Venta iChef / Api&quot;,&quot;quien&quot;:&quot;Neiff Cardozo con supervisión operativa&quot;,&quot;impacto_esperado&quot;:&quot;Bajar la tasa de abiertos desde 27.6% y evitar que los seguimientos queden colgados por falta de orden.&quot;,&quot;detalle&quot;:&quot;Esto también permitiría distinguir rápido entre pendientes por espera del cliente y pendientes por acción del equipo.&quot;},{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Implementar un protocolo de contacto alternativo: si no responde en 2 llamadas, enviar WhatsApp con mensaje corto, hora de devolución y cierre de caso.&quot;,&quot;donde&quot;:&quot;Post-Venta iChef / seguimiento D+1 y D+7&quot;,&quot;quien&quot;:&quot;Neiff Cardozo y coordinación de operaciones&quot;,&quot;impacto_esperado&quot;:&quot;Aumentar la tasa de contacto efectivo y reducir el arrastre de casos como Sofi (ID #15412) y Juan Perez (ID #15466).&quot;,&quot;detalle&quot;:&quot;La muestra ya muestra que parte de los clientes tiene poco tiempo o no atiende el teléfono.&quot;},{&quot;prioridad&quot;:&quot;Alta&quot;,&quot;que_hacer&quot;:&quot;Auditar de inmediato el routing y las automatizaciones para eliminar cruces con otras líneas o marcas.&quot;,&quot;donde&quot;:&quot;Automation / Chatwoot / entrada Api&quot;,&quot;quien&quot;:&quot;Equipo de operaciones + automatizaciones&quot;,&quot;impacto_esperado&quot;:&quot;Evitar contaminación de cola y errores de marca como el visto en Estiven Quintero Cardona (ID #15501).&quot;,&quot;detalle&quot;:&quot;Este es un tema de calidad del sistema, no de atención individual.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Automatizar la invitación a iChef Lovers cuando el cliente muestre satisfacción en D+7/D+30 o explícitamente pida acceso.&quot;,&quot;donde&quot;:&quot;Portal de recetas / CRM / Post-Venta&quot;,&quot;quien&quot;:&quot;Portal + Post-Venta&quot;,&quot;impacto_esperado&quot;:&quot;Subir membresías, engagement y recurrencia de uso con menos trabajo manual.&quot;,&quot;detalle&quot;:&quot;Casos como Victoria Montero (ID #15490), Pablo (ID #15498) y Ana Bonilla (ID #15487) muestran demanda real.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Crear macros y una mini base de conocimiento para respuestas repetitivas: recuperación de acceso, sincronización de recetas, serial ID y dudas de recetas.&quot;,&quot;donde&quot;:&quot;Api / Portal de recetas&quot;,&quot;quien&quot;:&quot;Post-Venta + contenido/portal&quot;,&quot;impacto_esperado&quot;:&quot;Reducir tiempo por conversación y elevar consistencia de respuesta.&quot;,&quot;detalle&quot;:&quot;Bettina Quinteros (ID #15442), Veronica Kaufmann (ID #15516), Lourdes Sambognia (ID #15499) y Victoria López (ID #15397) son casos de manualización clara.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Estandarizar el cierre D+90 con un script único de referidos + testimonial + comunidad.&quot;,&quot;donde&quot;:&quot;Post-Venta iChef&quot;,&quot;quien&quot;:&quot;Neiff Cardozo con apoyo de gerencia operativa&quot;,&quot;impacto_esperado&quot;:&quot;Transformar la satisfacción en crecimiento orgánico medible.&quot;,&quot;detalle&quot;:&quot;La semana muestra muchas señales de clientes listos para recomendar, pero el pedido sigue muy artesanal.&quot;},{&quot;prioridad&quot;:&quot;Media&quot;,&quot;que_hacer&quot;:&quot;Definir un backup operativo para cubrir ausencias, picos o atrasos de Neiff Cardozo.&quot;,&quot;donde&quot;:&quot;Equipo Post-Venta&quot;,&quot;quien&quot;:&quot;Gerencia operativa&quot;,&quot;impacto_esperado&quot;:&quot;Mitigar el riesgo de concentración y asegurar continuidad del servicio.&quot;,&quot;detalle&quot;:&quot;Hoy el cuello de botella no es la demanda, sino la dependencia de una sola persona.&quot;},{&quot;prioridad&quot;:&quot;Baja&quot;,&quot;que_hacer&quot;:&quot;Revisar taxonomía de etiquetas para evitar que conversaciones de onboarding aparezcan como lead o MQL sin necesidad.&quot;,&quot;donde&quot;:&quot;Chatwoot / automatización&quot;,&quot;quien&quot;:&quot;Operaciones + data/automatización&quot;,&quot;impacto_esperado&quot;:&quot;Mejorar la lectura gerencial y la calidad del embudo.&quot;,&quot;detalle&quot;:&quot;El caso Sofi (ID #15412) sugiere un posible desajuste entre etiqueta y etapa real.&quot;}],&quot;temperatura_de_la_operacion&quot;:{&quot;nota&quot;:&quot;7/10&quot;,&quot;justificacion&quot;:[&quot;Positivo: 21 de 29 conversaciones cerradas (72.4%) y el tono general es muy favorable.&quot;,&quot;Positivo: 25 de 29 conversaciones (86.2%) son de clientes ya instalados, con uso frecuente y buena adopción.&quot;,&quot;A vigilar: 8 conversaciones abiertas (27.6%) y 29/29 bajo un solo agente, lo que expone continuidad y escalabilidad.&quot;,&quot;A vigilar: hay problemas de contactabilidad y una anomalía de routing claramente visible.&quot;,&quot;Balance general: la operación funciona bien en satisfacción, pero todavía con demasiada manualidad y poca redundancia.&quot;]},&quot;tendencias_y_proyecciones&quot;:[&quot;Si el patrón se mantiene, la próxima semana debería seguir predominando el onboarding y el seguimiento de clientes activos, no los reclamos duros.&quot;,&quot;El volumen probablemente seguirá concentrándose en Api y en horarios donde el cliente puede responder con poco tiempo.&quot;,&quot;La comunidad iChef Lovers seguirá apareciendo como palanca de retención; si se automatiza bien, debería crecer la cantidad de pedidos de acceso.&quot;,&quot;Si no se hace limpieza de backlog, los abiertos podrían escalar y quedar entre 8 y 10 conversaciones al inicio de la próxima semana.&quot;,&quot;La proporción de casos positivos con uso diario sugiere una buena base para pedir testimoniales y referidos de forma sistemática.&quot;,&quot;Si se corrige el routing, se reducirá el ruido operacional y se mejorará la calidad del dato para gerencia.&quot;,&quot;El mayor riesgo de la semana no es la insatisfacción del cliente, sino perder eficiencia por tareas manuales repetidas y dependencia de una sola persona.&quot;,&quot;La medida preventiva más importante es ordenar la cola y automatizar el siguiente paso, antes de que el backlog se vuelva estructural.&quot;]}</p></div>
+                
+            </div>
+        </div></div>
+    <div class="text-center footer-text pb-4">iChef Analytics · Generado automáticamente · 10 ago. 2026, 11:05 a. m.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
