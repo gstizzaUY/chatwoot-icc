@@ -220,6 +220,79 @@ async function RegisterContact(req, res) {
 	return res.status(200).send("Event received");
 }
 
+async function GetFunnel(email, phone) {
+	const id = email || GenerateContactId(phone);
+	try {
+		const response = await rdstation.get(`/platform/contacts/email:${encodeURIComponent(id)}/funnels/default`);
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
+		if (error.response && error.response.status === 404) return null;
+		console.error("Error al obtener funnel", error.message);
+		return null;
+	}
+}
+
+async function GetFunnelRD(req, res) {
+	const email = req.query.email;
+	const phone = req.query.phone;
+	try {
+		const funnel = await GetFunnel(email, phone);
+		if (funnel) return res.status(200).json(funnel);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			const funnel = await GetFunnel(email, phone);
+			if (funnel) return res.status(200).json(funnel);
+		}
+	}
+	return res.status(404).send("Funnel not found");
+}
+
+async function GetEvents(uuid, eventType) {
+	try {
+		const response = await rdstation.get(`/platform/contacts/${uuid}/events?event_type=${eventType}&order=created_at:desc&page=1`);
+		return response.data;
+	} catch (error) {
+		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
+		if (error.response && error.response.status === 404) return null;
+		console.error("Error al obtener eventos", error.message);
+		return null;
+	}
+}
+
+async function FetchEvents(email, phone) {
+	const contact = await FetchContact(phone, email);
+	if (!contact) return null;
+	const [conversions, opportunities] = await Promise.all([
+		GetEvents(contact.uuid, "CONVERSION"),
+		GetEvents(contact.uuid, "OPPORTUNITY")
+	]);
+	return [...(conversions || []), ...(opportunities || [])].sort(
+		(a, b) => new Date(b.event_timestamp) - new Date(a.event_timestamp)
+	);
+}
+
+async function GetEventsRD(req, res) {
+	const email = req.query.email;
+	const phone = req.query.phone;
+	try {
+		const events = await FetchEvents(email, phone);
+		if (events) return res.status(200).json(events);
+	} catch (error) {
+		if (error.message === "INVALID_TOKEN") {
+			console.log("Generando nuevo token");
+			const token = await UpdateAccessToken();
+			SetAccessToken(token);
+			const events = await FetchEvents(email, phone);
+			if (events) return res.status(200).json(events);
+		}
+	}
+	return res.status(404).send("Events not found");
+}
+
 async function UpdateContactExtended(email, contactData) {
 	try {
 		const response = await rdstation.patch(`/platform/contacts/email:${encodeURIComponent(email)}`, contactData);
@@ -250,4 +323,4 @@ async function UpdateContactRD(req, res) {
 	return res.status(400).send("Error updating contact");
 }
 
-export { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact };
+export { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact, GetFunnelRD, GetEventsRD };
