@@ -6,6 +6,8 @@ dotenv.config();
 const RDSTATION_CRM_URL = process.env.RDSTATION_CRM_URL;
 const RDSTATION_USER_TOKEN = process.env.RDSTATION_USER_TOKEN;
 
+const DEAL_PIPELINE_NAME = "Agendamiento demo";
+
 const rdstation = axios.create({
 	baseURL: RDSTATION_CRM_URL,
 	params: { token: RDSTATION_USER_TOKEN },
@@ -125,4 +127,34 @@ async function CreateOpportunity(req, res) {
 	}
 }
 
-export { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity };
+async function GetPipelinesRD(req, res) {
+	try {
+		const response = await rdstation.get("/api/v1/deal_pipelines", { params: { limit: 200 } });
+		const pipelines = (response.data || [])
+			.filter(p => p.name === DEAL_PIPELINE_NAME)
+			.map(p => ({
+				id: p.id,
+				name: p.name,
+				deal_stages: (p.deal_stages || [])
+					.map(s => ({ id: s.id, name: s.name, order: s.order }))
+					.sort((a, b) => a.order - b.order)
+			}));
+		return res.status(200).json(pipelines);
+	} catch (error) {
+		console.error("Error al obtener pipelines", error.message);
+		return res.status(500).send("Error al obtener pipelines");
+	}
+}
+
+async function GetLostReasonsRD(req, res) {
+	try {
+		const response = await rdstation.get("/api/v1/deal_lost_reasons", { params: { limit: 200 } });
+		const reasons = (response.data?.deal_lost_reasons || []).map(r => ({ id: r._id, name: r.name }));
+		return res.status(200).json(reasons);
+	} catch (error) {
+		console.error("Error al obtener motivos de pérdida", error.message);
+		return res.status(500).send("Error al obtener motivos de pérdida");
+	}
+}
+
+export { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD };

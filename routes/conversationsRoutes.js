@@ -2,7 +2,7 @@ import express from "express";
 import { NotifyOutgoingMessage } from "../controllers/conversationsControllers.js";
 import { OnOutgoingWppMessage, OnSolvedWppConversation } from "../controllers/chatbotControllers.js";
 import { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact, GetFunnelRD, GetEventsRD } from "../controllers/registerContactController.js";
-import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity } from "../controllers/rdOpportunityController.js";
+import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD } from "../controllers/rdOpportunityController.js";
 import { MigrateOpportunity } from "../controllers/migrateOpportunityController.js";
 
 import { ObtenerReferidos, AgregarReferido, RegistrarEvento } from "../controllers/referidosController.js";
@@ -17,6 +17,8 @@ router.get("/get-contact", GetContactRD); // Proxy obtener contacto RD Station
 router.get("/get-funnel", GetFunnelRD); // Proxy obtener funnel RD Station
 router.get("/get-events", GetEventsRD); // Proxy obtener eventos RD Station
 router.get("/get-opportunity", GetOpportunityRD); // Obtener oportunidad RD Station
+router.get("/get-pipelines", GetPipelinesRD); // Embudos de venta (solo Agendamiento demo)
+router.get("/get-lost-reasons", GetLostReasonsRD); // Motivos de pérdida RD Station
 router.post("/update-contact", UpdateContactRD); // Actualizar contacto RD Station
 router.post("/register-contact", RegisterContact); // Registrar usuario iChef
 router.post("/update-opportunity-stage", UpdateOpportunityStage); // Actualizar etapa de oportunidad
