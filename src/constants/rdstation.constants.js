@@ -7,6 +7,7 @@
 
 export const RD_CONVERSIONS = {
     // Conversaciones básicas
+    CONVERSATION_OPENED: 'conversation-opened',
     CONVERSATION_CLOSED: 'conversation-closed',
     CONVERSATION_ANALYZED: 'conversation-analyzed',
     

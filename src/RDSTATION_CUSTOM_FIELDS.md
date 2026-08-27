@@ -9,7 +9,7 @@ Si intentas enviar un campo que no existe, recibirás este error:
 ```json
 {
   "error_type": "INVALID_FIELDS",
-  "error_message": "Payload contains fields that do not exist: (cf_es_cliente, cf_chatwoot_id, ...)"
+  "error_message": "Payload contains fields that do not exist: (cf_chatwoot_id, ...)"
 }
 ```
 
@@ -31,13 +31,15 @@ Estos son todos los campos que la aplicación puede sincronizar con RD Station:
 | Campo | Descripción | Tipo |
 |-------|-------------|------|
 | `cf_tiene_ichef` | ¿El contacto tiene iChef? (Sí/No) | Text |
-| `cf_es_cliente` | ¿Es cliente activo? (Sí/No) | Text |
+| `cf_stage` | Etapa del contacto en el funnel (lead / mql / sql / opportunity / customer) | Text |
 | `cf_chatwoot_id` | ID del contacto en Chatwoot | Text/Number |
 | `cf_id_equipo` | ID del equipo asignado | Text/Number |
 | `cf_nickname` | Apodo del contacto | Text |
 | `cf_experiencia` | Nivel de experiencia | Text |
 | `cf_gusta_cocinar` | ¿Le gusta cocinar? | Text |
 | `cf_last_sync_from_chatwoot` | Última sincronización desde Chatwoot | DateTime |
+
+> **NOTA:** `cf_es_cliente` **NO existe ni debe crearse** en RD Station (fue un error de implementación anterior). El estado de "es cliente" se representa con `cf_stage = "customer"`.
 
 ## Cómo Crear Campos Personalizados en RD Station
 
@@ -79,10 +81,10 @@ Una vez creado el campo en RD Station, agrégalo a tu archivo `.env`:
 RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef
 
 # Múltiples campos (separados por comas, SIN ESPACIOS)
-RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id
+RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_stage,cf_chatwoot_id
 
 # Todos los campos
-RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id,cf_id_equipo,cf_nickname,cf_experiencia,cf_gusta_cocinar,cf_last_sync_from_chatwoot
+RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_stage,cf_id_equipo,cf_nickname,cf_experiencia,cf_gusta_cocinar,cf_last_sync_from_chatwoot
 ```
 
 ### 5. Reiniciar la Aplicación
@@ -97,11 +99,11 @@ npm start
 Para sincronización básica entre Chatwoot y RD Station, recomendamos crear estos campos:
 
 ```env
-RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id,cf_last_sync_from_chatwoot
+RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_stage,cf_chatwoot_id,cf_last_sync_from_chatwoot
 ```
 
 - `cf_tiene_ichef`: Para saber si el contacto ya tiene el producto
-- `cf_es_cliente`: Para identificar clientes actuales vs leads
+- `cf_stage`: Para identificar la etapa del contacto en el funnel (cliente = `customer`)
 - `cf_chatwoot_id`: Para relacionar el contacto con Chatwoot (útil para debugging)
 - `cf_last_sync_from_chatwoot`: Para saber cuándo fue la última actualización
 
@@ -169,7 +171,7 @@ RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef
 ### 2. Después de Crear Más Campos
 
 ```env
-RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id
+RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_stage,cf_chatwoot_id
 ```
 
 **Payload enviado a RD Station:**
@@ -178,7 +180,7 @@ RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id
   "name": "Juan Pérez",
   "mobile_phone": "59899123456",
   "cf_tiene_ichef": "Sí",
-  "cf_es_cliente": "No",
+  "cf_stage": "customer",
   "cf_chatwoot_id": "7631"
 }
 ```

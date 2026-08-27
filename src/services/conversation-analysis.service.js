@@ -13,6 +13,9 @@ import { mapContactChatwootToRD } from '../mappers/contact.mapper.js';
 import { generateEmailFromPhone, isValidEmail } from '../utils/email.utils.js';
 import { RD_CONVERSIONS } from '../constants/rdstation.constants.js';
 import { EXCLUDED_CONTACT_IDS } from '../constants/agent.constants.js';
+import { logResumen } from '../utils/file-logger.utils.js';
+import { getStageLevel } from './shared/field-protection.service.js';
+import { getInboxChannel } from '../constants/inbox.constants.js';
 
 /**
  * Service para analizar conversaciones cerradas y actualizar información de contactos
@@ -49,6 +52,7 @@ class ConversationAnalysisService {
         }, this.cacheTimeout);
 
         console.log(`📊 Iniciando análisis de conversación cerrada: ${conversationId}`);
+        logResumen(`📊 Iniciando análisis de conversación cerrada: ${conversationId}`);
 
         try {
             // 1. Obtener la conversación completa
@@ -277,20 +281,29 @@ class ConversationAnalysisService {
             const summary = extractedInfo.summary || generateConversationSummary(messages, extractedInfo);
 
             // 9. Actualizar contacto en Chatwoot
-            const chatwootUpdateResult = await this._updateContactInChatwoot(
-                contactId,
-                currentContact,
-                extractedInfo,
-                summary
-            );
+            // Endurecido: si falla la actualización del contacto, NO abortar el pipeline
+            // (la nota y la sincronización con RD Station deben continuar)
+            let chatwootUpdateResult;
+            try {
+                chatwootUpdateResult = await this._updateContactInChatwoot(
+                    contactId,
+                    currentContact,
+                    extractedInfo,
+                    summary
+                );
+            } catch (updateError) {
+                console.error('❌ Error actualizando contacto en Chatwoot (se continúa el pipeline):', updateError.message);
+                logResumen(`❌ Error actualizando contacto ${contactId} en Chatwoot (continúa): ${updateError.message}`);
+                chatwootUpdateResult = { success: false, error: updateError.message, changes: [] };
+            }
 
             // Combinar el contacto original con las actualizaciones
             let updatedContact = {
                 ...currentContact,
-                ...chatwootUpdateResult.contact,
+                ...(chatwootUpdateResult.contact || {}),
                 custom_attributes: {
                     ...currentContact.custom_attributes,
-                    ...chatwootUpdateResult.contact.custom_attributes
+                    ...(chatwootUpdateResult.contact?.custom_attributes || {})
                 }
             };
             
@@ -350,24 +363,35 @@ class ConversationAnalysisService {
                 await chatwootClient.setLabels(conversationId, newLabels);
             }
 
-            // 11. Sincronizar con RD Station
-            let rdStationUpdateResult = null;
-            
-            try {
-                console.log('📤 Preparando sincronización con RD Station:', {
-                    emailAnterior: originalEmail,
-                    emailNuevo: updatedContact.email,
-                    tiene_ichef: extractedInfo.tiene_ichef,
-                    es_cliente: extractedInfo.es_cliente,
-                    stage: extractedInfo.stage
-                });
-                
-                rdStationUpdateResult = await this._syncToRDStation(
-                    updatedContact,
-                    extractedInfo,
-                    originalEmail  // Pasar email original para detectar cambios
-                );
-            } catch (rdError) {
+                // 11. Sincronizar con RD Station
+                let rdStationUpdateResult = null;
+
+                try {
+                    console.log('📤 Preparando sincronización con RD Station:', {
+                        emailAnterior: originalEmail,
+                        emailNuevo: updatedContact.email,
+                        tiene_ichef: extractedInfo.tiene_ichef,
+                        es_cliente: extractedInfo.es_cliente,
+                        stage: extractedInfo.stage
+                    });
+
+                    const inboxConfig = getInboxChannel(conversation.inbox_id);
+                    const agentName = conversation.meta?.assignee?.name || conversation.meta?.sender?.name || 'desconocido';
+
+                    rdStationUpdateResult = await this._syncToRDStation(
+                        updatedContact,
+                        extractedInfo,
+                        originalEmail,  // Pasar email original para detectar cambios
+                        {
+                            conversationId,
+                            inboxId: conversation.inbox_id,
+                            inboxSlug: inboxConfig.slug,
+                            channel: inboxConfig.channel,
+                            agent: agentName,
+                            sentiment: sentiment.sentiment || 'neutral'
+                        }
+                    );
+                } catch (rdError) {
                 console.error('❌ Error sincronizando con RD Station:', rdError.message);
                 // No fallar todo el proceso si RD Station falla
                 rdStationUpdateResult = {
@@ -432,6 +456,7 @@ class ConversationAnalysisService {
 
         } catch (error) {
             console.error(`❌ Error procesando conversación ${conversationId}:`, error.message);
+            logResumen(`❌ Error procesando conversación ${conversationId}: ${error.message}`);
             throw error;
         }
     }
@@ -657,8 +682,9 @@ class ConversationAnalysisService {
      * @param {Object} chatwootContact - Contacto actualizado de Chatwoot
      * @param {Object} extractedInfo - Información extraída de la conversación
      * @param {String} originalEmail - Email original del contacto (antes de actualizaciones)
+     * @param {Object} context - Contexto de la conversación: { conversationId, inboxId, inboxSlug, channel, agent, sentiment }
      */
-    async _syncToRDStation(chatwootContact, extractedInfo, originalEmail = null) {
+    async _syncToRDStation(chatwootContact, extractedInfo, originalEmail = null, context = {}) {
         try {
             console.log(`🔄 Sincronizando con RD Station - Contacto: ${chatwootContact.name}, Email: ${chatwootContact.email}`);
             
@@ -749,11 +775,17 @@ class ConversationAnalysisService {
                             delete rdData.cf_tiene_ichef; // No enviar este campo a RD Station
                         }
                     }
-                    
-                    if (rdContactBefore.cf_es_cliente === 'Sí') {
-                        if (rdData.cf_es_cliente === 'No' || !rdData.cf_es_cliente) {
-                            console.log(`⚠️  [RD Station] Evitando retroceso de es_cliente: "Sí" → "${rdData.cf_es_cliente}" - Se mantiene "Sí"`);
-                            delete rdData.cf_es_cliente; // No enviar este campo a RD Station
+
+                    // PROTECCIÓN: stage no puede retroceder en el funnel
+                    // Ej: si el contacto ya está en customer, una nueva conversación no lo baja a lead
+                    const existingStage = rdContactBefore.cf_stage;
+                    const newStage = rdData.cf_stage;
+                    if (existingStage && newStage) {
+                        const existingLevel = getStageLevel(existingStage);
+                        const newLevel = getStageLevel(newStage);
+                        if (existingLevel >= 0 && (newLevel < 0 || newLevel < existingLevel)) {
+                            console.log(`⚠️  [RD Station] Evitando retroceso de stage: "${existingStage}" → "${newStage}" - Se mantiene "${existingStage}"`);
+                            delete rdData.cf_stage; // No enviar este campo a RD Station
                         }
                     }
                     
@@ -803,25 +835,35 @@ class ConversationAnalysisService {
 
             console.log(`✅ Contacto sincronizado con RD Station: ${rdData.email}`);
 
-            // Registrar evento de conversación cerrada
+            // Registrar evento de conversación cerrada (con canal en el identificador)
             let conversionEventSent = false;
             try {
+                const inboxSlug = context.inboxSlug || 'inbox';
+                const conversionIdentifier = `${RD_CONVERSIONS.CONVERSATION_CLOSED}-${inboxSlug}`;
+
                 await rdStationClient.sendConversionEvent(
                     rdData.email,
-                    RD_CONVERSIONS.CONVERSATION_CLOSED,
+                    conversionIdentifier,
                     {
+                        conversation_id: context.conversationId || chatwootContact.id,
+                        inbox_id: context.inboxId || null,
+                        inbox: inboxSlug,
+                        channel: context.channel || null,
+                        agent: context.agent || null,
+                        sentiment: context.sentiment || 'neutral',
                         tiene_ichef: extractedInfo.tiene_ichef || 'No',
-                        es_cliente: extractedInfo.es_cliente || 'No',
-                        conversation_id: chatwootContact.id
+                        es_cliente: extractedInfo.es_cliente || 'No'
                     }
                 );
                 conversionEventSent = true;
+                logResumen(`📤 Evento ${conversionIdentifier} enviado a RD para conv ${context.conversationId || chatwootContact.id}`);
             } catch (eventError) {
                 console.error('⚠️  Error en evento RD Station:', {
                     message: eventError.message,
                     status: eventError.response?.status,
                     data: eventError.response?.data
                 });
+                logResumen(`⚠️ Error en evento RD Station para conv ${context.conversationId || chatwootContact.id}: ${eventError.message}`);
             }
 
             return {

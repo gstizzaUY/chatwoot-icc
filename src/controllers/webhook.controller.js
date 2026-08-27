@@ -1,9 +1,70 @@
 import agentOrchestratorService from '../services/agent-orchestrator.service.js';
+import conversationAnalysisService from '../services/conversation-analysis.service.js';
 import chatwootClient from '../clients/chatwoot.client.js';
+import rdStationClient from '../clients/rdstation.client.js';
+import { logResumen } from '../utils/file-logger.utils.js';
+import { RD_CONVERSIONS } from '../constants/rdstation.constants.js';
+import { EXCLUDED_CONTACT_IDS } from '../constants/agent.constants.js';
+import { getInboxChannel } from '../constants/inbox.constants.js';
+import { generateEmailFromPhone } from '../utils/email.utils.js';
 
 /**
  * Controller para manejar webhooks de plataformas externas
  */
+
+// Estado de deduplicación para el evento de apertura de conversación.
+// Guarda el último status conocido por conversación (en memoria).
+// Evita enviar `conversation-opened` repetidamente cuando `conversation_updated`
+// dispara con status "open" por cualquier otra actualización (labels, assignee, etc.).
+const conversationLastStatus = new Map();
+
+/**
+ * Envía el evento `conversation-opened-<canal>` a RD Station.
+ * Se ejecuta en background cuando una conversación pasa a status "open".
+ *
+ * @param {Object} webhookData - Payload del webhook
+ * @param {number} conversationId - ID de la conversación
+ */
+async function sendConversationOpenedEvent(webhookData, conversationId) {
+    try {
+        const inboxId = webhookData.inbox_id || webhookData.conversation?.inbox_id;
+        const { slug, channel } = getInboxChannel(inboxId);
+
+        const sender = webhookData.meta?.sender || {};
+        const contactId = sender.id || webhookData.contact_id;
+
+        if (contactId && EXCLUDED_CONTACT_IDS.includes(contactId)) {
+            logResumen(`🚫 Contacto excluido (${contactId}) - sin evento open para conv ${conversationId}`);
+            return;
+        }
+
+        let email = sender.email;
+        if (!email || email === 'null') {
+            email = generateEmailFromPhone(sender.phone_number);
+        }
+        if (!email) {
+            logResumen(`⚠️ Sin email disponible para evento open de conv ${conversationId} - omitido`);
+            return;
+        }
+
+        const agent = webhookData.meta?.assignee?.name || sender.name || null;
+        const conversionIdentifier = `${RD_CONVERSIONS.CONVERSATION_OPENED}-${slug}`;
+
+        await rdStationClient.sendConversionEvent(email, conversionIdentifier, {
+            conversation_id: conversationId,
+            inbox_id: inboxId || null,
+            inbox: slug,
+            channel,
+            agent,
+            contact_name: sender.name || null
+        });
+
+        logResumen(`📤 Evento ${conversionIdentifier} enviado a RD para conv ${conversationId}`);
+    } catch (error) {
+        console.error('❌ Error enviando evento conversation-opened:', error.message);
+        logResumen(`❌ Error evento open conv ${conversationId}: ${error.message}`);
+    }
+}
 
 /**
  * Limpia las etiquetas [Agente IA] de una conversacion
@@ -41,6 +102,7 @@ export const conversationStatusChanged = async (req, res, next) => {
             conversationId: webhookData.id,
             status: webhookData.status
         });
+        logResumen(`Webhook recibido: ${webhookData.event} | conv ${webhookData.id} | status ${webhookData.status}`);
 
         // Validar que sea un evento de conversación
         // Chatwoot puede enviar 'conversation_status_changed' o 'conversation_updated'
@@ -55,15 +117,7 @@ export const conversationStatusChanged = async (req, res, next) => {
             });
         }
 
-        // Verificar que el estado sea "resolved" (cerrada)
-        if (webhookData.status !== 'resolved') {
-            return res.status(200).json({
-                success: true,
-                message: 'Evento recibido pero no procesado (estado no es resolved)',
-                status: webhookData.status
-            });
-        }
-
+        // Verificar que sea un evento de conversación con status válido
         const conversationId = webhookData.id;
 
         if (!conversationId) {
@@ -76,33 +130,66 @@ export const conversationStatusChanged = async (req, res, next) => {
             });
         }
 
+        // Actualizar estado de deduplicación para el evento de apertura
+        const previousStatus = conversationLastStatus.get(conversationId) || null;
+        conversationLastStatus.set(conversationId, webhookData.status);
+
         // Responder inmediatamente a Chatwoot (202 Accepted)
         res.status(202).json({
             success: true,
             message: 'Conversación recibida para análisis',
             conversationId,
+            status: webhookData.status,
             statusUrl: `/api/v2/conversations/${conversationId}/analysis-status`
         });
 
+        // ============ CONVERSACIÓN ABIERTA (status: open) ============
+        if (webhookData.status === 'open') {
+            // Deduplicación: solo enviar si venimos de un estado NO abierto
+            // (captura la apertura inicial y las reaperturas, evita el spam de
+            // conversation_updated mientras la conversación ya está abierta)
+            if (previousStatus !== 'open') {
+                logResumen(`🔓 Conv ${conversationId} abierta - enviando evento open`);
+                setImmediate(() => sendConversationOpenedEvent(webhookData, conversationId));
+            } else {
+                logResumen(`⏭️ Evento open duplicado para conv ${conversationId} - omitido`);
+            }
+            return;
+        }
+
+        // Otros estados (pending, snoozed, etc.): solo se actualizó el estado de dedup
+        if (webhookData.status !== 'resolved') {
+            return;
+        }
+
+        // ============ CONVERSACIÓN CERRADA (status: resolved) ============
         // Procesar en background (sin bloquear la respuesta)
         setImmediate(async () => {
             try {
+                logResumen(`Iniciando Resumen para conv ${conversationId} (evento: ${webhookData.event})`);
                 console.log(`🔄 Iniciando análisis en background de conversación ${conversationId}`);
-                
+
                 // Usar orchestrator para ejecutar agente de resumen
                 const result = await agentOrchestratorService.executeResumenAgent(conversationId);
-                
+
                 if (result.success) {
+                    logResumen(`✅ Conv ${conversationId} procesada exitosamente por Resumen`);
                     console.log(`✅ Conversación ${conversationId} procesada exitosamente en background`);
                 } else {
+                    logResumen(`⚠️ Conv ${conversationId} procesada con advertencias: ${result.reason}`);
                     console.log(`⚠️  Conversación ${conversationId} procesada con advertencias:`, result.reason);
                 }
-
-                // Limpiar etiquetas [Agente IA] al resolver la conversacion
-                await cleanupAiLabels(conversationId);
-
             } catch (error) {
+                logResumen(`❌ Error procesando conv ${conversationId} en background: ${error.message}`);
                 console.error(`❌ Error procesando conversación ${conversationId} en background:`, error.message);
+            } finally {
+                // Limpiar etiquetas [Agente IA] al resolver la conversacion (siempre)
+                try {
+                    await cleanupAiLabels(conversationId);
+                    logResumen(`🧹 Labels [Agente IA] limpiadas en conv ${conversationId}`);
+                } catch (cleanupError) {
+                    logResumen(`⚠️ No se pudieron limpiar labels en conv ${conversationId}: ${cleanupError.message}`);
+                }
             }
         });
 

@@ -20,7 +20,7 @@ El sistema puede analizar conversaciones usando **OpenAI GPT** para comprensión
 - **Fallback**: Si no está configurado o falla, usa análisis básico por regex
 - **Costo**: ~$0.005-0.01 por conversación con `gpt-4o-mini`
 
-**Ver guía completa**: [AI_ANALYSIS_GUIDE.md](./AI_ANALYSIS_GUIDE.md)
+**Ver guía completa**: [AI_AGENTS_SYSTEM.md](../docs/AI_AGENTS_SYSTEM.md)
 
 ---
 
@@ -43,7 +43,7 @@ RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef
 2. Agrégalos a tu `.env`:
    ```env
    # Ejemplo con múltiples campos (sin espacios entre comas)
-   RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_es_cliente,cf_chatwoot_id,cf_last_sync_from_chatwoot
+   RDSTATION_CUSTOM_FIELDS=cf_tiene_ichef,cf_stage,cf_chatwoot_id,cf_last_sync_from_chatwoot
    ```
 3. Reinicia el servidor
 
@@ -363,9 +363,8 @@ RD Station tiene circuit breaker implícito: si falla, el error no bloquea la ac
 
 ## 📚 Documentación Relacionada
 
-- [AI_AGENTS_SYSTEM.md](../docs/AI_AGENTS_SYSTEM.md) — Documentación técnica unificada del sistema multi-agente IA
-- [AI_ANALYSIS_GUIDE.md](./AI_ANALYSIS_GUIDE.md) — Guía de análisis con IA (OpenAI)
-- [MULTI_AGENT_ARCHITECTURE.md](../MULTI_AGENT_ARCHITECTURE.md) — Arquitectura multi-agente (versión anterior, 3 agentes)
+- [AI_AGENTS_SYSTEM.md](../docs/AI_AGENTS_SYSTEM.md) — Documentación técnica unificada del sistema multi-agente IA (documento canónico)
+- [RDSTATION_CUSTOM_FIELDS.md](./RDSTATION_CUSTOM_FIELDS.md) — Campos personalizados de RD Station
 - [MULTIMEDIA_IMPLEMENTATION.md](../MULTIMEDIA_IMPLEMENTATION.md) — Soporte multimedia (audio + imágenes)
 
 ---

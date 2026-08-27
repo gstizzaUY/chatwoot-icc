@@ -1,7 +1,8 @@
 # Sistema de Agentes IA — Documentación Técnica Unificada
 
-**Versión:** 2.1  
-**Última actualización:** Junio 2026
+**Versión:** 2.2
+**Última actualización:** Agosto 2026
+**Estado:** Documento canónico del sistema de agentes IA (coherente con el código fuente)
 
 ---
 
@@ -12,9 +13,11 @@ El sistema de agentes IA analiza e interviene en conversaciones de Chatwoot en t
 | Agente | Tipo de Intervención | Activación | Canales |
 |--------|---------------------|------------|---------|
 | **Nutridor** | Mensajes públicos al cliente | Trigger: mensaje del bot pre-atendedor | 23 (con prioridad exclusiva) |
-| **Pre-Venta** | Notas internas con sugerencias | Mensaje #1 del cliente, luego cada 3 | 23, 33, 1, 20, 34, 46, 12, 45 |
-| **Post-Venta** | Notas internas con diagnóstico | Mensaje #1 del cliente, luego cada 3 | 41, 38 |
+| **Pre-Venta** | Notas internas (labels) con datos capturados | Mensaje #1 del cliente, luego cada 5 | 23, 33, 1, 20, 34, 46, 12, 45, 54 |
+| **Post-Venta** | Notas internas (labels) con diagnóstico | Mensaje #1 del cliente, luego cada 5 | 41, 38 |
 | **Resumen** | Análisis completo post-cierre + CRM sync | Conversación pasa a `resolved` | Todos (según contexto) |
+
+> **Nota sobre "notas internas":** La salida de los 4 agentes se materializa como **etiquetas** (`labels`) en la conversación con prefijo `[Agente IA]` (máx 500 caracteres), NO como mensajes privados. Al resolver la conversación, `cleanupAiLabels()` elimina esas etiquetas; la evidencia del análisis queda en el timeline de Chatwoot y en `custom_attributes` del contacto (`last_conversation_summary`).
 
 ---
 
@@ -25,7 +28,8 @@ El sistema de agentes IA analiza e interviene en conversaciones de Chatwoot en t
 │                    Chatwoot Webhooks                         │
 │   ┌───────────────────┐    ┌──────────────────────────┐    │
 │   │ message_created   │    │ conversation_status_     │    │
-│   │                   │    │ changed                  │    │
+│   │                   │    │ changed / conversation_  │    │
+│   │                   │    │ updated (status resolved)│    │
 │   └─────────┬─────────┘    └────────────┬─────────────┘    │
 └─────────────┼──────────────────────────┼──────────────────┘
               │                          │
@@ -56,8 +60,8 @@ El sistema de agentes IA analiza e interviene en conversaciones de Chatwoot en t
 ┌─────────────────┐ ┌─────────────────┐ ┌──────────────────┐
 │ NutridorAgent   │ │ PreVentaAgent   │ │ PostVentaAgent   │
 │ (público)       │ │ (nota interna)  │ │ (nota interna)   │
-│ Chat + Captura  │ │ Sugerencias     │ │ Diagnóstico      │
-│ + Consultoría   │ │ comerciales     │ │ soporte          │
+│ Chat + Captura  │ │ Datos capturados│ │ Diagnóstico      │
+│ + Consultoría   │ │ + cambios CRM   │ │ soporte          │
 └────────┬────────┘ └────────┬────────┘ └────────┬─────────┘
          │                   │                   │
          └───────────────────┼───────────────────┘
@@ -121,7 +125,7 @@ backend/src/
 │       └── image-analysis.service.js        # GPT-4o Vision (análisis)
 │
 ├── controllers/
-│   ├── webhook.controller.js             # conversation_status_changed
+│   ├── webhook.controller.js             # conversation_status_changed / conversation_updated
 │   └── message.controller.js             # message_created
 │
 ├── constants/
@@ -163,18 +167,20 @@ Chatwoot envía webhook → message.controller.js
        │      └── Si no → deja pasar a PreVenta
        ├── 4. Verifica EXCLUDED_CONTACT_IDS (conversaciones internas)
        ├── 5. Evalúa triggers:
-       │      ├── PreVenta/PostVenta: mensaje #1 + cada 3 del cliente
+       │      ├── PreVenta/PostVenta: mensaje #1 + cada 5 del cliente
        │      └── Nutridor: mensaje trigger del bot ("Como no ingresaste ninguna opción...")
        ├── 6. Cache anti-duplicados (60s)
        └── 7. AgentFactory.getAgent(agentType).execute(conversationId)
 ```
 
-### 4.2 Conversación cerrada (`conversation_status_changed`)
+> **Importante:** En el código los triggers de Pre/Post-Venta están configurados con `everyNMessages: 5` (`agent.constants.js`). La documentación anterior indicaba "cada 3"; el valor actual del código es 5.
+
+### 4.2 Conversación cerrada (`conversation_status_changed` / `conversation_updated`)
 
 ```
 Chatwoot envía webhook → webhook.controller.js
   │
-  ├── Valida: event === 'conversation_status_changed' && status === 'resolved'
+  ├── Valida: event ∈ {conversation_status_changed, conversation_updated} && status === 'resolved'
   ├── Responde 202 Accepted inmediatamente
   │
   └── setImmediate → AgentOrchestratorService.executeResumenAgent(conversationId)
@@ -188,7 +194,8 @@ Chatwoot envía webhook → webhook.controller.js
             ├── 5. Valida calidad de extracción
             ├── 6. Actualiza Chatwoot (custom_attributes + labels)
             ├── 7. Sincroniza RD Station (upsert + evento de conversión)
-            └── 8. Crea nota interna con 7 secciones
+            └── 8. Crea etiqueta [Agente IA] con resumen (7 secciones)
+                 y luego cleanupAiLabels() elimina las etiquetas [Agente IA]
 ```
 
 ---
@@ -216,30 +223,24 @@ Chatwoot envía webhook → webhook.controller.js
   - Hizo 5-7 preguntas.
   - El cliente pide explícitamente un humano.
   - Un agente humano responde (detectado por `hasHumanResponded()`).
-- Al desconectarse, envía mensaje de despedida cálido y crea nota interna con resumen de lo capturado.
+- Al desconectarse, envía mensaje de despedida cálido y crea etiqueta [Agente IA] con resumen de lo capturado.
 
-**Rate limit:** Máximo 15 interacciones por conversación, cooldown 30s.
+**Control:** La variable `NUTRIDOR_ENABLED` (default `true`) habilita/deshabilita el agente en su totalidad.
 
 ### 5.2 Pre-Venta Agent
 
-**Propósito:** Actuar como copiloto del agente humano de ventas, proporcionando sugerencias de respuestas, detección de señales de compra y extracción de datos del prospecto.
+**Propósito:** Actuar como copiloto del agente humano de ventas. **Estado actual:** las sugerencias de respuesta (respuesta sugerida, interés, señales de compra, acción comercial) están **deshabilitadas** (`SUGGESTIONS_ENABLED = false`). La nota se limita a los **datos capturados** y los **cambios en CRM**, y es **silenciosa** si no hay datos nuevos ni cambios.
 
-**Canales (8):** 23, 33, 1, 20, 34, 46, 12, 45
+**Canales (9):** 23, 33, 1, 20, 34, 46, 12, 45, 54 (54 = ichefuy Instagram)
 
-**Triggers:** Mensaje inicial del cliente (#1) y luego cada 3 mensajes del cliente.
+**Triggers:** Mensaje inicial del cliente (#1) y luego cada 5 mensajes del cliente.
 
-**Output:** Nota interna privada con:
-- Nivel de interés (alto/medio/bajo) con emoji.
-- Intención del cliente (consulta/demo/compra/comparación/recetas).
-- Señales de compra detectadas.
-- Objeciones identificadas.
-- Respuesta sugerida (1-2 líneas).
-- Preguntas estratégicas recomendadas.
-- Acción comercial concreta (agendar_demo, enviar_catalogo, hacer_oferta, dar_seguimiento, capturar_contacto).
-- Información extraída de multimedia (transcripciones, imágenes).
-- Razón de las sugerencias.
+**Output:** Etiqueta `[Agente IA]` con:
+- Datos capturados (campos nuevos, sin repetir los ya reportados).
+- Ya registrado (campos previamente reportados).
+- Cambios en Chatwoot (`valor_anterior → valor_nuevo`).
 
-**Rate limit:** Máximo 20 análisis por conversación, cooldown 60s.
+**Rate limit:** La configuración `AGENT_RATE_LIMITS` (máx 20 análisis/conversación, cooldown 60s) está **declarada pero no aplicada** en el código (ver §6.5).
 
 ### 5.3 Post-Venta Agent
 
@@ -247,27 +248,27 @@ Chatwoot envía webhook → webhook.controller.js
 
 **Canales (2):** 41 (Actualizaciones Firmware), 38 (Experiencias iChef Wpp)
 
-**Triggers:** Mensaje inicial del cliente (#1) y luego cada 3 mensajes del cliente.
+**Triggers:** Mensaje inicial del cliente (#1) y luego cada 5 mensajes del cliente.
 
 **Regla forzada:** En post-venta, `tiene_ichef = "Sí"`, `es_cliente = "Sí"`, `stage = "customer"` siempre.
 
-**Output:** Nota interna privada con:
+**Output:** Etiqueta `[Agente IA]` con:
 - Tipo de conversación (onboarding/recetas/problema/garantía).
 - Nivel de urgencia (alta/media/baja).
 - Satisfacción estimada del cliente.
 - Descripción del problema detectado.
 - Lo que el cliente ya intentó.
-- Temas a abordar.
-- Acción recomendada (escalar_tecnico, enviar_tutorial, agendar_llamada, enviar_garantía, guiar_onboarding).
+- Temas a abordar y respuesta/acción sugeridas.
 - Serial capturado de multimedia (imágenes de pantalla).
+- Cambios en Chatwoot.
 
-**Rate limit:** Máximo 20 análisis por conversación, cooldown 60s.
+**Rate limit:** Configuración declarada pero no aplicada (máx 20, cooldown 60s).
 
 ### 5.4 Resumen Agent
 
 **Propósito:** Análisis completo al cierre de conversación. Consolida información de la conversación actual + historial previo multi-canal.
 
-**Trigger:** `conversation_status_changed` con `status === "resolved"`.
+**Trigger:** `conversation_status_changed` o `conversation_updated` con `status === "resolved"`.
 
 **Procesamiento:**
 1. Obtiene conversación completa + mensajes.
@@ -277,11 +278,13 @@ Chatwoot envía webhook → webhook.controller.js
 5. Extrae 50+ campos estructurados.
 6. Si la IA falla o no está configurada, usa extracción por regex como fallback.
 7. Valida calidad (score mínimo 30/100 para proceder).
-8. Actualiza Chatwoot: custom_attributes, labels, nota interna.
+8. Actualiza Chatwoot: custom_attributes, labels, etiqueta resumen.
 9. Sincroniza RD Station: upsert de contacto + evento de conversión.
-10. Genera nota interna con 7 secciones (ver abajo).
+10. Genera etiqueta `[Agente IA]` con 7 secciones (ver §9).
 
-**Rate limit:** Máximo 1 vez por conversación (solo al cerrar).
+**Costo:** El análisis multi-conversación realiza hasta **10 llamadas OpenAI adicionales** (una por conversación previa, `_analyzeAllPreviousConversations`) con delay de 200ms, además del análisis principal.
+
+**Rate limit:** Máximo 1 vez por conversación (cache de 60s contra duplicados).
 
 ---
 
@@ -325,6 +328,12 @@ Reglas de negocio invariantes aplicadas en 3 capas (prompts IA → validación �
 - **Imágenes:** GPT-4o Vision. Formatos: JPEG, PNG, GIF, WebP, PDF. Máx 20MB, 15 imágenes/conversación.
 - Caché de 7 días (MD5 hash de URL) para evitar reprocesamiento.
 - Solo procesa contenido enviado por clientes, nunca por agentes.
+- Los **videos no se procesan** (decisión de negocio).
+
+### 6.5 Rate Limiting (estado real)
+
+- **`AGENT_RATE_LIMITS`** (`agent.constants.js`) define límites por agente (PreVenta/PostVenta: 20 análisis, cooldown 60s; Nutridor: 15 interacciones, cooldown 30s; Resumen: 1), pero **actualmente NO se aplica** en ningún servicio.
+- El único límite activo es el **HTTP rate limiter** de webhooks: **100 requests/minuto por IP** (`ratelimit.middleware.js`), configurable con `SKIP_RATE_LIMIT=true` en desarrollo.
 
 ---
 
@@ -343,13 +352,18 @@ CHATWOOT_ACCOUNT_ID=2
 API_ACCESS_TOKEN=xxx
 
 # RD Station
-RD_STATION_CLIENT_ID=xxx
-RD_STATION_CLIENT_SECRET=xxx
-RD_STATION_REFRESH_TOKEN=xxx
+RDSTATION_CLIENT_ID=xxx
+RDSTATION_CLIENT_SECRET=xxx
+RDSTATION_REFRESH_TOKEN=xxx
 
 # Rate limiting (desarrollo)
 SKIP_RATE_LIMIT=true
+
+# Nutridor (default: true)
+NUTRIDOR_ENABLED=true
 ```
+
+**Roadmap (sin código aún):** `.env` ya incluye `NOTEBOOKLM_MCP_URL`, `NOTEBOOKLM_URL_COMERCIAL/PREVENTA/POSTVENTA/PORTAL`, `OPENAI_REASONING_EFFORT` y `OPENAI_DASHBOARD_MODEL` como preparación para integración futura con Google NotebookLM (RAG sobre notebooks de iChef) y refinamiento de modelos.
 
 ### Webhooks en Chatwoot
 
@@ -359,13 +373,15 @@ SKIP_RATE_LIMIT=true
 
 2. **conversation_status_changed:**
    - URL: `https://{host}/api/v2/webhooks/chatwoot/conversation-status-changed`
-   - Evento: `conversation_status_changed`
+   - Eventos: `conversation_status_changed` (y `conversation_updated` si status es `resolved`)
+
+> La autenticación por tokens de webhook está **deprecada**. La protección actual es rate limiting + validación de payload; se recomienda IP whitelist a nivel de infraestructura.
 
 ---
 
 ## 8. Canales y Mapeo
 
-### Pre-Venta (8 canales)
+### Pre-Venta (9 canales)
 
 | ID | Nombre |
 |----|--------|
@@ -377,6 +393,7 @@ SKIP_RATE_LIMIT=true
 | 46 | iChef MKT Wpp |
 | 12 | Correo Comercial |
 | 45 | iChef Comercial Wpp |
+| 54 | ichefuy (Instagram) |
 
 ### Post-Venta (2 canales)
 
@@ -391,11 +408,15 @@ SKIP_RATE_LIMIT=true
 |----|--------|
 | 23 | iChef Marty Wpp |
 
+### Contactos excluidos
+
+`EXCLUDED_CONTACT_IDS` (`agent.constants.js`) lista contactos internos (conversaciones internas) que los agentes **no** deben procesar.
+
 ---
 
-## 9. Nota Interna Post-Cierre (7 secciones)
+## 9. Etiqueta de Resumen Post-Cierre (7 secciones)
 
-Al cerrar una conversación, el Resumen Agent genera una nota con:
+Al cerrar una conversación, el Resumen Agent genera una etiqueta `[Agente IA]` con:
 
 1. **Resumen:** 3-5 líneas generadas por IA.
 2. **Sentimiento:** Emoji + explicación contextual.
@@ -406,18 +427,24 @@ Al cerrar una conversación, el Resumen Agent genera una nota con:
 7. **Recomendaciones:** Acciones sugeridas por IA o reglas automáticas.
 8. **Footer:** Método de análisis (IA/Regex), confianza, score.
 
+> **Comportamiento intencional:** estas etiquetas `[Agente IA]` son eliminadas por `cleanupAiLabels()` al resolver la conversación. El dato persiste en `custom_attributes.last_conversation_summary` (usado como contexto por agentes futuros) y la evidencia queda en el timeline de Chatwoot.
+
 ---
 
 ## 10. Endpoints de la API
 
-| Método | Endpoint | Descripción |
-|--------|----------|-------------|
-| `GET` | `/api/v2/health` | Health check |
-| `POST` | `/api/v2/webhooks/chatwoot/message-created` | Webhook de mensaje nuevo |
-| `POST` | `/api/v2/webhooks/chatwoot/conversation-status-changed` | Webhook de cambio de estado |
-| `POST` | `/api/v2/webhooks/chatwoot/analyze-conversation` | Análisis manual (testing) |
-| `POST` | `/api/v2/webhooks/chatwoot/bulk-analyze` | Análisis en lote |
-| `POST` | `/api/v2/webhooks/rdstation/conversion` | Webhook de RD Station |
+| Método | Endpoint | Descripción | Auth |
+|--------|----------|-------------|------|
+| `GET` | `/api/v2/health` | Health check | No |
+| `POST` | `/api/v2/webhooks/chatwoot/message-created` | Webhook de mensaje nuevo (Nutridor/PreVenta/PostVenta) | Rate limit |
+| `POST` | `/api/v2/webhooks/chatwoot/conversation-status-changed` | Webhook de cambio de estado (Resumen) | Rate limit |
+| `POST` | `/api/v2/webhooks/chatwoot/analyze-conversation` | Análisis manual (testing) | API Key* |
+| `POST` | `/api/v2/webhooks/chatwoot/bulk-analyze` | Análisis en lote | API Key* |
+| `POST` | `/api/v2/webhooks/rdstation/conversion` | Webhook de RD Station | Rate limit |
+
+\* Actualmente no requiere token (temporal); la ruta está mapeada sin middleware de auth.
+
+**Procesamiento asíncrono:** los webhooks responden `202 Accepted` inmediatamente y procesan en background con `setImmediate()`.
 
 ---
 
@@ -447,16 +474,93 @@ El sistema produce logs detallados con emojis para trazabilidad:
 | `Trigger conditions not met` | Condiciones de trigger no cumplidas | Ver `AGENT_TRIGGERS` en `agent.constants.js` |
 | `OPENAI_API_KEY no configurada` | Falta API key | Configurar en `.env` — agentes no funcionarán sin ella |
 | `Rate limit exceeded` | Demasiadas requests | Ajustar `SKIP_RATE_LIMIT=true` en desarrollo |
+| `INVALID_FIELDS` (RD Station) | Campo `cf_*`/`enc_*` no creado en RD | Crear el campo en RD o quitarlo de `RDSTATION_CUSTOM_FIELDS` |
 
 ---
 
-## 12. Comparativa con Documentación Anterior
+## 12. Testing
 
-La documentación `MULTI_AGENT_ARCHITECTURE.md` (raíz del proyecto) describe 3 agentes (PreVenta, PostVenta, Resumen). Este documento unificado refleja el estado actual del código con **4 agentes**, incluyendo el **Nutridor Agent**, que es el único que envía mensajes públicos al cliente y tiene lógica de prioridad sobre el canal 23.
+### Iniciar el servidor
+
+```bash
+cd backend
+npm run dev     # nodemon, puerto 4001 (o PORT del .env)
+npm start       # producción
+```
+
+### Health check
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:4001/api/v2/health" -Method Get | ConvertTo-Json -Depth 10
+```
+
+### Simular webhook de conversación cerrada (Resumen)
+
+```powershell
+$body = @{ event = "conversation_status_changed"; id = 12345; status = "resolved" } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:4001/api/v2/webhooks/chatwoot/conversation-status-changed" -Method Post -Body $body -ContentType "application/json"
+```
+
+### Simular webhook de mensaje (PreVenta/PostVenta/Nutridor)
+
+```powershell
+$body = @{
+    event = "message_created"
+    message_type = 0
+    content = "Hola, quiero info"
+    conversation = @{ id = 12345; inbox_id = 23 }
+} | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:4001/api/v2/webhooks/chatwoot/message-created" -Method Post -Body $body -ContentType "application/json"
+```
+
+### Análisis manual / en lote
+
+```powershell
+$body = @{ conversationId = 12345 } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:4001/api/v2/webhooks/chatwoot/analyze-conversation" -Method Post -Body $body -ContentType "application/json"
+
+$body = @{ conversationIds = @(12345, 12346) } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:4001/api/v2/webhooks/chatwoot/bulk-analyze" -Method Post -Body $body -ContentType "application/json"
+```
+
+### Verificación posterior
+
+1. En Chatwoot: custom_attributes del contacto actualizados, labels aplicadas, etiqueta `[Agente IA]`.
+2. En RD Station: contacto con campos personalizados y evento de conversión registrado.
 
 ---
 
-## 13. Dependencias
+## 13. Multimedia (resumen)
+
+- **Audio → Whisper-1** (`audio-transcription.service.js`): MP3, M4A, WAV, WebM, OGG; máx 25MB; 10 por conversación; ~$0.006/min.
+- **Imágenes/Documentos → GPT-4o Vision** (`image-analysis.service.js`): JPEG, PNG, GIF, WebP, PDF; máx 20MB; 15 por conversación.
+- **Caché:** 7 días, clave MD5 de la URL (hasta 1000 entradas).
+- **Filtrado:** solo attachments de mensajes **incoming** (del cliente).
+- **Integración:** el contexto de los agentes incluye transcripciones e imágenes; la información extraída consolida y actualiza CRMs; la etiqueta de cierre muestra estadísticas multimedia.
+- **Errores:** si OpenAI falla, continúa sin multimedia (no bloquea el flujo).
+
+---
+
+## 14. RD Station (resumen)
+
+- **Dos APIs:** Marketing Platform (OAuth2, contactos + eventos de conversión) y CRM API (User Token, deals).
+- **Auto-refresh de token:** interceptor de Axios en `rdstation.client.js` (401 → refresh + retry).
+- **Campos personalizados:** controlados por `RDSTATION_CUSTOM_FIELDS` en `.env` (por defecto solo `cf_tiene_ichef`). Habilitados y verificados en la cuenta: `cf_address1`, `cf_zip`, `cf_cedula`, `cf_stage`. Los campos `cf_*`/`enc_*` deben existir en RD Station antes de usarse.
+- **Eventos de conversación:** se envían a RD Station con el **canal en el identificador** (`conversation-opened-<canal>` y `conversation-closed-<canal>`, ej. `conversation-closed-ichef-center-wpp`):
+  - **`conversation-opened`**: se envía cuando la conversación pasa a status `open` (apertura inicial o reapertura), vía webhook `conversation_status_changed`/`conversation_updated`. Deduplicado en memoria (`conversationLastStatus`) para no repetirse con cada `conversation_updated` mientras está abierta.
+  - **`conversation-closed`**: lo envía **únicamente el agente Resumen** al cierre (`status: resolved`). Los agentes en tiempo real (PreVenta/PostVenta/Nutridor) **no** envían el evento de cierre (solo sincronizan el contacto).
+  - Metadata del evento: `conversation_id`, `inbox_id`, `inbox` (slug), `channel`, `agent`, `sentiment` (+ `tiene_ichef`/`es_cliente` en el cierre).
+  - Mapa de canales: `src/constants/inbox.constants.js` (`INBOX_TO_CHANNEL`, helper `getInboxSlug`).
+- **Stage → `cf_stage`:** el campo de etapa de RD Station es `cf_stage` (custom field) y se llena con el **valor interno** (ej. `customer`, `lead`, `opportunity`), igual que en los controladores V1. Un cliente se guarda como `customer`.
+- **`es_cliente` es solo de Chatwoot:** el atributo `es_cliente` (Sí/No) vive en Chatwoot. **No existe `cf_es_cliente` en RD Station** (nunca existió); el estado "es cliente" se representa en RD con `cf_stage = "customer"`.
+- **Reglas de negocio:** `tiene_ichef` (Chatwoot y RD) y `es_cliente` (solo Chatwoot) nunca retroceden; `es_cliente=Sí` fuerza `stage=customer`; generación de email ficticio desde teléfono o Instagram si no hay email válido; **`stage` nunca retrocede en el funnel** (ni en Chatwoot ni en RD): si un contacto ya es `customer`, una conversación posterior sin mención de compra no lo baja a `lead` (validación por `getStageLevel` en `field-protection.service.js` y guards en `crm-sync` y `conversation-analysis`).
+- **Resiliencia V2:** rate limit middleware; el fallo de RD no bloquea la actualización en Chatwoot.
+
+> Detalle completo de campos y mapeos en `RDSTATION_CUSTOM_FIELDS.md` y `docs/RD_STATION_API.md`.
+
+---
+
+## 15. Dependencias
 
 ```json
 {
@@ -474,4 +578,17 @@ La documentación `MULTI_AGENT_ARCHITECTURE.md` (raíz del proyecto) describe 3 
 
 ---
 
-*Documentación generada desde el análisis del código fuente — Junio 2026*
+## 16. Próximas Mejoras (pendientes)
+
+- [ ] Rehabilitar sugerencias del agente PreVenta (`SUGGESTIONS_ENABLED`) cuando se requiera.
+- [ ] Aplicar o eliminar `AGENT_RATE_LIMITS` (actualmente sin efecto).
+- [ ] Corregir cache anti-duplicados del orquestador (la clave incluye `Date.now()` y nunca detecta duplicados).
+- [ ] Refactor del Resumen para reutilizar `crm-sync.service.js` (hoy duplica lógica).
+- [ ] Optimizar costo IA del Resumen (hasta 10 llamadas OpenAI por historial).
+- [ ] Integración NotebookLM (RAG) — vars de entorno ya preparadas.
+- [ ] Caching de resultados, métricas/monitoring, dashboard de performance.
+- [ ] Tests unitarios e integración; A/B testing de prompts.
+
+---
+
+*Documentación canónica unificada del sistema de agentes IA — actualizada desde el análisis del código fuente, Agosto 2026.*

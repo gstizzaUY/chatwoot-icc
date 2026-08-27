@@ -70,7 +70,7 @@ src/
 ### 1. Agentes en Tiempo Real (Pre-Venta / Post-Venta)
 
 ```
-Webhook message_created (cada 3 mensajes)
+Webhook message_created (cada 5 mensajes)
     ↓
 BaseAgent.buildContext()
     ↓

@@ -39,8 +39,8 @@ See `docs/AI_AGENTS_SYSTEM.md` for full technical documentation.
 | Agent | Trigger | Output | Channels |
 |-------|---------|--------|----------|
 | **Nutridor** | Bot trigger message ("Como no ingresaste ninguna opción...") | Public messages to client (chat + info capture) | 23 |
-| **Pre-Venta** | Client msg #1, then every 3 | Internal note with sales suggestions | 23,33,1,20,34,46,12,45 |
-| **Post-Venta** | Client msg #1, then every 3 | Internal note with support diagnosis | 41,38 |
+| **Pre-Venta** | Client msg #1, then every 5 | Internal note (labels) with captured data + CRM changes (sales suggestions disabled) | 23,33,1,20,34,46,12,45,54 |
+| **Post-Venta** | Client msg #1, then every 5 | Internal note (labels) with support diagnosis | 41,38 |
 | **Resumen** | Conversation → resolved | Full analysis + CRM sync (note with 7 sections) | All |
 
 Key files:

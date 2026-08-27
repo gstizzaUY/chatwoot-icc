@@ -165,12 +165,55 @@ class ChatwootClient {
     }
 
     /**
-     * Obtiene los mensajes de una conversación
+     * Obtiene TODOS los mensajes de una conversación (paginando el endpoint de Chatwoot).
+     * Chatwoot devuelve un máximo de 20 mensajes por página; sin paginar solo se
+     * obtenían las últimas 20, perdiendo información relevante en conversaciones largas
+     * (emails, datos de contacto, etc.).
+     *
+     * @param {number} conversationId - ID de la conversación
+     * @param {number|null} maxMessages - Máximo de mensajes a obtener (default: CHATWOOT_MAX_MESSAGES o 500)
+     * @returns {Promise<Array>} - Mensajes ordenados cronológicamente (id ascendente)
      */
-    async getConversationMessages(conversationId) {
+    async getConversationMessages(conversationId, maxMessages = null) {
         try {
-            const response = await this.client.get(`/conversations/${conversationId}/messages`);
-            return response.data.payload || [];
+            const limit = maxMessages || parseInt(process.env.CHATWOOT_MAX_MESSAGES || '500', 10);
+            const PAGE_SIZE = 20;
+            const allMessages = [];
+            let before = null;
+
+            while (allMessages.length < limit) {
+                let url = `/conversations/${conversationId}/messages`;
+                if (before) {
+                    url += `?before=${before}`;
+                }
+
+                const response = await this.client.get(url);
+                const batch = response.data.payload || [];
+
+                if (batch.length === 0) {
+                    break;
+                }
+
+                allMessages.push(...batch);
+
+                // Si la página vino incompleta, no hay más mensajes
+                if (batch.length < PAGE_SIZE) {
+                    break;
+                }
+
+                // Cursor: id más antiguo de la página actual
+                before = Math.min(...batch.map(msg => msg.id));
+
+                if (allMessages.length >= limit) {
+                    console.warn(`⚠️  Se alcanzó el tope de ${limit} mensajes en conversación ${conversationId}`);
+                    break;
+                }
+            }
+
+            // Ordenar cronológicamente (el resto del flujo espera orden ascendente)
+            allMessages.sort((a, b) => a.id - b.id);
+
+            return allMessages;
         } catch (error) {
             console.error(`Error obteniendo mensajes de conversación ${conversationId}:`, error.message);
             return [];

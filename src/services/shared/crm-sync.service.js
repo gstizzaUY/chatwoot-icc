@@ -3,8 +3,7 @@ import rdStationClient from '../../clients/rdstation.client.js';
 import { mapContactChatwootToRD } from '../../mappers/contact.mapper.js';
 import { generateEmailFromPhone, isValidEmail } from '../../utils/email.utils.js';
 import { normalizePhone } from '../../utils/phone.utils.js';
-import { RD_CONVERSIONS } from '../../constants/rdstation.constants.js';
-import fieldProtectionService from './field-protection.service.js';
+import fieldProtectionService, { getStageLevel } from './field-protection.service.js';
 
 /**
  * Servicio centralizado de sincronización CRM
@@ -87,9 +86,13 @@ class CRMSyncService {
             updateField('custom', 'lastname', extractedInfo.lastname, 'Apellido');
             updateField('custom', 'company', extractedInfo.company, 'Empresa');
             updateField('custom', 'mobile_phone', extractedInfo.mobile_phone, 'Celular');
+            updateField('custom', 'phone', extractedInfo.phone, 'Teléfono fijo');
             updateField('custom', 'city', extractedInfo.city, 'Ciudad');
             updateField('custom', 'state', extractedInfo.state, 'Departamento');
             updateField('custom', 'country', extractedInfo.country, 'País');
+            updateField('custom', 'address', extractedInfo.address, 'Dirección');
+            updateField('custom', 'zip', extractedInfo.zip, 'Código Postal');
+            updateField('custom', 'cedula', extractedInfo.cedula, 'Cédula');
         }
 
         // Lógica crítica: Si es_cliente = Sí → forzar customer
@@ -218,10 +221,16 @@ class CRMSyncService {
                         }
                     }
 
-                    if (rdContactBefore.cf_es_cliente === 'Sí') {
-                        if (rdData.cf_es_cliente !== 'Sí') {
-                            console.log(`⚠️  [RD Station] Evitando retroceso de es_cliente: "Sí" → "${rdData.cf_es_cliente}"`);
-                            delete rdData.cf_es_cliente;
+                    // PROTECCIÓN: stage no puede retroceder en el funnel
+                    // Ej: si el contacto ya está en customer, una nueva conversación no lo baja a lead
+                    const existingStage = rdContactBefore.cf_stage;
+                    const newStage = rdData.cf_stage;
+                    if (existingStage && newStage) {
+                        const existingLevel = getStageLevel(existingStage);
+                        const newLevel = getStageLevel(newStage);
+                        if (existingLevel >= 0 && (newLevel < 0 || newLevel < existingLevel)) {
+                            console.log(`⚠️  [RD Station] Evitando retroceso de stage: "${existingStage}" → "${newStage}" - se mantiene "${existingStage}"`);
+                            delete rdData.cf_stage;
                         }
                     }
 
@@ -261,22 +270,11 @@ class CRMSyncService {
 
             console.log(`✅ Contacto sincronizado con RD Station: ${rdData.email}`);
 
-            // Registrar evento de conversión
-            let conversionEventSent = false;
-            try {
-                await rdStationClient.sendConversionEvent(
-                    rdData.email,
-                    RD_CONVERSIONS.CONVERSATION_CLOSED,
-                    {
-                        tiene_ichef: extractedInfo.tiene_ichef || 'No',
-                        es_cliente: extractedInfo.es_cliente || 'No',
-                        conversation_id: chatwootContact.id
-                    }
-                );
-                conversionEventSent = true;
-            } catch (eventError) {
-                console.error('⚠️  Error en evento RD Station:', eventError.message);
-            }
+            // NOTA: aquí NO se envía el evento de conversación cerrada.
+            // Los agentes en tiempo real (PreVenta/PostVenta/Nutridor) solo sincronizan el contacto;
+            // el evento `conversation-closed-<canal>` lo envía únicamente el agente Resumen al cierre
+            // (conversation-analysis.service.js -> _syncToRDStation).
+            const conversionEventSent = false;
 
             return {
                 success: true,

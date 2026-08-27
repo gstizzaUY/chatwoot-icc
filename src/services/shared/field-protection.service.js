@@ -37,13 +37,21 @@ class FieldProtectionService {
 
         // PROTECCIÓN: stage solo puede avanzar, nunca retroceder
         if (field === 'stage' || PROTECTED_FIELDS.FORWARD_ONLY.includes(field)) {
-            const oldLevel = STAGE_HIERARCHY[oldValue] || 0;
-            const newLevel = STAGE_HIERARCHY[newValue] || 0;
+            const oldLevel = getStageLevel(oldValue);
+            const newLevel = getStageLevel(newValue);
 
-            if (newLevel < oldLevel) {
+            // Si el valor actual es una etapa conocida y el nuevo es desconocido → bloquear
+            if (oldLevel >= 0 && newLevel < 0) {
                 return {
                     allowed: false,
-                    reason: `Stage no puede retroceder: ${oldValue} (${oldLevel}) → ${newValue} (${newLevel})`
+                    reason: `Stage no puede retroceder a un valor desconocido: "${oldValue}" → "${newValue}"`
+                };
+            }
+
+            if (oldLevel >= 0 && newLevel >= 0 && newLevel < oldLevel) {
+                return {
+                    allowed: false,
+                    reason: `Stage no puede retroceder: ${oldValue} (nivel ${oldLevel}) → ${newValue} (nivel ${newLevel})`
                 };
             }
         }
@@ -200,6 +208,39 @@ class FieldProtectionService {
 
         return cleaned;
     }
+}
+
+/**
+ * Devuelve el nivel jerárquico de una etapa comercial (para comparar avance/retroceso).
+ * Acepta valores internos y de RD Station, case-insensitive.
+ * Jerarquía: lead(0) → mql(1) → sql(2) → opportunity(3) → customer(4)
+ *
+ * @param {string} stage - Etapa a resolver
+ * @returns {number} - Nivel (0-4) o -1 si es desconocida/vacía
+ */
+export function getStageLevel(stage) {
+    if (stage === undefined || stage === null || stage === '') return -1;
+
+    const normalized = String(stage).toLowerCase().trim();
+
+    // Alias adicionales (además de STAGE_HIERARCHY) para cubrir variantes de RD Station
+    const aliases = {
+        'prospecting': 0,
+        'marketingqualifiedlead': 1,
+        'qualified lead': 1,
+        'salesqualifiedlead': 2,
+        'client': 4
+    };
+
+    if (Object.prototype.hasOwnProperty.call(aliases, normalized)) {
+        return aliases[normalized];
+    }
+
+    if (Object.prototype.hasOwnProperty.call(STAGE_HIERARCHY, normalized)) {
+        return STAGE_HIERARCHY[normalized];
+    }
+
+    return -1;
 }
 
 export default new FieldProtectionService();

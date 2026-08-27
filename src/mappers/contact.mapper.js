@@ -54,7 +54,8 @@ export function mapContactRDToChatwoot(rdContact) {
             nickname: rdContact.cf_nickname || '',
             experiencia: rdContact.cf_experiencia || '',
             gusta_cocinar: rdContact.cf_gusta_cocinar || '',
-            es_cliente: rdContact.cf_es_cliente || 'No',
+            // es_cliente se deriva de la etapa: si cf_stage = customer → es cliente
+            es_cliente: ['customer', 'cliente'].includes(String(rdContact.cf_stage || '').toLowerCase()) ? 'Sí' : 'No',
             
             // Metadata
             rd_station_uuid: rdContact.uuid || '',
@@ -111,8 +112,9 @@ export function mapContactChatwootToRD(chatwootContact) {
         ...(attrs.instagram && { instagram: attrs.instagram }),
         
         // Campos personalizados (cf_*) - solo enviar si están habilitados
+        // NOTA: cf_es_cliente NO existe en RD Station - el estado de cliente se
+        // representa con cf_stage = "customer"
         ...(isCustomFieldEnabled('cf_tiene_ichef') && { cf_tiene_ichef: normalizeBooleanValue(attrs.tiene_ichef) }),
-        ...(isCustomFieldEnabled('cf_es_cliente') && { cf_es_cliente: normalizeBooleanValue(attrs.es_cliente) }),
         ...(isCustomFieldEnabled('cf_id_equipo') && attrs.id_equipo && { cf_id_equipo: attrs.id_equipo }),
         ...(isCustomFieldEnabled('cf_chatwoot_id') && { cf_chatwoot_id: chatwootContact.id?.toString() || '' }),
         ...(isCustomFieldEnabled('cf_last_sync_from_chatwoot') && { cf_last_sync_from_chatwoot: new Date().toISOString() }),
@@ -120,12 +122,12 @@ export function mapContactChatwootToRD(chatwootContact) {
         // Dirección y ubicación
         ...(isCustomFieldEnabled('cf_address1') && attrs.address && { cf_address1: attrs.address }),
         ...(isCustomFieldEnabled('cf_address2') && attrs.address2 && { cf_address2: attrs.address2 }),
-        ...(isCustomFieldEnabled('numero_puerta') && attrs.numero_puerta && { numero_puerta: attrs.numero_puerta }),
-        ...(isCustomFieldEnabled('zip') && attrs.zip && { zip: attrs.zip }),
+        ...(isCustomFieldEnabled('cf_numero_puerta') && attrs.numero_puerta && { cf_numero_puerta: attrs.numero_puerta }),
+        ...(isCustomFieldEnabled('cf_zip') && attrs.zip && { cf_zip: attrs.zip }),
         
         // Identificación
         ...(isCustomFieldEnabled('cf_cedula') && attrs.cedula && { cf_cedula: attrs.cedula }),
-        ...(isCustomFieldEnabled('rut') && attrs.rut && { rut: attrs.rut }),
+        ...(isCustomFieldEnabled('cf_rut') && attrs.rut && { cf_rut: attrs.rut }),
         
         // Comentarios
         ...(isCustomFieldEnabled('cf_comments') && attrs.comments && { cf_comments: attrs.comments }),
@@ -134,7 +136,7 @@ export function mapContactChatwootToRD(chatwootContact) {
         // Categoría y clasificación
         ...(isCustomFieldEnabled('cf_categoria_contacto') && attrs.categoria_contacto && { cf_categoria_contacto: attrs.categoria_contacto }),
         ...(isCustomFieldEnabled('status_contacto') && attrs.status_contacto && { status_contacto: attrs.status_contacto }),
-        ...(isCustomFieldEnabled('stage') && attrs.stage && { stage: mapInternalStageToRD(attrs.stage) }),
+        ...(isCustomFieldEnabled('cf_stage') && attrs.stage && { cf_stage: attrs.stage }),
         
         // Referidos
         ...(isCustomFieldEnabled('referido_por') && attrs.referido_por && { referido_por: attrs.referido_por }),
