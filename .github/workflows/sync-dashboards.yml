@@ -1,0 +1,29 @@
+name: Sync Dashboards
+
+on:
+  schedule:
+    # Lunes 09:30 hora Uruguay (UTC-3) = 12:30 UTC.
+    # Corre después del scheduler de producción (lunes 08:00 UY, tarda ~10-15 min)
+    # y solo commitea si la generación de la semana actual está completa.
+    - cron: '30 12 * * 1'
+  workflow_dispatch:
+    # Permite ejecución manual desde la pestaña Actions (para probar o recuperar una semana).
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Sincronizar dashboards desde producción
+        run: node scripts/sync-dashboards.mjs --push
+        env:
+          EXPORT_SECRET: ${{ secrets.EXPORT_SECRET }}
+          DASHBOARDS_BACKEND_URL: https://inchat-chatwoot-icc.5vsa59.easypanel.host

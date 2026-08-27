@@ -50,4 +50,15 @@ debug/
 *.seed
 *.pid.lock
 
+# Dashboards: se generan en producción y se preservan en git (viajan en la imagen).
+# Se ignoran los temporales, pero se trackean los reportes HTML y el log de generación.
+exports/*.xlsx
+exports/archive/
+!exports/reporte_*.html
+!exports/generation-log.json
+
+# Datos y locks generados en runtime (no deben commitearse)
+data/
+locks_temp/
+
 package-lock.json
