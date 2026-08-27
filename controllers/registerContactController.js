@@ -7,6 +7,26 @@ const RDSTATION_URL = process.env.RDSTATION_URL;
 const RDSTATION_CLIENT_ID = process.env.RDSTATION_CLIENT_ID;
 const RDSTATION_CLIENT_SECRET = process.env.RDSTATION_CLIENT_SECRET;
 const RDSTATION_REFRESH_TOKEN = process.env.RDSTATION_REFRESH_TOKEN;
+const RDSTATION_CRM_URL = process.env.RDSTATION_CRM_URL || "https://crm.rdstation.com";
+const RDSTATION_USER_TOKEN = process.env.RDSTATION_USER_TOKEN;
+
+const crmStation = axios.create({
+	baseURL: `${RDSTATION_CRM_URL}/api/v1`,
+	params: { token: RDSTATION_USER_TOKEN },
+	headers: {
+		"Content-Type": "application/json"
+	}
+});
+
+const DEAL_STAGES = {
+	"68d14bbd5a3017001e7e3a0e": "Iniciar Agendamiento",
+	"68d14bbd5a3017001e7e3a0f": "Agendar Demo",
+	"68d14bbd5a3017001e7e3a10": "Demo Agendada",
+	"68d14bbd5a3017001e7e3a11": "Demo Realizada",
+	"68d14bbd5a3017001e7e3a12": "Negociación Comercial",
+	"69176d13cd5edb001e64c5d9": "Cerrada Perdida",
+	"69176d0ad5402600168336b1": "Cerrada Ganada"
+};
 
 const rdstation = axios.create({
 	baseURL: RDSTATION_URL,
@@ -263,14 +283,94 @@ async function GetEvents(uuid, eventType) {
 	}
 }
 
+async function GetCrmContactByEmail(email) {
+	try {
+		const response = await crmStation.get("/contacts", { params: { email } });
+		if (response.data.total > 0) return response.data.contacts[0];
+	} catch (error) {
+		console.error("Error al obtener contacto en CRM", error.message);
+	}
+	return null;
+}
+
+async function GetCrmDeal(dealId) {
+	try {
+		const response = await crmStation.get(`/deals/${dealId}`);
+		return response.data;
+	} catch (error) {
+		console.error("Error al obtener deal en CRM", error.message, dealId);
+		return null;
+	}
+}
+
+async function GetCrmActivities(dealId) {
+	try {
+		const response = await crmStation.get("/activities", { params: { deal_id: dealId, limit: 200 } });
+		return response.data.activities || [];
+	} catch (error) {
+		console.error("Error al obtener actividades en CRM", error.message);
+		return [];
+	}
+}
+
+function crmStageName(stageId) {
+	return DEAL_STAGES[stageId] || stageId;
+}
+
+// Timeline del CRM: negocios (creación, etapas, cierre) + anotaciones
+async function FetchCrmTimeline(email, phone) {
+	const contact = await GetCrmContactByEmail(email || GenerateContactId(phone));
+	if (!contact || !Array.isArray(contact.deals)) return [];
+	const events = [];
+	for (const dealRef of contact.deals) {
+		const deal = await GetCrmDeal(dealRef.id);
+		if (!deal) continue;
+
+		events.push({
+			event_type: "CRM",
+			event_identifier: "Negocio creado en RD Station CRM",
+			event_timestamp: deal.created_at
+		});
+
+		if (Array.isArray(deal.deal_stage_histories)) {
+			for (const h of deal.deal_stage_histories) {
+				if (!h.start_date) continue;
+				events.push({
+					event_type: "CRM",
+					event_identifier: `Cambió su etapa en el embudo a ${crmStageName(h.deal_stage_id)}`,
+					event_timestamp: h.start_date
+				});
+			}
+		}
+
+		if (deal.win === true) {
+			events.push({ event_type: "CRM", event_identifier: "Negocio ganado (oportunidad ganada)", event_timestamp: deal.updated_at });
+		} else if (deal.win === false) {
+			events.push({ event_type: "CRM", event_identifier: "Negocio perdido (oportunidad perdida)", event_timestamp: deal.updated_at });
+		}
+
+		const activities = await GetCrmActivities(deal.id);
+		for (const a of activities) {
+			if (!a.date) continue;
+			events.push({
+				event_type: "CRM",
+				event_identifier: `Anotación: ${a.text || ""}`,
+				event_timestamp: a.date
+			});
+		}
+	}
+	return events;
+}
+
 async function FetchEvents(email, phone) {
 	const contact = await FetchContact(phone, email);
 	if (!contact) return null;
-	const [conversions, opportunities] = await Promise.all([
+	const [conversions, opportunities, crmEvents] = await Promise.all([
 		GetEvents(contact.uuid, "CONVERSION"),
-		GetEvents(contact.uuid, "OPPORTUNITY")
+		GetEvents(contact.uuid, "OPPORTUNITY"),
+		FetchCrmTimeline(email, phone)
 	]);
-	return [...(conversions || []), ...(opportunities || [])].sort(
+	return [...(conversions || []), ...(opportunities || []), ...(crmEvents || [])].sort(
 		(a, b) => new Date(b.event_timestamp) - new Date(a.event_timestamp)
 	);
 }
