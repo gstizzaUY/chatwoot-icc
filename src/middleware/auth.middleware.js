@@ -89,6 +89,49 @@ export function authenticateApiKey() {
 }
 
 /**
+ * Middleware de autenticación por header de secreto compartido
+ * Valida un header custom (ej: x-webhook-secret) contra una variable de entorno
+ *
+ * @param {string} headerName - Nombre del header (default: x-webhook-secret)
+ * @param {string} tokenEnvVar - Variable de entorno con el secreto esperado (default: VALIDATOR_WEBHOOK_SECRET)
+ * @returns {Function} - Middleware de Express
+ */
+export function authenticateSharedSecret(headerName = 'x-webhook-secret', tokenEnvVar = 'VALIDATOR_WEBHOOK_SECRET') {
+    return (req, res, next) => {
+        const header = headerName.toLowerCase();
+        const expectedToken = process.env[tokenEnvVar];
+
+        // Validar que el token exista en .env
+        if (!expectedToken) {
+            console.error(`⚠️ Secreto no configurado: ${tokenEnvVar}`);
+            return res.status(500).json({
+                success: false,
+                error: 'Server configuration error'
+            });
+        }
+
+        // Validar que el header exista
+        if (!req.headers[header]) {
+            return res.status(401).json({
+                success: false,
+                error: `${headerName} header required`
+            });
+        }
+
+        // Comparar tokens
+        if (req.headers[header] !== expectedToken) {
+            console.warn('⚠️ Intento de acceso con secreto inválido');
+            return res.status(401).json({
+                success: false,
+                error: 'Invalid webhook secret'
+            });
+        }
+
+        next();
+    };
+}
+
+/**
  * Middleware opcional para autenticación
  * Permite acceso si el token es válido, pero no requiere que exista
  */

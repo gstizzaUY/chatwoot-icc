@@ -58,6 +58,8 @@ Key files:
 | `POST` | `/api/v2/webhooks/chatwoot/analyze-conversation` | Manual analysis (testing) |
 | `POST` | `/api/v2/webhooks/chatwoot/bulk-analyze` | Batch analysis |
 | `POST` | `/api/v2/webhooks/rdstation/conversion` | RD Station conversion events |
+| `POST` | `/api/v2/triggers/eventos/login-portal` | Evento: usuario logueado al portal de recetas (header `x-webhook-secret`) |
+| `POST` | `/api/v2/triggers/eventos/robot-encendido` | Evento: robot iChef encendido (header `x-webhook-secret`) |
 | `GET` | `/api/v2/health` | Health check |
 
 ## Important Notes
