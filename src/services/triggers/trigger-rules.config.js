@@ -1,23 +1,29 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 // ============================================================
 // Configuración del motor de eventos (triggers)
 // ============================================================
-// Interruptor general: con `enabled: false` se apaga TODA la lógica
-// de eventos y conversaciones (los endpoints siguen respondiendo 202
-// al portal, pero no se registra ni crea nada).
-//
-// POR DEFECTO ESTÁ EN OFF: no se crearán conversaciones hasta que se
-// avise al portal de recetas y se decida activarlo.
+
+// Interruptor general gestionado por VARIABLE DE ENTORNO:
+//   TRIGGERS_ENABLED=true  → lógica de eventos y conversaciones activa
+//   TRIGGERS_ENABLED=false → todo apagado (los endpoints responden 202
+//                            pero no se registra ni crea nada)
+// Cambiar el valor en .env y reiniciar el servidor.
 export const triggerConfig = {
-    enabled: false,
+    enabled: process.env.TRIGGERS_ENABLED === 'true',
 };
 
-// Eventos conocidos (eventKey → metadata). Para agregar un evento nuevo:
-//   1. Registrar su ruta en src/routes/v2/triggers.routes.js
-//   2. Declararlo acá (eventKey)
-//   3. Definir su regla (o combinación) en triggerRules
+// Eventos conocidos (eventName → metadata). El eventName es el valor que
+// envía el portal en el body (ej: "login-portal", "robot-encendido").
+// Para agregar un evento/campaña nuevo:
+//   1. Declararlo acá (con su label)
+//   2. Definir su regla (o combinación) en triggerRules
+//   3. Reiniciar el servidor
+// No hace falta tocar rutas ni controladores.
 export const triggerEvents = {
-    login_portal:    { label: 'El usuario se logueó al portal de recetas' },
-    robot_encendido: { label: 'El usuario encendió el robot iChef' },
+    'login-portal':    { label: 'El usuario se logueó al portal de recetas' },
+    'robot-encendido': { label: 'El usuario encendió el robot iChef' },
 };
 
 // ── Formateo de datos para las notas internas ──────────────────────────
@@ -45,14 +51,19 @@ const formatEventData = (event = {}) => {
 };
 
 // ── Mensajes privados (editables por regla) ─────────────────────────────
+// Cada regla puede definir `note` de dos formas:
+//   - Plantilla de texto (fácil): '{{label}}: {{clientName}} ({{email}})'
+//     con placeholders {{label}}, {{eventName}} y {{campo}} del payload.
+//   - Función (avanzado): (eventsData) => string, para notas complejas o
+//     que combinan varios eventos.
 
 const mensajeLogin = (event = {}) =>
-    `*${triggerEvents.login_portal.label}*\n\n` +
+    `*${triggerEvents['login-portal'].label}*\n\n` +
     `Se ha registrado un evento de actividad:\n\n` +
     formatEventData(event);
 
 const mensajeRobot = (event = {}) =>
-    `*${triggerEvents.robot_encendido.label}*\n\n` +
+    `*${triggerEvents['robot-encendido'].label}*\n\n` +
     `Se ha registrado un evento de actividad:\n\n` +
     formatEventData(event);
 
@@ -60,12 +71,11 @@ const mensajeRobot = (event = {}) =>
 // Cada regla define qué combinación de eventos dispara la creación de una
 // conversación con un mensaje privado custom.
 //
-//   - requiredEvents: 1..N eventKeys; deben haber llegado TODOS (sin importar orden)
+//   - requiredEvents: 1..N eventNames; deben haber llegado TODOS (sin importar orden)
 //   - repeatWindowMs: 0 = repite siempre; >0 = no vuelve a disparar para el
 //                     mismo email hasta que pase la ventana (milisegundos)
-//   - note:           (eventsData) => string — mensaje privado custom.
-//                     `eventsData` es { [eventKey]: <payload del evento> } con
-//                     los datos de TODOS los eventos acumulados para el email.
+//   - note:           plantilla de texto o función (ver arriba). Recibe los
+//                     datos de TODOS los eventos acumulados para el email.
 //   - action:         parámetros de la conversación.
 //                     reuseMode:
 //                       'reopen' (default) → reutiliza la abierta; si hay una
@@ -77,7 +87,7 @@ export const triggerRules = [
     {
         id: 'login',
         enabled: true,
-        requiredEvents: ['login_portal'],
+        requiredEvents: ['login-portal'],
         repeatWindowMs: 0,
         action: {
             type: 'createConversation',
@@ -88,12 +98,12 @@ export const triggerRules = [
             createContactIfMissing: true,
             syncRD: true,
         },
-        note: (events) => mensajeLogin(events.login_portal),
+        note: (events) => mensajeLogin(events['login-portal']),
     },
     {
         id: 'robot',
         enabled: true,
-        requiredEvents: ['robot_encendido'],
+        requiredEvents: ['robot-encendido'],
         repeatWindowMs: 0,
         action: {
             type: 'createConversation',
@@ -104,6 +114,6 @@ export const triggerRules = [
             createContactIfMissing: true,
             syncRD: true,
         },
-        note: (events) => mensajeRobot(events.robot_encendido),
+        note: (events) => mensajeRobot(events['robot-encendido']),
     },
 ];

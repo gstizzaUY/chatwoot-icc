@@ -58,22 +58,22 @@ Key files:
 | `POST` | `/api/v2/webhooks/chatwoot/analyze-conversation` | Manual analysis (testing) |
 | `POST` | `/api/v2/webhooks/chatwoot/bulk-analyze` | Batch analysis |
 | `POST` | `/api/v2/webhooks/rdstation/conversion` | RD Station conversion events |
-| `POST` | `/api/v2/triggers/eventos/login-portal` | Evento: usuario logueado al portal de recetas (header `x-webhook-secret`) |
-| `POST` | `/api/v2/triggers/eventos/robot-encendido` | Evento: robot iChef encendido (header `x-webhook-secret`) |
+| `POST` | `/api/v2/triggers/events` | Evento del Portal de Recetas (body con `eventName`; header `x-webhook-secret`) |
 | `GET` | `/api/v2/health` | Health check |
 
 ## Trigger Engine (eventos del Portal de Recetas)
-Motor configurable que detecta eventos, acumula estado por email y dispara conversaciones según reglas.
+Motor configurable que detecta eventos (por `eventName` en el body de un único endpoint), acumula estado por email y dispara conversaciones según reglas.
 
-- **Manual completo**: `docs/TRIGGERS.md` (configuración de reglas, combinaciones, mensajes y cómo agregar nuevos disparadores)
-- **Config (editar acá combinaciones y mensajes)**: `src/services/triggers/trigger-rules.config.js`
-  - `triggerConfig.enabled` — ON/OFF general de toda la lógica. **Por defecto en `false`** (no crea nada hasta avisar al portal); false = no-op, endpoints siguen respondiendo 202
-  - `triggerEvents` — eventKeys conocidos (agregar nuevos acá + registrar ruta)
-  - `triggerRules` — cada regla define `requiredEvents` (combinación), `repeatWindowMs` (0 = repite siempre; >0 = no repite dentro de la ventana), `action` (inbox/agente/team/reuseMode: `reopen` reutiliza abierta o reabre cerrada; `open` reutiliza solo abierta; `new` crea siempre) y `note` (mensaje privado custom)
+- **Manual completo**: `docs/TRIGGERS.md` (configuración de reglas, plantillas, y cómo agregar eventos/campañas nuevos)
+- **Config (editar acá combinaciones, eventos y mensajes)**: `src/services/triggers/trigger-rules.config.js`
+  - `triggerConfig.enabled` — ON/OFF general leído de la env var `TRIGGERS_ENABLED` (`.env`, default `false` = no crea nada; endpoints responden 202)
+  - `triggerEvents` — catálogo de eventNames conocidos (agregar eventos nuevos acá + regla; sin tocar rutas/controladores)
+  - `triggerRules` — cada regla define `requiredEvents` (combinación), `repeatWindowMs` (0 = repite siempre; >0 = ventana), `action` (inbox/agente/team/reuseMode: `reopen` reutiliza abierta o reabre cerrada; `open` solo abierta; `new` crea siempre) y `note` (plantilla `{{campo}}` o función)
+- **Endpoint único**: `POST /api/v2/triggers/events` con `eventName` en el body
 - **Estado**: `src/services/triggers/trigger-store.js` — por email, persistido en `data/triggers_state.json`
 - **Orquestador**: `src/services/triggers/trigger-engine.js` — registra evento, evalúa TODAS las reglas (independientes, pueden correr a la vez), dispara las cumplidas; eventos del mismo email se serializan (cola) para evitar carreras
 - **Acciones**: `src/services/triggers/trigger-actions.js` — `createConversation` (busca/crea contacto en Chatwoot + RD Station, completa `tiene_ichef`/`id_robot`/`version_del_firmware`, reutiliza/reabre/crea conversación según `reuseMode`, nota privada, marca no leída)
-- **Entrada**: `src/controllers/triggersEventos.controller.js` — adaptador HTTP (valida email → 202 → engine)
+- **Entrada**: `src/controllers/triggersEventos.controller.js` — adaptador HTTP (valida eventName+email → 202 → engine)
 
 ## Important Notes
 - Webhook auth tokens are deprecated; use rate limiting instead

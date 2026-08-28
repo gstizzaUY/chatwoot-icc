@@ -65,7 +65,7 @@ const processEventInner = async ({ email, robotId, eventKey, data }) => {
 
         try {
             console.log(`[triggers-engine] Disparando regla "${rule.id}" para ${email}`);
-            await executeAction(rule, entry);
+            await executeAction(rule, entry, eventKey);
             markRuleFired(email, rule.id, Date.now());
             fired.push(rule.id);
         } catch (err) {
@@ -76,7 +76,12 @@ const processEventInner = async ({ email, robotId, eventKey, data }) => {
     }
 
     if (fired.length === 0) {
-        console.log(`[triggers-engine] Ninguna regla disparada para ${email}`);
+        const hasRule = triggerRules.some((r) => r.requiredEvents.includes(eventKey));
+        if (!hasRule) {
+            console.log(`[triggers-engine] Evento "${eventKey}" sin regla configurada — ignorado (${email})`);
+        } else {
+            console.log(`[triggers-engine] Ninguna regla disparada para ${email}`);
+        }
     }
 
     return { processed: true, fired };

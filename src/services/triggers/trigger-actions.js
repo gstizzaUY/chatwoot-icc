@@ -1,8 +1,27 @@
 import dotenv from 'dotenv';
 import chatwootClient from '../../clients/chatwoot.client.js';
 import rdStationClient from '../../clients/rdstation.client.js';
+import { triggerEvents } from './trigger-rules.config.js';
 
 dotenv.config();
+
+// ── Render de plantillas de nota ───────────────────────────────────────────
+
+/**
+ * Renderiza una plantilla de texto con placeholders:
+ *   {{eventName}} → nombre del evento actual
+ *   {{label}}     → label del evento actual (de triggerEvents)
+ *   {{campo}}     → valor del campo en el payload del evento actual
+ */
+const renderTemplate = (template, currentData, eventKey) => {
+    const label = triggerEvents[eventKey]?.label || eventKey;
+    return template.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+        if (key === 'eventName') return eventKey;
+        if (key === 'label') return label;
+        const value = currentData[key];
+        return value === undefined || value === null ? '' : String(value);
+    });
+};
 
 // ── Helpers de contacto ───────────────────────────────────────────────────
 
@@ -157,8 +176,12 @@ const latestEventData = (entry) => {
 /**
  * Ejecuta una acción definida en la regla.
  * Por ahora solo soporta `createConversation`.
+ *
+ * @param {Object} rule     - Regla de la configuración
+ * @param {Object} entry    - Estado del email en el store
+ * @param {string} eventKey - Nombre del evento que disparó (eventName)
  */
-export const executeAction = async (rule, entry) => {
+export const executeAction = async (rule, entry, eventKey) => {
     const action = rule.action;
     if (action.type !== 'createConversation') {
         throw new Error(`Tipo de acción desconocido: ${action.type}`);
@@ -193,11 +216,17 @@ export const executeAction = async (rule, entry) => {
     const { conversation } = await resolveConversation(contact.id, action);
 
     // 3. Nota interna con el mensaje custom de la regla
+    //    - Si note es función → recibe todos los eventos acumulados.
+    //    - Si note es plantilla de texto → se renderiza con placeholders
+    //      usando el payload del evento actual.
     const eventData = {};
     for (const [key, value] of Object.entries(entry.events)) {
         eventData[key] = value.data;
     }
-    const content = rule.note(eventData);
+    const currentData = entry.events[eventKey]?.data || latest;
+    const content = typeof rule.note === 'function'
+        ? rule.note(eventData)
+        : renderTemplate(rule.note, currentData, eventKey);
 
     await createInternalNote(conversation.id, content);
     console.log(`[triggers-actions] ✓ Nota interna creada en conversación ${conversation.id} (regla "${rule.id}")`);

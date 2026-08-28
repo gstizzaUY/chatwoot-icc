@@ -1,17 +1,17 @@
 # Manual del Motor de Triggers (eventos del Portal de Recetas)
 
-El motor de triggers recibe eventos del Portal de Recetas, acumula estado por
-email y dispara la creación de conversaciones en Chatwoot (con nota privada)
-según **reglas configurables**.
+El motor de triggers recibe eventos del Portal de Recetas a través de **un
+solo endpoint**, acumula estado por email y dispara la creación de
+conversaciones en Chatwoot (con nota privada) según **reglas configurables**.
 
 ## Índice
 0. [Guía rápida (para no técnicos)](#0-guía-rápida-para-no-técnicos)
 1. [Interruptor ON/OFF general](#1-interruptor-onoff-general)
-2. [Dónde se configura todo](#2-dónde-se-configura-todo)
-3. [Estructura de una regla](#3-estructura-de-una-regla)
-4. [Cómo configurar una o varias reglas](#4-cómo-configurar-una-o-varias-reglas)
-5. [Mensaje privado (nota)](#5-mensaje-privado-nota)
-6. [Cómo agregar un nuevo disparador](#6-cómo-agregar-un-nuevo-disparador)
+2. [Endpoint y body](#2-endpoint-y-body)
+3. [Dónde se configura todo](#3-dónde-se-configura-todo)
+4. [Estructura de una regla](#4-estructura-de-una-regla)
+5. [Nota privada: plantillas y funciones](#5-nota-privada-plantillas-y-funciones)
+6. [Cómo agregar un evento o campaña nuevo](#6-cómo-agregar-un-evento-o-campaña-nuevo)
 7. [Cómo probar](#7-cómo-probar)
 8. [Estado y almacenamiento](#8-estado-y-almacenamiento)
 9. [Comportamiento y consideraciones](#9-comportamiento-y-consideraciones)
@@ -28,104 +28,126 @@ en el canal de Chatwoot (Centro de Experiencias) y escribir una **nota
 interna** con los datos del cliente.
 
 ### ¿Cómo funciona?
-1. Un evento llega a una **dirección (endpoint)** específica.
+1. El portal envía el evento a **una sola dirección** (`/api/v2/triggers/events`),
+   indicando el nombre del evento en el campo `eventName`.
 2. El sistema **recuerda qué eventos le llegaron a cada cliente** (por email).
 3. Según unas **reglas**, decide **cuándo** abrir una conversación y **qué
    nota** escribir.
 4. Todo se configura en **un único archivo**:
    `src/services/triggers/trigger-rules.config.js`
 
-> Mientras el interruptor general esté en `enabled: false`, el sistema recibe
-> los eventos pero **no hace nada** (no crea conversaciones). Para activar la
-> funcionalidad hay que ponerlo en `true` y reiniciar el servidor.
+> Mientras la variable de entorno `TRIGGERS_ENABLED` esté en `false`, el
+> sistema recibe los eventos pero **no hace nada** (no crea conversaciones).
 
 ---
 
-### Quiero agregar una regla nueva (cambio simple)
+### Quiero agregar una regla o un evento nuevo (sin programar)
 
-1. Abrir el archivo de configuración
-   (`src/services/triggers/trigger-rules.config.js`).
-2. Buscar la lista llamada **`triggerRules`**.
-3. **Copiar una regla existente** (la de "login" o la de "robot") y pegarla
-   debajo, dentro de la lista.
-4. Cambiarle los datos:
-   - `id`: un nombre corto único (ej. `"robot-y-revisita"`).
-   - `enabled`: dejarlo en `true`.
-   - `requiredEvents`: qué eventos deben haber llegado para que se active
-     (ej. `['robot_encendido']`, o varios separados por coma para una
-     combinación).
-   - `note`: el **texto de la nota** que se escribirá en la conversación.
-   - `repeatWindowMs`: dejarlo en `0` (se activa cada vez que llega una nueva
-     señal).
-5. **Guardar y reiniciar el servidor.**
+1. Abrir el archivo `src/services/triggers/trigger-rules.config.js`.
+2. Si el evento no está declarado, agregarlo en **`triggerEvents`**:
+   ```js
+   'nueva-receta': { label: 'El usuario descargó una receta' },
+   ```
+3. Agregar su **regla** en **`triggerRules`** (copiar una existente y
+   cambiarle `id`, `requiredEvents` y `note`):
+   ```js
+   {
+       id: 'nueva-receta',
+       enabled: true,
+       requiredEvents: ['nueva-receta'],
+       repeatWindowMs: 0,
+       action: { type: 'createConversation', inboxId: 38, assigneeId: 19, teamId: 4, reuseMode: 'reopen', createContactIfMissing: true, syncRD: true },
+       note: '{{label}}: {{clientName}} ({{email}})',
+   }
+   ```
+4. **Guardar, reiniciar el servidor** y verificar que `TRIGGERS_ENABLED=true`
+   en `.env`.
 
-> Si la regla usa eventos que todavía no existen, primero hay que crear el
-> disparador nuevo (siguiente punto).
-
----
-
-### Quiero agregar un disparador (endpoint) nuevo
-
-Un **disparador** es una nueva señal que puede llegar del portal. Los dos
-primeros pasos requieren ayuda de desarrollo; el tercero es configuración:
-
-1. **Registrar la dirección nueva** en
-   `src/routes/v2/triggers.routes.js` — se agrega una línea como
-   `router.post('/eventos/<nombre>', <handler>);`
-2. **Crear el "handler"** en
-   `src/controllers/triggersEventos.controller.js` — se agrega una línea como
-   `export const <handler> = handleEvent('<nombre_del_evento>');`
-3. **Registrar el evento en la configuración** (archivo
-   `trigger-rules.config.js`):
-   - En **`triggerEvents`**: agregar el evento con una etiqueta descriptiva
-     (ej. `mi_evento: { label: 'El usuario descargó una receta' }`).
-   - En **`triggerRules`**: agregar la regla que lo use, o incluirlo dentro de
-     una regla combinada con otros eventos.
-
-Después, informar al equipo del portal la **dirección nueva** y qué datos
-enviar en cada señal.
+> No hace falta tocar rutas ni controladores: todo es configuración.
 
 ---
 
 ### Cómo configurar las reglas (combinaciones)
 
-- Una regla con **un solo evento** (ej. `['login_portal']`) → se activa cuando
+- Una regla con **un solo evento** (ej. `['login-portal']`) → se activa cuando
   llega ese evento.
-- Una regla con **varios eventos** (ej. `['login_portal','robot_encendido']`)
+- Una regla con **varios eventos** (ej. `['login-portal','robot-encendido']`)
   → se activa cuando **llegaron todos**, sin importar el orden.
 - `repeatWindowMs: 0` → la regla se activa en cada nueva señal. Si se pone un
   número (milisegundos), **no se vuelve a activar** dentro de esa ventana.
-- El texto de la nota interna se edita en **`note`** de cada regla.
+- El texto de la nota interna se edita en **`note`** de cada regla (plantilla
+  o función, ver sección 5).
 
 ---
 
 ## 1. Interruptor ON/OFF general
 
-Archivo: `src/services/triggers/trigger-rules.config.js`
+El ON/OFF se gestiona por **variable de entorno** (no en el código):
 
-```js
-export const triggerConfig = {
-    enabled: false,   // <-- false = TODO apagado (default)
-};
+```
+TRIGGERS_ENABLED=true|false
 ```
 
+- En **`.env`** (y documentado en `.env.example`).
 - `false` (por defecto): los endpoints responden `202` pero **no registran
-  eventos ni crean conversaciones**. Es el modo seguro para mantener
-  desplegado sin efectos hasta avisar al portal.
+  eventos ni crean conversaciones**. Modo seguro.
 - `true`: se activa toda la lógica de eventos y conversaciones.
 
-> ⚠️ Al cambiar `enabled` hay que **reiniciar el servidor** para que tome el
-> cambio (la config se lee al iniciar).
+> ⚠️ Al cambiar el valor hay que **reiniciar el servidor**.
 
 ---
 
-## 2. Dónde se configura todo
+## 2. Endpoint y body
+
+```
+POST /api/v2/triggers/events
+```
+
+Headers:
+```
+Content-Type: application/json
+x-webhook-secret: <secreto>
+```
+
+Body:
+```json
+{
+    "eventName": "login-portal",
+    "clientId": "15",
+    "clientName": "Juan Pérez",
+    "robotId": "ABC123XYZ789",
+    "email": "juan.perez@example.com",
+    "cellphone": null,
+    "user": "usuario1",
+    "lastDate": "Thu Dec 26 11:59:56 2024",
+    "firmwareVersion": "no reporta version",
+    "status": "readyToGo"
+}
+```
+
+- `eventName` es **obligatorio** (si falta → `400`). El resto del body son
+  datos libres que se usan en el contacto y en la nota.
+- `email` es **obligatorio** y debe ser válido (si no → `400`).
+- Un `eventName` desconocido (sin regla) responde `202`, se registra y se
+  ignora hasta que se configure una regla.
+
+Respuestas:
+| Caso | Código | Body |
+|------|--------|------|
+| Recibido (procesa en background) | `202` | `{"success":true,"message":"Procesando en background","event":"<eventName>"}` |
+| `eventName` faltante o email inválido | `400` | `{"success":false,"error":"..."}` |
+| `x-webhook-secret` ausente o inválido | `401` | `{"success":false,"error":"..."}` |
+| Demasiadas peticiones (100/min por IP) | `429` | `{"success":false,"error":"Too many..."}` |
+
+---
+
+## 3. Dónde se configura todo
 
 Todo se configura en **un solo archivo**:
 `src/services/triggers/trigger-rules.config.js`
 
-- `triggerConfig` → interruptor general.
-- `triggerEvents` → catálogo de eventos conocidos (eventKey → label).
+- `triggerConfig` → interruptor general (lee `TRIGGERS_ENABLED`).
+- `triggerEvents` → catálogo de eventos conocidos (eventName → label).
 - `triggerRules` → las reglas (combinaciones de eventos → conversación + nota).
 
 El resto de los módulos del motor (`trigger-engine.js`, `trigger-store.js`,
@@ -133,13 +155,13 @@ El resto de los módulos del motor (`trigger-engine.js`, `trigger-store.js`,
 
 ---
 
-## 3. Estructura de una regla
+## 4. Estructura de una regla
 
 ```js
 {
     id: 'login',                 // identificador único (para lastFired)
     enabled: true,               // false = esta regla no dispara
-    requiredEvents: ['login_portal'],  // combinación de eventos requeridos
+    requiredEvents: ['login-portal'],  // combinación de eventos requeridos
     repeatWindowMs: 0,           // ventana anti-repetición en ms
     action: {
         type: 'createConversation',
@@ -150,7 +172,7 @@ El resto de los módulos del motor (`trigger-engine.js`, `trigger-store.js`,
         createContactIfMissing: true,  // crea contacto en Chatwoot si no existe
         syncRD: true,            // sincroniza/crea contacto en RD Station
     },
-    note: (events) => 'texto del mensaje privado',  // mensaje privado custom
+    note: '{{label}}: {{clientName}} ({{email}})',  // o función (ver sección 5)
 }
 ```
 
@@ -160,152 +182,86 @@ El resto de los módulos del motor (`trigger-engine.js`, `trigger-store.js`,
 |-------|----------|
 | `id` | Identificador único. Se usa para guardar `lastFired` por email y regla. |
 | `enabled` | `false` desactiva la regla sin borrarla. |
-| `requiredEvents` | Lista de eventKeys que **deben haber llegado todos** (sin importar el orden). Con 1 solo evento = regla individual. Con 2+ = regla combinada. |
+| `requiredEvents` | Lista de eventNames que **deben haber llegado todos** (sin importar el orden). Con 1 solo evento = regla individual. Con 2+ = regla combinada. |
 | `repeatWindowMs` | `0` = repite siempre (cada nueva ocurrencia dispara). `>0` = no vuelve a disparar para el mismo email hasta que pase esa ventana (ms). Ej: `300000` = 5 min. |
 | `action.reuseMode` | `'reopen'`: reutiliza la conversación abierta del canal; si hay una cerrada, la reabre; crea solo si nunca existió una en ese canal. `'open'`: reutiliza solo la abierta, crea si no hay. `'new'`: siempre crea conversación nueva. |
 | `action.inboxId` | El canal de Chatwoot donde se crea/reutiliza la conversación. "Centro de Experiencias" = `38`. |
-| `note` | Función que recibe `events` (datos de los eventos acumulados para el email) y devuelve el texto de la nota privada. |
+| `note` | Plantilla de texto o función (ver sección 5). |
 
 ---
 
-## 4. Cómo configurar una o varias reglas
+## 5. Nota privada: plantillas y funciones
 
-El motor evalúa **todas** las reglas en cada evento recibido (son
-independientes y pueden correr a la vez). Ejemplos:
+Cada regla define `note` de dos formas:
 
-### a) Dos reglas individuales (cada evento → su conversación/nota)
-
-```js
-export const triggerRules = [
-    {
-        id: 'login',
-        enabled: true,
-        requiredEvents: ['login_portal'],
-        repeatWindowMs: 0,
-        action: { type: 'createConversation', inboxId: 38, assigneeId: 19, teamId: 4, reuseMode: 'reopen', createContactIfMissing: true, syncRD: true },
-        note: (events) => mensajeLogin(events.login_portal),
-    },
-    {
-        id: 'robot',
-        enabled: true,
-        requiredEvents: ['robot_encendido'],
-        repeatWindowMs: 0,
-        action: { type: 'createConversation', inboxId: 38, assigneeId: 19, teamId: 4, reuseMode: 'reopen', createContactIfMissing: true, syncRD: true },
-        note: (events) => mensajeRobot(events.robot_encendido),
-    },
-];
-```
-
-### b) Una regla combinada (dispara cuando llegaron AMBOS, en cualquier orden)
+### a) Plantilla de texto (fácil, sin programar)
 
 ```js
-{
-    id: 'login-y-robot',
-    enabled: true,
-    requiredEvents: ['login_portal', 'robot_encendido'],
-    repeatWindowMs: 0,
-    action: { type: 'createConversation', inboxId: 38, assigneeId: 19, teamId: 4, reuseMode: 'reopen', createContactIfMissing: true, syncRD: true },
-    note: (events) => mensajeCombinado(events),   // usa datos de ambos
-}
+note: '{{label}}: {{clientName}} ({{email}}) — estado {{status}}',
 ```
 
-> Con `reuseMode: 'reopen'` y `repeatWindowMs: 0`, si conviven reglas
-> individuales Y combinada, cada evento dispara las reglas que le
-> corresponden. Diseñar las combinaciones para que no se pisen entre sí.
+Placeholders disponibles:
+- `{{eventName}}` → nombre del evento.
+- `{{label}}` → título del evento (de `triggerEvents`).
+- `{{campo}}` → cualquier campo del body del evento (ej. `{{clientName}}`,
+  `{{robotId}}`, `{{firmwareVersion}}`). Si el campo no viene, se omite.
 
-### c) Regla que no repite dentro de una ventana
+### b) Función (avanzado)
+
+Recibe los datos de **todos** los eventos acumulados para el email:
 
 ```js
-{
-    id: 'robot-ventana',
-    enabled: true,
-    requiredEvents: ['robot_encendido'],
-    repeatWindowMs: 24 * 60 * 60 * 1000,  // 1 vez por día
-    action: { ... },
-    note: (events) => mensajeRobot(events.robot_encendido),
-}
+note: (events) => {
+    const login = events['login-portal'] || {};
+    const robot = events['robot-encendido'] || {};
+    return `Login: ${login.clientName} | Robot: ${robot.robotId}`;
+},
 ```
 
----
-
-## 5. Mensaje privado (nota)
-
-La nota privada la define la función `note` de cada regla. Recibe:
-
-```js
-{
-    login_portal:    { ...payload del evento login... },
-    robot_encendido: { ...payload del evento robot... },
-}
-```
-
-Es decir, los datos de **todos** los eventos acumulados para ese email. Se
-puede editar el texto libremente (markdown de Chatwoot) y es distinto por
-regla.
-
-Ejemplo de función de mensaje combinado:
-
-```js
-const mensajeCombinado = (events) => {
-    const login = events.login_portal || {};
-    const robot = events.robot_encendido || {};
-    return [
-        '*El usuario se logueó al portal y encendió su robot iChef*',
-        '',
-        `• *Nombre:* ${login.clientName}`,
-        `• *Email:* ${login.email}`,
-        `• *ID del robot:* ${robot.robotId}`,
-        `• *Versión de firmware:* ${robot.firmwareVersion}`,
-        `• *Estado:* ${robot.status}`,
-    ].join('\n');
-};
-```
+Sirve para notas complejas o que combinan varios eventos.
 
 > La nota se crea como `private: true` (nota interna, no se envía al
 > contacto) y la conversación se marca como no leída.
 
 ---
 
-## 6. Cómo agregar un nuevo disparador
+## 6. Cómo agregar un evento o campaña nuevo
 
-Para agregar un evento nuevo (ej. "el usuario descargó una receta"):
+Un evento/campaña nuevo **no requiere tocar rutas ni controladores**. Solo
+editar la configuración:
 
-### Paso 1 — Registrar la ruta (HTTP)
-Archivo: `src/routes/v2/triggers.routes.js`
-
-```js
-import { loginPortal, robotEncendido, nuevaReceta } from '../../controllers/triggersEventos.controller.js';
-...
-router.post('/eventos/nueva-receta', nuevaReceta);
-```
-
-### Paso 2 — Crear el handler (adaptador HTTP)
-Archivo: `src/controllers/triggersEventos.controller.js`
-
-```js
-export const nuevaReceta = handleEvent('nueva_receta');
-```
-
-> `handleEvent(eventKey)` ya valida el email, responde `202` y delega en el
-> motor. Solo se indica el `eventKey` nuevo.
-
-### Paso 3 — Declarar el eventKey
-Archivo: `src/services/triggers/trigger-rules.config.js`
+### Paso 1 — Declarar el evento en `triggerEvents`
 
 ```js
 export const triggerEvents = {
-    login_portal:    { label: 'El usuario se logueó al portal de recetas' },
-    robot_encendido: { label: 'El usuario encendió el robot iChef' },
-    nueva_receta:    { label: 'El usuario descargó una receta' },
+    'login-portal':    { label: 'El usuario se logueó al portal de recetas' },
+    'robot-encendido': { label: 'El usuario encendió el robot iChef' },
+    'nueva-receta':    { label: 'El usuario descargó una receta' },   // ← NUEVO
 };
 ```
 
-### Paso 4 — Definir la regla (o combinación)
-En `triggerRules`, agregar la regla que use el nuevo eventKey (individual o
-combinado con otros), con su `note`.
+### Paso 2 — Definir la regla en `triggerRules`
 
-> Los pasos 1 y 2 requieren tocar código (ruta + handler). Los pasos 3 y 4
-> son configuración.
+```js
+{
+    id: 'nueva-receta',
+    enabled: true,
+    requiredEvents: ['nueva-receta'],      // o combinarlo con otros eventos
+    repeatWindowMs: 0,
+    action: { type: 'createConversation', inboxId: 38, assigneeId: 19, teamId: 4, reuseMode: 'reopen', createContactIfMissing: true, syncRD: true },
+    note: '{{label}}: {{clientName}} ({{email}})',
+},
+```
+
+### Paso 3 — Reiniciar y activar
+
+- Guardar el archivo, reiniciar el servidor.
+- Verificar `TRIGGERS_ENABLED=true` en `.env`.
+- Informar al equipo del portal que puede enviar `eventName: "nueva-receta"`
+  al endpoint único `/api/v2/triggers/events`.
+
+> Antes de configurar la regla, el evento llega y se ignora (responde 202).
+> Se puede configurar antes o después de que el portal empiece a enviar.
 
 ---
 
@@ -314,14 +270,14 @@ combinado con otros), con su `note`.
 Servidor corriendo (`npm run dev`, puerto según `.env`, ej. 4002):
 
 ```bash
-curl -X POST http://localhost:4002/api/v2/triggers/eventos/login-portal \
+curl -X POST http://localhost:4002/api/v2/triggers/events \
   -H "Content-Type: application/json" \
   -H "x-webhook-secret: <VALIDATOR_WEBHOOK_SECRET>" \
-  -d '{"clientName":"Juan Pérez","robotId":"ABC123","email":"juan@example.com","cellphone":null,"user":"juan","lastDate":null,"firmwareVersion":"V1","status":"free"}'
+  -d '{"eventName":"login-portal","clientName":"Juan Pérez","robotId":"ABC123","email":"juan@example.com","cellphone":null,"user":"juan","lastDate":null,"firmwareVersion":"V1","status":"free"}'
 ```
 
-Respuestas esperadas: `202` (procesa en background), `400` (email inválido),
-`401` (secret inválido), `429` (rate limit).
+Respuestas esperadas: `202` (procesa en background), `400` (eventName/email
+inválido), `401` (secret inválido), `429` (rate limit).
 
 Para ver la actividad del motor en consola, buscar los logs
 `[triggers-engine]` y `[triggers-actions]`.
@@ -349,6 +305,8 @@ backend/data/triggers_state.json
 - **Agrupación**: los eventos se agrupan por **email** del contacto.
 - **Serialización**: los eventos del mismo email se procesan en orden (cola
   en memoria) para evitar carreras y notas duplicadas.
+- **Evento sin regla**: se acepta (202), se registra y se ignora; se
+  configura la regla después.
 - **Contacto**: si no existe en Chatwoot, se crea (con `tiene_ichef`,
   `id_robot`, `version_del_firmware`) y también en RD Station
   (`cf_tiene_ichef`, `cf_id_equipo`, `cf_version_firmware`). Si existe, se
