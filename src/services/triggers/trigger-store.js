@@ -44,8 +44,10 @@ const persist = () => {
     }, 500);
 };
 
+/** Devuelve la entrada del store para un email (o null). */
 export const getEntry = (email) => state.get(email) || null;
 
+/** Devuelve (o crea) la entrada del store para un email. */
 export const ensureEntry = (email, robotId) => {
     let entry = state.get(email);
     if (!entry) {
@@ -57,6 +59,10 @@ export const ensureEntry = (email, robotId) => {
     return entry;
 };
 
+/**
+ * Registra la llegada de un evento para el email: actualiza lastSeenAt y
+ * data (o crea la entrada del evento si es la primera vez).
+ */
 export const registerEvent = (email, robotId, eventKey, data) => {
     const entry = ensureEntry(email, robotId);
     const now = Date.now();
@@ -72,6 +78,7 @@ export const registerEvent = (email, robotId, eventKey, data) => {
     return entry;
 };
 
+/** Registra la fecha/hora en que una regla disparó para un email. */
 export const markRuleFired = (email, ruleId, timestamp) => {
     const entry = getEntry(email);
     if (!entry) return;
@@ -80,6 +87,7 @@ export const markRuleFired = (email, ruleId, timestamp) => {
     persist();
 };
 
+/** Última fecha/hora en que la regla disparó para ese email (o null). */
 export const getLastFired = (entry, ruleId) => entry.lastFired[ruleId] || null;
 
 load();

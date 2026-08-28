@@ -88,8 +88,22 @@ const processEventInner = async ({ email, robotId, eventKey, data }) => {
 };
 
 // Cola por email: serializa el procesamiento de eventos del mismo email.
+// Sin esto, dos eventos seguidos (ej. login + robot) podrían evaluarse en
+// paralelo y re-disparar una regla (nota duplicada).
 const queues = new Map();
 
+/**
+ * Punto de entrada del motor.
+ * Serializa los eventos del MISMO email (cola en memoria) y delega en
+ * `processEventInner`. Devuelve una promesa con el resultado del evento.
+ *
+ * @param {Object} params
+ * @param {string} params.email
+ * @param {string|null} params.robotId
+ * @param {string} params.eventKey  - eventName enviado por el portal
+ * @param {Object} params.data      - payload completo del evento
+ * @returns {Promise<{processed: boolean, fired: string[], reason?: string}>}
+ */
 export const processEvent = async (params) => {
     const prev = queues.get(params.email) || Promise.resolve();
     const task = prev.then(() => processEventInner(params));

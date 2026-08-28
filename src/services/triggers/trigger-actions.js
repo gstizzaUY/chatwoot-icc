@@ -25,6 +25,7 @@ const renderTemplate = (template, currentData, eventKey) => {
 
 // ── Helpers de contacto ───────────────────────────────────────────────────
 
+/** Busca un contacto en Chatwoot por email (o null si no existe). */
 const findContactByEmail = async (email) => {
     const contact = await chatwootClient.findContact({ email });
     if (contact) {
@@ -97,6 +98,7 @@ const fillContactChatwoot = async (contact, event) => {
 
 // ── Helpers de conversación ───────────────────────────────────────────────
 
+/** Crea una conversación nueva en el inbox de la acción. */
 const createConversation = async (contactId, action) => {
     const resp = await chatwootClient.createConversation({
         inbox_id: action.inboxId,
@@ -152,6 +154,10 @@ const resolveConversation = async (contactId, action) => {
     return { conversation: created, reopened: false };
 };
 
+/**
+ * Crea una nota interna (privada) en la conversación y la marca como no
+ * leída, para no confundir a operadores humanos.
+ */
 const createInternalNote = async (conversationId, content) => {
     await chatwootClient.sendMessage(conversationId, {
         content,

@@ -15,6 +15,7 @@ conversaciones en Chatwoot (con nota privada) según **reglas configurables**.
 7. [Cómo probar](#7-cómo-probar)
 8. [Estado y almacenamiento](#8-estado-y-almacenamiento)
 9. [Comportamiento y consideraciones](#9-comportamiento-y-consideraciones)
+10. [Contrato para el desarrollador del Portal de Recetas](#10-contrato-para-el-desarrollador-del-portal-de-recetas)
 
 ---
 
@@ -318,3 +319,74 @@ backend/data/triggers_state.json
   varias en el mismo evento (diseñar las combinaciones para evitar pisadas).
 - **Múltiples instancias**: la cola y el estado son en memoria/archivo local;
   con varias instancias del backend habría que revisar el guardado.
+
+---
+
+## 10. Contrato para el desarrollador del Portal de Recetas
+
+Texto listo para copiar y entregar al equipo del portal.
+
+### Integración de eventos — iChef ICC
+
+Se envía **un solo tipo de request** para todos los eventos; la distinción
+del evento va en el campo `eventName` del body.
+
+**Base URL:** `https://contact-center.5vsa59.easypanel.host`
+
+```
+POST /api/v2/triggers/events
+```
+
+**Headers:**
+```
+Content-Type: application/json
+x-webhook-secret: <VALIDATOR_WEBHOOK_SECRET>
+```
+
+**Body (ejemplo):**
+```json
+{
+    "eventName": "login-portal",
+    "clientId": "15",
+    "clientName": "Juan Pérez",
+    "robotId": "ABC123XYZ789",
+    "email": "juan.perez@example.com",
+    "cellphone": null,
+    "registered": true,
+    "enabled": false,
+    "activated": true,
+    "inactive": false,
+    "blocked": false,
+    "free": false,
+    "unlockable": false,
+    "pendingSetup": false,
+    "connected": false,
+    "user": "usuario1",
+    "lastDate": "Thu Dec 26 11:59:56 2024",
+    "firmwareVersion": "no reporta version",
+    "status": "readyToGo",
+    "contractType": null,
+    "betatester": true
+}
+```
+
+- `eventName` es **obligatorio**. Valores activos hoy: `login-portal`
+  (usuario logueado al portal) y `robot-encendido` (robot encendido). Se irán
+  agregando más.
+- `email` es **obligatorio**. El resto de los campos se usan para completar el
+  contacto y aparecer en la nota interna.
+
+**Respuestas:**
+| Caso | Código | Body |
+|------|--------|------|
+| Recibido — procesa en background | `202` | `{"success":true,"message":"Procesando en background","event":"<eventName>"}` |
+| `eventName` o `email` faltante/inválido | `400` | `{"success":false,"error":"..."}` |
+| `x-webhook-secret` ausente o inválido | `401` | `{"success":false,"error":"..."}` |
+| Demasiadas peticiones (100/min por IP) | `429` | `{"success":false,"error":"Too many webhook requests..."}` |
+
+**Notas:**
+- El `202` se devuelve al instante; el procesamiento es asíncrono. **No
+  reintentar** ni esperar trabajo terminado.
+- Un `eventName` nuevo puede enviarse antes de estar configurado: se acepta
+  (202) y se ignora hasta que se defina su regla.
+- Ante `429`, esperar al menos 1 minuto antes de reintentar.
