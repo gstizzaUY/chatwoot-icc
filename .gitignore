@@ -62,3 +62,4 @@ data/
 locks_temp/
 
 package-lock.json
+exports/labels-snapshot-*.json

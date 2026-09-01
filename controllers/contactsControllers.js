@@ -1,5 +1,6 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
+import { STAGE_LABELS, LABEL_DRY_RUN, logLabelChange, getStageLabelsForContact } from '../src/utils/stage-labels.utils.js';
 
 dotenv.config();
 
@@ -74,19 +75,8 @@ const importContacts = async (req, res) => {
     }
 
 
-    // Extraer la etapa del contacto
-    let contactStage = contact.stage;
-    if (contactStage === 'lead') {
-        contactStage = 'lead';
-    } else if (contactStage === 'marketingQualifiedLead') {
-        contactStage = 'mql';
-    } else if (contactStage === 'salesQualifiedLead') {
-        contactStage = 'sql';
-    } else if (contactStage === 'opportunity') {
-        contactStage = 'oportunidad';
-    } else if (contactStage === 'customer') {
-        contactStage = 'cliente';
-    }
+    // Etiquetas de etapa según LABEL_SOURCE (cf_stage o funnel de RD). null = no tocar.
+    const stageLabels = await getStageLabelsForContact({ email: contact.email, cfStage: contact.stage });
 
     // Formatear el teléfono al formato E164
     const formattedPhone = formatPhoneToE164(contact.phoneInternational || contact.phone, contact.country);
@@ -426,19 +416,23 @@ const importContacts = async (req, res) => {
                     // Filtrar las etiquetas existentes
                     const currentLabels = conversation.tags;
 
-                    // Remover etiquetas de oportunidad anteriores
-                    const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
-                    const filteredLabels = currentLabels.filter(label => !opportunityLabels.includes(label));
-
                     // Remover etiqueta tiene_ichef si existe
-                    const finalLabels = filteredLabels.filter(label => label !== 'tiene_ichef');
+                    let updatedLabels = currentLabels.filter(label => label !== 'tiene_ichef');
 
-                    // Preparar las etiquetas actualizadas con la etapa actual
-                    let updatedLabels = [...finalLabels, contactStage];
+                    // Etiquetas de etapa (solo si se pudo determinar la fuente)
+                    if (stageLabels) {
+                        updatedLabels = updatedLabels.filter(label => !STAGE_LABELS.includes(label));
+                        updatedLabels = [...updatedLabels, ...stageLabels];
+                    }
 
                     // Agregar etiqueta tiene_ichef solo si es "Sí"
                     if (tiene_ichef === "Sí") {
                         updatedLabels = [...updatedLabels, 'tiene_ichef'];
+                    }
+
+                    if (LABEL_DRY_RUN) {
+                        logLabelChange(conversation.id, currentLabels, updatedLabels);
+                        return;
                     }
 
                     const updateConversationData = {
@@ -557,19 +551,7 @@ const createContact = async (req, res) => {
     console.log(`[createContact] Formateo de teléfono: Original="${phoneToUse}" -> E164="${formattedPhone}"`);
 
 
-    // Extraer la etapa del contacto
-    let contactStage = contact.stage;
-    if (contactStage === 'lead') {
-        contactStage = 'lead';
-    } else if (contactStage === 'marketingQualifiedLead') {
-        contactStage = 'mql';
-    } else if (contactStage === 'salesQualifiedLead') {
-        contactStage = 'sql';
-    } else if (contactStage === 'opportunity') {
-        contactStage = 'oportunidad';
-    } else if (contactStage === 'customer') {
-        contactStage = 'cliente';
-    }
+
 
     const contactData = {
         "name": contact.firstname + ' ' + contact.lastname,
@@ -854,19 +836,8 @@ const updateContact = async (req, res) => {
     
     console.log(`[updateContact] Formateo de teléfono: Original="${phoneToUse}" -> E164="${formattedPhone}"`);
 
-    // Extraer la etapa del contacto
-    let contactStage = contact.stage;
-    if (contactStage === 'lead') {
-        contactStage = 'lead';
-    } else if (contactStage === 'marketingQualifiedLead') {
-        contactStage = 'mql';
-    } else if (contactStage === 'salesQualifiedLead') {
-        contactStage = 'sql';
-    } else if (contactStage === 'opportunity') {
-        contactStage = 'oportunidad';
-    } else if (contactStage === 'customer') {
-        contactStage = 'cliente';
-    }
+    // Etiquetas de etapa según LABEL_SOURCE (cf_stage o funnel de RD). null = no tocar.
+    const stageLabels = await getStageLabelsForContact({ email: contact.email, cfStage: contact.stage });
 
     const updateContactData = {
         "name": contact.firstname + ' ' + contact.lastname,
@@ -1097,19 +1068,23 @@ const updateContact = async (req, res) => {
                         const currentLabels = conversation.tags;
                         //console.log(`Etiquetas actuales:`, currentLabels);
 
-                        // Remover etiquetas de oportunidad anteriores
-                        const opportunityLabels = ['lead', 'mql', 'sql', 'oportunidad', 'cliente'];
-                        const filteredLabels = currentLabels.filter(label => !opportunityLabels.includes(label));
-
                         // Remover etiqueta tiene_ichef si existe
-                        const finalLabels = filteredLabels.filter(label => label !== 'tiene_ichef');
+                        let updatedLabels = currentLabels.filter(label => label !== 'tiene_ichef');
 
-                        // Preparar las etiquetas actualizadas con la etapa actual
-                        let updatedLabels = [...finalLabels, contactStage];
+                        // Etiquetas de etapa (solo si se pudo determinar la fuente)
+                        if (stageLabels) {
+                            updatedLabels = updatedLabels.filter(label => !STAGE_LABELS.includes(label));
+                            updatedLabels = [...updatedLabels, ...stageLabels];
+                        }
 
                         // Agregar etiqueta tiene_ichef solo si es "Sí"
                         if (tiene_ichef === "Sí") {
                             updatedLabels = [...updatedLabels, 'tiene_ichef'];
+                        }
+
+                        if (LABEL_DRY_RUN) {
+                            logLabelChange(conversation.id, currentLabels, updatedLabels);
+                            return;
                         }
 
                         //console.log(`Etiquetas actualizadas:`, updatedLabels);

@@ -1,6 +1,7 @@
 /**
  * Utilidades para extraer información estructurada de mensajes de conversaciones
  */
+import { LABEL_SOURCE } from './stage-labels.utils.js';
 
 /**
  * Extrae información del contacto desde los mensajes de una conversación
@@ -134,31 +135,40 @@ export function extractContactInfoFromMessages(messages, currentContact = {}) {
 export function determineLabels(extractedInfo, currentLabels = []) {
     const labels = new Set(currentLabels);
 
+    // Con LABEL_SOURCE=lifecycle, las etiquetas de etapa (lead/cliente) las
+    // gestiona la sincronización con el funnel de RD; acá solo se agregan
+    // las etiquetas operativas (tiene_ichef, serial_registrado, etc.).
+    const manageStageLabels = LABEL_SOURCE !== 'lifecycle';
+
     // Etiquetas basadas en tiene_ichef
     if (extractedInfo.tiene_ichef === 'Sí') {
         labels.add('tiene_ichef');
-        labels.add('cliente');
+        if (manageStageLabels) labels.add('cliente');
         // Remover etiquetas contradictorias
-        labels.delete('lead');
-        labels.delete('prospecto');
+        if (manageStageLabels) {
+            labels.delete('lead');
+            labels.delete('prospecto');
+        }
     } else {
-        labels.add('lead');
+        if (manageStageLabels) labels.add('lead');
         labels.delete('tiene_ichef');
     }
 
     // Si es cliente confirmado
     if (extractedInfo.es_cliente === 'Sí') {
-        labels.add('cliente');
-        labels.delete('lead');
-        labels.delete('prospecto');
+        if (manageStageLabels) labels.add('cliente');
+        if (manageStageLabels) {
+            labels.delete('lead');
+            labels.delete('prospecto');
+        }
     }
 
     // Si tiene serial, definitivamente es cliente
     if (extractedInfo.id_equipo) {
-        labels.add('cliente');
+        if (manageStageLabels) labels.add('cliente');
         labels.add('tiene_ichef');
         labels.add('serial_registrado');
-        labels.delete('lead');
+        if (manageStageLabels) labels.delete('lead');
     }
 
     return Array.from(labels);
