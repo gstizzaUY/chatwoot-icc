@@ -1,6 +1,7 @@
 import dotenv from "dotenv";
 dotenv.config();
 import axios from "axios";
+import chatwootClient from "../clients/chatwoot.client.js";
 
 // ─── Configuración de origen de etiquetas de etapa ──────────────────
 // LABEL_SOURCE=cf_stage   → comportamiento actual (mapea cf_stage del contacto)
@@ -91,9 +92,7 @@ async function rdGet(path, retry = true) {
 async function getContactFunnel(email) {
 	if (!email) return null;
 	try {
-		const contact = await rdGet(`/platform/contacts/email:${encodeURIComponent(email)}`);
-		if (!contact?.uuid) return null;
-		return await rdGet(`/platform/contacts/${contact.uuid}/funnels/default`);
+		return await rdGet(`/platform/contacts/email:${encodeURIComponent(email)}/funnels/default`);
 	} catch (error) {
 		if (error.response?.status === 404) return null;
 		console.error("Error al obtener funnel de RD Station:", error.message);
@@ -127,4 +126,57 @@ export function logLabelChange(conversationId, currentLabels, newLabels) {
 	console.log(
 		`[DRY-RUN] Conversación ${conversationId}: ${JSON.stringify(currentLabels)} → ${JSON.stringify(newLabels)}`
 	);
+}
+
+// Genera el email con el que RD registra contactos sin email (phone@email.com)
+function generateContactId(phone) {
+	if (!phone) return null;
+	return `${String(phone).replace(/\D/g, "")}@email.com`;
+}
+
+/**
+ * Repinta las etiquetas de etapa de una conversación desde el funnel de RD.
+ * Solo actúa con LABEL_SOURCE=lifecycle (en cf_stage el comportamiento actual no cambia).
+ *
+ * Devuelve:
+ *   - { changed, labels, dryRun } cuando se repintó
+ *   - null cuando no aplica (fuente cf_stage, sin identificador, funnel inaccesible o sin cambios)
+ */
+export async function refreshStageLabelsForConversation({ conversationId, email, phone }) {
+	if (LABEL_SOURCE !== "lifecycle") return null;
+
+	const rdEmail = email || generateContactId(phone);
+	if (!rdEmail) return null;
+
+	const funnel = await getContactFunnel(rdEmail);
+	if (!funnel) return null;
+
+	const stageLabels = resolveStageLabels({
+		lifecycle: funnel.lifecycle_stage,
+		opportunity: funnel.opportunity === true
+	});
+	if (!stageLabels) return null;
+
+	let current = [];
+	try {
+		const conv = await chatwootClient.getConversation(conversationId);
+		current = conv?.labels || [];
+	} catch (error) {
+		console.warn(`⚠️ No se pudo obtener conversación ${conversationId} para repintar etiquetas:`, error.message);
+		return null;
+	}
+
+	const next = [...current.filter(l => !STAGE_LABELS.includes(l)), ...stageLabels];
+	const same =
+		current.length === next.length &&
+		[...current].sort().join("|") === [...next].sort().join("|");
+	if (same) return { changed: false, labels: next };
+
+	if (LABEL_DRY_RUN) {
+		logLabelChange(conversationId, current, next);
+		return { changed: false, labels: next, dryRun: true };
+	}
+
+	await chatwootClient.setLabels(conversationId, next);
+	return { changed: true, labels: next };
 }

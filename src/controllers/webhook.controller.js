@@ -7,6 +7,7 @@ import { RD_CONVERSIONS } from '../constants/rdstation.constants.js';
 import { EXCLUDED_CONTACT_IDS } from '../constants/agent.constants.js';
 import { getInboxChannel } from '../constants/inbox.constants.js';
 import { generateEmailFromPhone } from '../utils/email.utils.js';
+import { refreshStageLabelsForConversation } from '../utils/stage-labels.utils.js';
 
 /**
  * Controller para manejar webhooks de plataformas externas
@@ -151,6 +152,24 @@ export const conversationStatusChanged = async (req, res, next) => {
             if (previousStatus !== 'open') {
                 logResumen(`🔓 Conv ${conversationId} abierta - enviando evento open`);
                 setImmediate(() => sendConversationOpenedEvent(webhookData, conversationId));
+
+                // Repintar etiquetas de etapa desde el funnel de RD (solo lifecycle)
+                setImmediate(async () => {
+                    try {
+                        const conv = await chatwootClient.getConversation(conversationId);
+                        const sender = conv?.meta?.sender || {};
+                        const repaint = await refreshStageLabelsForConversation({
+                            conversationId,
+                            email: sender.email,
+                            phone: sender.phone_number
+                        });
+                        if (repaint?.changed) {
+                            console.log(`🏷️ Etiquetas de etapa actualizadas al abrir (funnel RD): ${JSON.stringify(repaint.labels)}`);
+                        }
+                    } catch (error) {
+                        console.warn(`⚠️ No se pudo refrescar etiquetas de etapa al abrir:`, error.message);
+                    }
+                });
             } else {
                 logResumen(`⏭️ Evento open duplicado para conv ${conversationId} - omitido`);
             }

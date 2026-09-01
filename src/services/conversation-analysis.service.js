@@ -14,6 +14,7 @@ import { generateEmailFromPhone, isValidEmail } from '../utils/email.utils.js';
 import { RD_CONVERSIONS } from '../constants/rdstation.constants.js';
 import { EXCLUDED_CONTACT_IDS } from '../constants/agent.constants.js';
 import { logResumen } from '../utils/file-logger.utils.js';
+import { refreshStageLabelsForConversation } from '../utils/stage-labels.utils.js';
 import { getStageLevel } from './shared/field-protection.service.js';
 import { getInboxChannel } from '../constants/inbox.constants.js';
 
@@ -439,6 +440,22 @@ class ConversationAnalysisService {
                 analysisMethod,
                 multimediaProcessed  // Agregar información de multimedia
             });
+
+            // 13. Repintar etiquetas de etapa desde el funnel de RD (solo lifecycle)
+            try {
+                const contactEmail = updatedContact?.email || originalEmail || currentContact?.email || null;
+                const contactPhone = updatedContact?.phone_number || currentContact?.phone_number || null;
+                const repaint = await refreshStageLabelsForConversation({
+                    conversationId,
+                    email: contactEmail,
+                    phone: contactPhone
+                });
+                if (repaint?.changed) {
+                    console.log(`🏷️ Etiquetas de etapa actualizadas al cierre (funnel RD): ${JSON.stringify(repaint.labels)}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ No se pudo refrescar etiquetas de etapa al cierre:`, error.message);
+            }
 
             console.log(`✅ Conversación ${conversationId} procesada exitosamente`);
 

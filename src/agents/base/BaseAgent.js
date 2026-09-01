@@ -4,6 +4,7 @@ import contextBuilderService from '../../services/shared/context-builder.service
 import crmSyncService from '../../services/shared/crm-sync.service.js';
 import fieldProtectionService from '../../services/shared/field-protection.service.js';
 import chatwootClient from '../../clients/chatwoot.client.js';
+import { refreshStageLabelsForConversation } from '../../utils/stage-labels.utils.js';
 
 dotenv.config();
 
@@ -99,6 +100,21 @@ class BaseAgent {
 
             // 4. Procesar resultado
             const result = await this.processResult(analysis, context);
+
+            // 5. Repintar etiquetas de etapa desde el funnel de RD (solo lifecycle)
+            try {
+                const contact = context.contact || {};
+                const repaint = await refreshStageLabelsForConversation({
+                    conversationId,
+                    email: contact.email,
+                    phone: contact.phone_number
+                });
+                if (repaint?.changed) {
+                    console.log(`🏷️ Etiquetas de etapa actualizadas (funnel RD): ${JSON.stringify(repaint.labels)}`);
+                }
+            } catch (error) {
+                console.warn(`⚠️ No se pudo refrescar etiquetas de etapa:`, error.message);
+            }
 
             console.log(`✅ Agente ${this.agentType} completado exitosamente`);
 
