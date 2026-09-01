@@ -135,35 +135,27 @@ function generateContactId(phone) {
 }
 
 /**
- * Repinta las etiquetas de etapa de una conversación desde el funnel de RD.
- * Solo actúa con LABEL_SOURCE=lifecycle (en cf_stage el comportamiento actual no cambia).
- *
- * Devuelve:
- *   - { changed, labels, dryRun } cuando se repintó
- *   - null cuando no aplica (fuente cf_stage, sin identificador, funnel inaccesible o sin cambios)
+ * Aplica etiquetas de etapa a una conversación (merge + dry-run + setLabels).
+ * Devuelve { changed, labels, dryRun?, skipped? } o null si no se pudo.
+ * allowedStatuses: lista de estados permitidos (ej: ['open','snoozed']); si la
+ * conversación no coincide se devuelve { changed:false, skipped: <status> } sin tocar.
  */
-export async function refreshStageLabelsForConversation({ conversationId, email, phone }) {
-	if (LABEL_SOURCE !== "lifecycle") return null;
-
-	const rdEmail = email || generateContactId(phone);
-	if (!rdEmail) return null;
-
-	const funnel = await getContactFunnel(rdEmail);
-	if (!funnel) return null;
-
-	const stageLabels = resolveStageLabels({
-		lifecycle: funnel.lifecycle_stage,
-		opportunity: funnel.opportunity === true
-	});
-	if (!stageLabels) return null;
+export async function applyStageLabelsToConversation({ conversationId, stageLabels, allowedStatuses = null }) {
+	if (!stageLabels || !Array.isArray(stageLabels) || stageLabels.length === 0) return null;
 
 	let current = [];
+	let convStatus = null;
 	try {
 		const conv = await chatwootClient.getConversation(conversationId);
 		current = conv?.labels || [];
+		convStatus = conv?.status || null;
 	} catch (error) {
-		console.warn(`⚠️ No se pudo obtener conversación ${conversationId} para repintar etiquetas:`, error.message);
+		console.warn(`⚠️ No se pudo obtener conversación ${conversationId}:`, error.message);
 		return null;
+	}
+
+	if (allowedStatuses && !allowedStatuses.includes(convStatus)) {
+		return { changed: false, labels: stageLabels, skipped: convStatus };
 	}
 
 	const next = [...current.filter(l => !STAGE_LABELS.includes(l)), ...stageLabels];
@@ -179,4 +171,30 @@ export async function refreshStageLabelsForConversation({ conversationId, email,
 
 	await chatwootClient.setLabels(conversationId, next);
 	return { changed: true, labels: next };
+}
+
+/**
+ * Repinta las etiquetas de etapa de una conversación desde el funnel de RD.
+ * Solo actúa con LABEL_SOURCE=lifecycle (en cf_stage el comportamiento actual no cambia).
+ *
+ * Devuelve:
+ *   - { changed, labels, dryRun } cuando se repintó
+ *   - null cuando no aplica (fuente cf_stage, sin identificador, funnel inaccesible o sin cambios)
+ */
+export async function refreshStageLabelsForConversation({ conversationId, email, phone, allowedStatuses }) {
+	if (LABEL_SOURCE !== "lifecycle") return null;
+
+	const rdEmail = email || generateContactId(phone);
+	if (!rdEmail) return null;
+
+	const funnel = await getContactFunnel(rdEmail);
+	if (!funnel) return null;
+
+	const stageLabels = resolveStageLabels({
+		lifecycle: funnel.lifecycle_stage,
+		opportunity: funnel.opportunity === true
+	});
+	if (!stageLabels) return null;
+
+	return applyStageLabelsToConversation({ conversationId, stageLabels, allowedStatuses });
 }

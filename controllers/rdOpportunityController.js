@@ -1,5 +1,8 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import rdStationClient from "../src/clients/rdstation.client.js";
+import chatwootClient from "../src/clients/chatwoot.client.js";
+import { applyStageLabelsToConversation, resolveStageLabels } from "../src/utils/stage-labels.utils.js";
 
 dotenv.config();
 
@@ -157,4 +160,204 @@ async function GetLostReasonsRD(req, res) {
 	}
 }
 
-export { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD };
+// ─── Endpoint para n8n: actualizar calificación y/o etapa del deal ──
+
+const QUALIFICATION_MAP = {
+	lead: "Lead",
+	lead_calificado: "Qualified Lead",
+	"lead calificado": "Qualified Lead",
+	cliente: "Client",
+	// valores crudos de RD (por compatibilidad)
+	"qualified lead": "Qualified Lead",
+	client: "Client"
+};
+
+const CLOSE_STAGE_NAMES = ["Cerrada Ganada", "Cerrada Perdida"];
+
+async function GetAgendamientoDemoPipeline() {
+	const response = await rdstation.get("/api/v1/deal_pipelines", { params: { limit: 200 } });
+	const pipeline = (response.data || []).find(p => p.name === DEAL_PIPELINE_NAME);
+	if (!pipeline) return null;
+	return {
+		id: pipeline.id,
+		name: pipeline.name,
+		deal_stages: (pipeline.deal_stages || [])
+			.map(s => ({ id: s.id, name: s.name, order: s.order }))
+			.sort((a, b) => a.order - b.order)
+	};
+}
+
+async function ResolveLostReasonId(lostReasonName) {
+	const response = await rdstation.get("/api/v1/deal_lost_reasons", { params: { limit: 200 } });
+	const reason = (response.data?.deal_lost_reasons || []).find(
+		r => r.name.toLowerCase() === String(lostReasonName).toLowerCase()
+	);
+	return reason ? reason._id : null;
+}
+
+async function UpdateContactStageApi(req, res) {
+	// 1. Autenticación
+	if (req.headers["x-export-token"] !== process.env.EXPORT_SECRET) {
+		return res.status(401).json({ success: false, error: "Token inválido" });
+	}
+
+	const { email, qualification, deal_stage, lost_reason } = req.body || {};
+
+	// 2. Validaciones
+	if (!email) {
+		return res.status(400).json({ success: false, error: "El campo 'email' es obligatorio" });
+	}
+	if (!qualification && !deal_stage) {
+		return res.status(400).json({
+			success: false,
+			error: "Nada que actualizar: enviá 'qualification' y/o 'deal_stage'"
+		});
+	}
+
+	let lifecycleValue = null;
+	if (qualification) {
+		const norm = String(qualification).toLowerCase().trim();
+		lifecycleValue = QUALIFICATION_MAP[norm];
+		if (!lifecycleValue) {
+			return res.status(400).json({
+				success: false,
+				error: "Valor inválido para 'qualification'. Válidos: lead, lead_calificado, cliente"
+			});
+		}
+	}
+
+	let targetStage = null; // { id, name }
+	if (deal_stage) {
+		const pipeline = await GetAgendamientoDemoPipeline();
+		if (!pipeline) {
+			return res.status(500).json({ success: false, error: "Embudo 'Agendamiento demo' no encontrado" });
+		}
+		const byId = pipeline.deal_stages.find(s => s.id === deal_stage);
+		const byName = pipeline.deal_stages.find(
+			s => s.name.toLowerCase() === String(deal_stage).toLowerCase()
+		);
+		targetStage = byId || byName;
+		if (!targetStage) {
+			return res.status(400).json({
+				success: false,
+				error: `Etapa inválida para 'deal_stage'. Válidas: ${pipeline.deal_stages.map(s => s.name).join(", ")}`
+			});
+		}
+		if (targetStage.name === "Cerrada Perdida" && !lost_reason) {
+			return res.status(400).json({
+				success: false,
+				error: "Para 'Cerrada Perdida' el campo 'lost_reason' es obligatorio"
+			});
+		}
+	}
+
+	// 3. Actualizar calificación (funnel)
+	let qualificationResult = null;
+	if (lifecycleValue) {
+		try {
+			// RD exige el campo opportunity (no puede ser null): se preserva el valor vigente
+			const currentFunnel = await rdStationClient.getFunnel("email", email);
+			const opportunity = currentFunnel?.opportunity === true;
+			qualificationResult = await rdStationClient.updateFunnel("email", email, {
+				lifecycle_stage: lifecycleValue,
+				opportunity
+			});
+		} catch (error) {
+			const status = error.response?.status;
+			if (status === 404) {
+				return res.status(404).json({ success: false, error: "Contacto no encontrado en RD Station" });
+			}
+			console.error("Error actualizando funnel:", error.message);
+			return res.status(500).json({ success: false, error: error.response?.data || error.message });
+		}
+	}
+
+	// 4. Actualizar etapa del deal
+	let dealResult = { updated: false, reason: "not_requested" };
+	if (targetStage) {
+		try {
+			const contact = await GetContactCRM(null, email);
+			if (!contact || !Array.isArray(contact.deals) || contact.deals.length === 0) {
+				dealResult = { updated: false, reason: "no_open_deal" };
+			} else {
+				const openDeals = [];
+				for (const dealRef of contact.deals) {
+					const dealRes = await rdstation.get(`/api/v1/deals/${dealRef.id}`);
+					const deal = dealRes.data;
+					if (deal.win === null) openDeals.push(deal);
+				}
+
+				if (openDeals.length === 0) {
+					dealResult = { updated: false, reason: "no_open_deal" };
+				} else {
+					let lostReasonId = null;
+					if (targetStage.name === "Cerrada Perdida") {
+						lostReasonId = await ResolveLostReasonId(lost_reason);
+						if (!lostReasonId) {
+							return res.status(400).json({
+								success: false,
+								error: `Motivo de pérdida inválido: '${lost_reason}'`
+							});
+						}
+					}
+
+					const updatedDeals = [];
+					for (const deal of openDeals) {
+						const win = targetStage.name === "Cerrada Ganada" ? true :
+							targetStage.name === "Cerrada Perdida" ? false : null;
+						const body = {
+							deal_stage_id: targetStage.id,
+							deal: {
+								win,
+								deal_lost_reason_id: win === false ? lostReasonId : null,
+								deal_lost_note: win === false ? "Oportunidad perdida" : null
+							}
+						};
+						await rdstation.put(`/api/v1/deals/${deal.id}`, body);
+						updatedDeals.push({ id: deal.id, stage: targetStage.name, win });
+					}
+					dealResult = { updated: true, deals: updatedDeals };
+				}
+			}
+		} catch (error) {
+			console.error("Error actualizando etapa del deal:", error.message);
+			dealResult = { updated: false, reason: "error", error: error.response?.data || error.message };
+		}
+	}
+
+	// 5. Repintar etiquetas de Chatwoot (solo conversaciones open/snoozed)
+	let labelsResult = { updated: 0, skipped_resolved: 0, details: [] };
+	try {
+		const funnel = qualificationResult || (await rdStationClient.getFunnel("email", email));
+		const stageLabels = funnel
+			? resolveStageLabels({ lifecycle: funnel.lifecycle_stage, opportunity: funnel.opportunity === true })
+			: null;
+
+		if (stageLabels) {
+			const chatwootContact = await chatwootClient.findContact({ email });
+			if (chatwootContact?.id) {
+				const conversations = await chatwootClient.getConversationsByContact(chatwootContact.id);
+				for (const conv of conversations) {
+					const result = await applyStageLabelsToConversation({
+						conversationId: conv.id,
+						stageLabels,
+						allowedStatuses: ["open", "snoozed"]
+					});
+					if (result?.changed) labelsResult.updated += 1;
+					else if (result?.skipped) labelsResult.skipped_resolved += 1;
+					labelsResult.details.push({
+						conversation_id: conv.id,
+						status: conv.status,
+						labels: result?.labels || []
+					});
+				}
+			}
+		}
+	} catch (error) {
+		console.warn("⚠️ No se pudieron repintar etiquetas de Chatwoot:", error.message);
+	}
+
+	return res.status(200).json({ success: true, qualification: qualificationResult, deal: dealResult, labels: labelsResult });
+}
+
+export { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD, UpdateContactStageApi };

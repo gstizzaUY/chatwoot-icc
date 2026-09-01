@@ -201,6 +201,35 @@ class RDStationClient {
         }
     }
 
+    // ==================== FUNNEL (PLATFORM) ====================
+
+    /**
+     * Obtiene el funnel (lifecycle) de un contacto
+     * @param {String} identifierType - 'email' | 'uuid'
+     * @param {String} value - Valor del identificador
+     */
+    async getFunnel(identifierType, value) {
+        const response = await this.client.get(
+            `/platform/contacts/${identifierType}:${encodeURIComponent(value)}/funnels/default`
+        );
+        return response.data;
+    }
+
+    /**
+     * Actualiza el funnel (lifecycle_stage) de un contacto
+     * Valores válidos de lifecycle_stage: 'Lead', 'Qualified Lead', 'Client'
+     * @param {String} identifierType - 'email' | 'uuid'
+     * @param {String} value - Valor del identificador
+     * @param {Object} body - { lifecycle_stage, opportunity?, contact_owner_email? }
+     */
+    async updateFunnel(identifierType, value, body) {
+        const response = await this.client.put(
+            `/platform/contacts/${identifierType}:${encodeURIComponent(value)}/funnels/default`,
+            body
+        );
+        return response.data;
+    }
+
     // ==================== CRM (DEALS) ====================
 
     /**

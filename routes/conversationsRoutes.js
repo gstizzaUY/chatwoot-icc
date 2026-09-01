@@ -2,7 +2,7 @@ import express from "express";
 import { NotifyOutgoingMessage } from "../controllers/conversationsControllers.js";
 import { OnOutgoingWppMessage, OnSolvedWppConversation } from "../controllers/chatbotControllers.js";
 import { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact, GetFunnelRD, GetEventsRD } from "../controllers/registerContactController.js";
-import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD } from "../controllers/rdOpportunityController.js";
+import { GetOpportunityRD, UpdateOpportunityStage, CreateOpportunity, GetPipelinesRD, GetLostReasonsRD, UpdateContactStageApi } from "../controllers/rdOpportunityController.js";
 import { MigrateOpportunity } from "../controllers/migrateOpportunityController.js";
 
 import { ObtenerReferidos, AgregarReferido, RegistrarEvento } from "../controllers/referidosController.js";
@@ -22,6 +22,7 @@ router.get("/get-lost-reasons", GetLostReasonsRD); // Motivos de pérdida RD Sta
 router.post("/update-contact", UpdateContactRD); // Actualizar contacto RD Station
 router.post("/register-contact", RegisterContact); // Registrar usuario iChef
 router.post("/update-opportunity-stage", UpdateOpportunityStage); // Actualizar etapa de oportunidad
+router.post("/update-contact-stage", UpdateContactStageApi); // n8n: calificación (funnel) y/o etapa del deal (auth x-export-token)
 router.post("/create-opportunity", CreateOpportunity); // Crear oportunidad
 
 router.post("/migrate/:stage", MigrateOpportunity);
