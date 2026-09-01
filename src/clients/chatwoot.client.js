@@ -238,16 +238,30 @@ class ChatwootClient {
 
     /**
      * Asigna/actualiza etiquetas en una conversación
+     * Con reintento ante 422 (carrera transitoria de acts-as-taggable-on en Chatwoot)
+     * y protección contra etiquetas en blanco (evita pisar labels con arrays vacíos)
      */
-    async setLabels(conversationId, labels) {
+    async setLabels(conversationId, labels, retry = true) {
+        const original = Array.isArray(labels) ? labels : [labels];
+        const clean = original.filter(l => l && String(l).trim() !== '');
+
+        if (clean.length === 0 && original.length > 0) {
+            console.warn(`⚠️  setLabels: etiquetas en blanco para conversación ${conversationId}, se omite`);
+            return [];
+        }
+
         try {
             const response = await this.client.post(
                 `/conversations/${conversationId}/labels`,
-                { labels }
+                { labels: clean }
             );
             return response.data.payload;
         } catch (error) {
             console.error(`Error asignando etiquetas a conversación ${conversationId}:`, error.message);
+            if (retry && error.response?.status === 422) {
+                console.warn(`Reintentando setLabels para conversación ${conversationId}...`);
+                return this.setLabels(conversationId, labels, false);
+            }
             throw error;
         }
     }
