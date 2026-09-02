@@ -127,6 +127,28 @@ async function CreateOpportunity(req, res) {
 		return res.status(500).json({ success: false, error: "Error al validar la etapa" });
 	}
 
+	// Regla: la oportunidad siempre debe quedar vinculada a un contacto que exista en RD Marketing.
+	// Si el contacto no existe en la plataforma, se crea primero (antes de crear el deal en el CRM).
+	try {
+		const platformContact = await rdStationClient.getContact(contact.email);
+		if (!platformContact) {
+			console.log(`Contacto no existe en RD Marketing, creándolo: ${contact.email}`);
+			await rdStationClient.createContact({
+				name: contact.name,
+				email: contact.email,
+				mobile_phone: contact.phone ? String(contact.phone).replace(/\D/g, "") : undefined
+			});
+			console.log(`Contacto creado en RD Marketing: ${contact.email}`);
+		}
+	} catch (error) {
+		console.error("Error asegurando contacto en RD Marketing", error.message);
+		return res.status(500).json({
+			success: false,
+			error: "No se pudo verificar/crear el contacto en RD Marketing: " +
+				JSON.stringify(error.response?.data?.errors || error.message)
+		});
+	}
+
 	const body = {
 		campaign: {
 			_id: "68cb06c75243470001ea5a30"
