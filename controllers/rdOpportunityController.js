@@ -276,6 +276,7 @@ async function UpdateContactStageApi(req, res) {
 	let dealResult = { updated: false, reason: "not_requested" };
 	if (targetStage) {
 		try {
+			const pipeline = await GetAgendamientoDemoPipeline();
 			const contact = await GetContactCRM(null, email);
 			if (!contact || !Array.isArray(contact.deals) || contact.deals.length === 0) {
 				dealResult = { updated: false, reason: "no_open_deal" };
@@ -284,7 +285,11 @@ async function UpdateContactStageApi(req, res) {
 				for (const dealRef of contact.deals) {
 					const dealRes = await rdstation.get(`/api/v1/deals/${dealRef.id}`);
 					const deal = dealRes.data;
-					if (deal.win === null) openDeals.push(deal);
+					// Solo deals abiertos del embudo de trabajo (Agendamiento demo)
+					const inPipeline =
+						deal.deal_pipeline?.id === pipeline?.id ||
+						deal.deal_pipeline?.name === DEAL_PIPELINE_NAME;
+					if (deal.win === null && inPipeline) openDeals.push(deal);
 				}
 
 				if (openDeals.length === 0) {
