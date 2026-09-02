@@ -29,12 +29,19 @@ async function GetContactCRM(phone, email) {
 		if (email) {
 			const filter = encodeURIComponent(`${email}`);
 			const response = await rdstation.get(`/api/v1/contacts?email=${filter}`);
-			if (response.data.total > 0) return response.data.contacts[0];
+			if (response.data.total > 0) {
+				const contacts = response.data.contacts || [];
+				// Si hay duplicados con el mismo email, priorizar el que tiene deals (oportunidades)
+				return contacts.find(c => (c.deals || []).length > 0) || contacts[0];
+			}
 		}
 		const email2 = GenerateContactId(phone);
 		const filter = encodeURIComponent(`${email2}`);
 		const response = await rdstation.get(`/api/v1/contacts?email=${filter}`);
-		if (response.data.total > 0) return response.data.contacts[0];
+		if (response.data.total > 0) {
+			const contacts = response.data.contacts || [];
+			return contacts.find(c => (c.deals || []).length > 0) || contacts[0];
+		}
 	} catch (error) {
 		console.error("Error al obtener contacto en crm", error.message);
 		return null;
