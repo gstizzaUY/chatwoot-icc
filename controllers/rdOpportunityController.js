@@ -95,6 +95,31 @@ async function UpdateOpportunityStage(req, res) {
 async function CreateOpportunity(req, res) {
 	const { contact, stageId } = req.body;
 
+	if (!contact?.name || !contact?.email) {
+		return res.status(400).json({ success: false, error: "El contacto debe tener nombre y email" });
+	}
+
+	// Validar que la etapa exista en el embudo y NO sea terminal (Ganada/Perdida)
+	try {
+		const pipeline = await GetAgendamientoDemoPipeline();
+		const stage = (pipeline?.deal_stages || []).find(s => s.id === stageId);
+		if (!stage) {
+			return res.status(400).json({
+				success: false,
+				error: `Etapa inválida para crear oportunidad. Válidas: ${(pipeline?.deal_stages || []).map(s => s.name).join(", ")}`
+			});
+		}
+		if (stage.name === "Cerrada Ganada" || stage.name === "Cerrada Perdida") {
+			return res.status(400).json({
+				success: false,
+				error: "No se puede crear una oportunidad directamente en etapa terminal (Cerrada Ganada/Perdida). Creala en una etapa abierta y cerrala después."
+			});
+		}
+	} catch (error) {
+		console.error("Error validando etapa para crear oportunidad", error.message);
+		return res.status(500).json({ success: false, error: "Error al validar la etapa" });
+	}
+
 	const body = {
 		campaign: {
 			_id: "68cb06c75243470001ea5a30"
