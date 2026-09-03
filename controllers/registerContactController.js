@@ -29,6 +29,66 @@ function SetAccessToken(token) {
 	rdstation.defaults.headers["Authorization"] = `Bearer ${token}`;
 }
 
+// ─── Campos de la cuenta RD Station (whitelist dinámica con caché) ──────
+// GET /platform/contacts/fields devuelve los campos REALES de la cuenta.
+// Se cachea en memoria por unos minutos para no golpear la API en cada update.
+const FIELDS_CACHE_TTL = 10 * 60 * 1000; // 10 minutos
+let rdFieldsCache = null;
+let rdFieldsCacheAt = 0;
+
+// Campos que RD devuelve en GET pero NO acepta en PATCH (solo lectura / no editables).
+const RD_READONLY_FIELDS = ["links", "uuid", "legal_bases", "tags"];
+
+/**
+ * Obtiene (con caché) los api_identifier de campos aceptados por la cuenta RD.
+ * @returns {Promise<Set<string>|null>} Set de identificadores o null si no se pudo obtener.
+ */
+async function getRdEditableFields(retry = true) {
+	const now = Date.now();
+	if (rdFieldsCache && now - rdFieldsCacheAt < FIELDS_CACHE_TTL) {
+		return rdFieldsCache;
+	}
+	try {
+		const response = await rdstation.get("/platform/contacts/fields", {
+			params: { page_size: 200 }
+		});
+		const identifiers = (response.data?.fields || []).map(f => f.api_identifier);
+		rdFieldsCache = new Set(identifiers);
+		rdFieldsCacheAt = now;
+		return rdFieldsCache;
+	} catch (error) {
+		if (retry && error.response?.status === 401) {
+			console.log("Token vencido al obtener campos de RD - refrescando");
+			const token = await UpdateAccessToken();
+			if (token) SetAccessToken(token);
+			return getRdEditableFields(false);
+		}
+		console.error("Error obteniendo campos de RD Station:", error.message);
+		return null;
+	}
+}
+
+/**
+ * Limpia un payload de contacto antes de enviarlo a RD Station:
+ *  - Si se puede obtener la whitelist real de la cuenta, conserva SOLO los campos que existen
+ *    (así ningún campo editable de la UI se pierde) y descarta readonly/no existentes.
+ *  - Si no se puede obtener (fallback), descarta al menos los campos readonly conocidos.
+ *
+ * @param {Object} contactData - Body del request a limpiar
+ * @returns {Promise<Object>} Payload limpio
+ */
+async function sanitizeContactPayload(contactData) {
+	const entries = Object.entries(contactData).filter(([key]) => !RD_READONLY_FIELDS.includes(key));
+
+	const fields = await getRdEditableFields();
+	if (!fields) {
+		// Fallback: sin whitelist, solo descartamos readonly conocidos.
+		return Object.fromEntries(entries);
+	}
+
+	return Object.fromEntries(entries.filter(([key]) => fields.has(key)));
+}
+
 async function UpdateAccessToken() {
 	const credentials = {
 		client_id: RDSTATION_CLIENT_ID,
@@ -438,15 +498,21 @@ async function UpdateContactExtended(email, contactData) {
 		return response.data;
 	} catch (error) {
 		if (error.response && error.response.status === 401) throw new Error("INVALID_TOKEN");
-		console.error("Error al actualizar contacto", email, JSON.stringify(contactData), error.message);
-		return null;
+		const err = new Error("RD_UPDATE_ERROR");
+		err.status = error.response?.status || 500;
+		err.detail = error.response?.data || error.message;
+		throw err;
 	}
 }
 
 async function UpdateContactRD(req, res) {
 	const contact = req.body;
 	const email = contact.email || GenerateContactId(contact.phone || contact.mobile_phone);
-	const contactData = { ...Object.fromEntries(Object.entries(contact).filter(([key]) => !["email", "phone"].includes(key))) };
+	// Quitar identificadores usados para resolver el contacto (email/phone) y
+	// limpiar el payload con whitelist de campos reales de la cuenta RD.
+	const contactData = await sanitizeContactPayload(
+		Object.fromEntries(Object.entries(contact).filter(([key]) => !["email", "phone"].includes(key)))
+	);
 	try {
 		const updated_contact = await UpdateContactExtended(email, contactData);
 		if (updated_contact) return res.status(200).json(updated_contact);
@@ -457,6 +523,13 @@ async function UpdateContactRD(req, res) {
 			SetAccessToken(token);
 			const updated_contact = await UpdateContactExtended(email, contactData);
 			if (updated_contact) return res.status(200).json(updated_contact);
+		}
+		if (error.message === "RD_UPDATE_ERROR") {
+			console.error("Error actualizando contacto en RD Station:", JSON.stringify(error.detail || {}), "status:", error.status);
+			return res.status(error.status || 400).json({
+				error: "Error updating contact in RD Station",
+				detail: error.detail
+			});
 		}
 	}
 	return res.status(400).send("Error updating contact");
