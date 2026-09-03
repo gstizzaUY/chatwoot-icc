@@ -10,6 +10,18 @@ const RDSTATION_REFRESH_TOKEN = process.env.RDSTATION_REFRESH_TOKEN;
 const RDSTATION_CRM_URL = process.env.RDSTATION_CRM_URL || "https://crm.rdstation.com";
 const RDSTATION_USER_TOKEN = process.env.RDSTATION_USER_TOKEN;
 
+const CHATWOOT_URL = process.env.CHATWOOT_URL || "https://contact-center.5vsa59.easypanel.host";
+const CHATWOOT_ACCOUNT_ID = process.env.CHATWOOT_ACCOUNT_ID || 2;
+const CHATWOOT_API_TOKEN = process.env.API_ACCESS_TOKEN;
+
+const chatwoot = axios.create({
+	baseURL: `${CHATWOOT_URL}/api/v1/accounts/${CHATWOOT_ACCOUNT_ID}`,
+	headers: {
+		"Content-Type": "application/json",
+		"api_access_token": CHATWOOT_API_TOKEN
+	}
+});
+
 const crmStation = axios.create({
 	baseURL: `${RDSTATION_CRM_URL}/api/v1`,
 	params: { token: RDSTATION_USER_TOKEN },
@@ -33,15 +45,18 @@ function SetAccessToken(token) {
 // GET /platform/contacts/fields devuelve los campos REALES de la cuenta.
 // Se cachea en memoria por unos minutos para no golpear la API en cada update.
 const FIELDS_CACHE_TTL = 10 * 60 * 1000; // 10 minutos
-let rdFieldsCache = null;
+let rdFieldsCache = null; // Map<api_identifier, presentation_type>
 let rdFieldsCacheAt = 0;
 
 // Campos que RD devuelve en GET pero NO acepta en PATCH (solo lectura / no editables).
 const RD_READONLY_FIELDS = ["links", "uuid", "legal_bases", "tags"];
 
+// Tipos de campo que NO aceptan string vacío (RD responde MUST_BE_VALID_OPTION / etc.)
+const RD_OPTION_TYPES = new Set(["COMBO_BOX", "RADIO_BUTTON", "CHECK_BOX"]);
+
 /**
- * Obtiene (con caché) los api_identifier de campos aceptados por la cuenta RD.
- * @returns {Promise<Set<string>|null>} Set de identificadores o null si no se pudo obtener.
+ * Obtiene (con caché) los campos aceptados por la cuenta RD.
+ * @returns {Promise<Map<string,string>|null>} Map<api_identifier, presentation_type> o null.
  */
 async function getRdEditableFields(retry = true) {
 	const now = Date.now();
@@ -52,8 +67,11 @@ async function getRdEditableFields(retry = true) {
 		const response = await rdstation.get("/platform/contacts/fields", {
 			params: { page_size: 200 }
 		});
-		const identifiers = (response.data?.fields || []).map(f => f.api_identifier);
-		rdFieldsCache = new Set(identifiers);
+		const fieldsMap = new Map();
+		(response.data?.fields || []).forEach(f => {
+			if (f.api_identifier) fieldsMap.set(f.api_identifier, f.presentation_type || "");
+		});
+		rdFieldsCache = fieldsMap;
 		rdFieldsCacheAt = now;
 		return rdFieldsCache;
 	} catch (error) {
@@ -70,9 +88,11 @@ async function getRdEditableFields(retry = true) {
 
 /**
  * Limpia un payload de contacto antes de enviarlo a RD Station:
- *  - Si se puede obtener la whitelist real de la cuenta, conserva SOLO los campos que existen
- *    (así ningún campo editable de la UI se pierde) y descarta readonly/no existentes.
- *  - Si no se puede obtener (fallback), descarta al menos los campos readonly conocidos.
+ *  - Descarta readonly / campos que no existen en la cuenta (whitelist dinámica).
+ *  - Si el campo es de tipo opción (COMBO_BOX/RADIO_BUTTON/CHECK_BOX), descarta valores vacíos,
+ *    porque RD rechaza "" en esos campos (MUST_BE_VALID_OPTION).
+ *  - Si no se puede obtener la whitelist (fallback), descarta readonly conocidos y vacios
+ *    en campos cuyo nombre empiece con cf_ls_ o cf_enc_ (opciones de encuesta).
  *
  * @param {Object} contactData - Body del request a limpiar
  * @returns {Promise<Object>} Payload limpio
@@ -82,11 +102,25 @@ async function sanitizeContactPayload(contactData) {
 
 	const fields = await getRdEditableFields();
 	if (!fields) {
-		// Fallback: sin whitelist, solo descartamos readonly conocidos.
-		return Object.fromEntries(entries);
+		// Fallback: sin whitelist, descartamos readonly y vacíos en los campos LS/encuesta de opción.
+		return Object.fromEntries(
+			entries.filter(([key, value]) => {
+				if (value === undefined || value === null) return false;
+				if (String(value).trim() === "" && /^cf_(ls_|enc_)/.test(key)) return false;
+				return true;
+			})
+		);
 	}
 
-	return Object.fromEntries(entries.filter(([key]) => fields.has(key)));
+	return Object.fromEntries(
+		entries.filter(([key, value]) => {
+			if (!fields.has(key)) return false;
+			if (value === undefined || value === null) return false;
+			const type = fields.get(key) || "";
+			if (RD_OPTION_TYPES.has(type) && String(value).trim() === "") return false;
+			return true;
+		})
+	);
 }
 
 async function UpdateAccessToken() {
@@ -505,6 +539,152 @@ async function UpdateContactExtended(email, contactData) {
 	}
 }
 
+// ─── Sincronización con Chatwoot ──────────────────────────────────────────
+// La edición desde la página "Contacto" actualiza RD Station; este bloque
+// refleja los mismos cambios en el contacto equivalente de Chatwoot (si existe).
+
+// Campos editables de la página y cómo se escriben en Chatwoot (raíz / custom_attributes).
+const NORMALIZE_YES = value => ["sí", "si", "yes", "true", "1"].includes(String(value || "").toLowerCase()) ? "Sí" : "No";
+
+/** Busca un contacto en Chatwoot por email (o fallback por teléfono). */
+async function findChatwootContactByEmailOrPhone(email, phone) {
+	if (!email && !phone) return null;
+	try {
+		const q = email || String(phone).replace(/\D/g, "");
+		const response = await chatwoot.get("/contacts/search", { params: { q } });
+		const contacts = response.data?.payload || [];
+		if (contacts.length === 0) return null;
+
+		// Priorizar coincidencia exacta de email si hay varios
+		if (email && contacts.length > 1) {
+			const exact = contacts.find(c => c.email?.toLowerCase() === String(email).toLowerCase());
+			if (exact) return exact;
+		}
+		return contacts[0];
+	} catch (error) {
+		console.error("Error buscando contacto en Chatwoot:", error.message);
+		return null;
+	}
+}
+
+/**
+ * Arma el payload para actualizar un contacto de Chatwoot a partir de los datos
+ * editados en RD (contactData). Respeta protecciones: no degrada tiene_ichef /
+ * es_cliente de "Sí", y stage no retrocede (comparando con el contacto actual).
+ */
+function buildChatwootUpdatePayload(rdContactData, currentChatwootContact) {
+	const currentAttrs = currentChatwootContact?.custom_attributes || {};
+	const name = rdContactData.name || currentChatwootContact?.name || "";
+	const nameParts = String(name).split(" ").filter(Boolean);
+	const firstname = nameParts[0] || currentAttrs.firstname || "";
+	const lastname = nameParts.slice(1).join(" ") || currentAttrs.lastname || "";
+
+	const payload = {};
+	if (name) payload.name = name;
+	if (rdContactData.email && rdContactData.email !== currentChatwootContact?.email) {
+		payload.email = rdContactData.email;
+	}
+	if (rdContactData.mobile_phone) {
+		const digits = String(rdContactData.mobile_phone).replace(/\D/g, "");
+		if (digits) payload.phone_number = `+${digits}`;
+	}
+
+	const attrs = {};
+	// Identidad
+	if (firstname) attrs.firstname = firstname;
+	if (lastname) attrs.lastname = lastname;
+	if (rdContactData.mobile_phone) attrs.mobile_phone = rdContactData.mobile_phone;
+	if (rdContactData.personal_phone) attrs.phone = rdContactData.personal_phone;
+	if (rdContactData.country) attrs.country = rdContactData.country;
+	if (rdContactData.state) attrs.state = rdContactData.state;
+	if (rdContactData.city) attrs.city = rdContactData.city;
+	if (rdContactData.cf_address1) attrs.address = rdContactData.cf_address1;
+	if (rdContactData.cf_address2) attrs.address2 = rdContactData.cf_address2;
+	if (rdContactData.cf_numero_puerta) attrs.numero_puerta = rdContactData.cf_numero_puerta;
+	if (rdContactData.cf_zip) attrs.zip = rdContactData.cf_zip;
+
+	// Identificación
+	if (rdContactData.cf_cedula) attrs.cedula = rdContactData.cf_cedula;
+	if (rdContactData.cf_rut) attrs.rut = rdContactData.cf_rut;
+
+	// Redes sociales
+	if (rdContactData.cf_instagram) attrs.instagram = rdContactData.cf_instagram;
+	if (rdContactData.cf_facebook) attrs.facebook = rdContactData.cf_facebook;
+	if (rdContactData.cf_linkedin) attrs.linkedin = rdContactData.cf_linkedin;
+	if (rdContactData.cf_twitter) attrs.twitter = rdContactData.cf_twitter;
+
+	// Stage / estado comercial
+	if (rdContactData.cf_stage) {
+		// Protección: stage nunca retrocede
+		const oldStage = currentAttrs.stage || "";
+		const level = s => ({ lead: 0, marketingqualifiedlead: 1, mql: 1, salesqualifiedlead: 2, sql: 2, opportunity: 3, oportunidad: 3, customer: 4, cliente: 4 })[String(s).toLowerCase()];
+		const oldLv = level(oldStage);
+		const newLv = level(rdContactData.cf_stage);
+		if (oldLv === undefined || (newLv !== undefined && newLv >= oldLv)) {
+			attrs.stage = rdContactData.cf_stage;
+		}
+	}
+
+	// tiene_ichef (con protección: no degradar de "Sí")
+	if (rdContactData.cf_tiene_ichef) {
+		const newVal = NORMALIZE_YES(rdContactData.cf_tiene_ichef);
+		if (currentAttrs.tiene_ichef !== "Sí" || newVal === "Sí") {
+			attrs.tiene_ichef = newVal;
+		}
+	}
+	// es_cliente derivado de la etapa
+	if (attrs.stage && ["customer", "cliente"].includes(String(attrs.stage).toLowerCase())) {
+		attrs.es_cliente = "Sí";
+	}
+
+	// Encuestas LS (se guardan como texto plano en Chatwoot, igual que en RD)
+	const LS_TO_CHATWOOT = {
+		cf_ls_seguis_algun_tipo_de_alimentacion: "ls_seguis_algun_tipo_de_alimentacion",
+		cf_ls_que_suele_pasar_mas_seguido_en_tu_casa: "ls_que_suele_pasar_mas_seguido_en_tu_casa",
+		cf_ls_con_que_frecuencia_comes_comida_casera: "ls_con_que_frecuencia_comes_comida_casera",
+		cf_ls_para_cuantas_personas_cocinas_habitualmente: "ls_para_cuantas_personas_cocinas_habitualmente",
+		cf_ls_cual_describe_mejor_tu_rutina: "ls_cual_describe_mejor_tu_rutina",
+		cf_ls_con_que_frecuencia_cocinas: "ls_con_que_frecuencia_cocinas",
+		cf_ls_cual_de_estas_frases_te_representa_mejor: "ls_cual_de_estas_frases_te_representa_mejor"
+	};
+	for (const [rdKey, cwKey] of Object.entries(LS_TO_CHATWOOT)) {
+		if (rdContactData[rdKey]) attrs[cwKey] = rdContactData[rdKey];
+	}
+
+	if (Object.keys(attrs).length > 0) {
+		payload.custom_attributes = { ...(currentChatwootContact?.custom_attributes || {}), ...attrs };
+	}
+	return payload;
+}
+
+/**
+ * Sincroniza los datos editados a Chatwoot (si el contacto existe).
+ * No crea contactos; solo actualiza. Nunca lanza (se loguea y se reporta).
+ */
+async function syncRdContactToChatwoot(email, rdContactData) {
+	try {
+		const phone = rdContactData.mobile_phone || rdContactData.personal_phone || null;
+		const chatwootContact = await findChatwootContactByEmailOrPhone(email, phone);
+
+		if (!chatwootContact || !chatwootContact.id) {
+			console.log(`[update-contact] Contacto no encontrado en Chatwoot (email=${email}) - no se crea, solo RD Station`);
+			return { synced: false, reason: "not_found_in_chatwoot" };
+		}
+
+		const payload = buildChatwootUpdatePayload(rdContactData, chatwootContact);
+		if (Object.keys(payload).length === 0) {
+			return { synced: false, reason: "no_changes" };
+		}
+
+		await chatwoot.put(`/contacts/${chatwootContact.id}`, payload);
+		console.log(`[update-contact] Contacto Chatwoot ${chatwootContact.id} actualizado desde RD (email=${email})`);
+		return { synced: true, contactId: chatwootContact.id };
+	} catch (error) {
+		console.error("[update-contact] Error sincronizando a Chatwoot:", error.message);
+		return { synced: false, reason: "error", error: error.message };
+	}
+}
+
 async function UpdateContactRD(req, res) {
 	const contact = req.body;
 	const email = contact.email || GenerateContactId(contact.phone || contact.mobile_phone);
@@ -515,14 +695,21 @@ async function UpdateContactRD(req, res) {
 	);
 	try {
 		const updated_contact = await UpdateContactExtended(email, contactData);
-		if (updated_contact) return res.status(200).json(updated_contact);
+		if (updated_contact) {
+			// Reflejar también en Chatwoot (no bloqueante: si falla, se loguea)
+			const chatwootSync = await syncRdContactToChatwoot(email, contactData);
+			return res.status(200).json({ ...updated_contact, chatwootSync });
+		}
 	} catch (error) {
 		if (error.message === "INVALID_TOKEN") {
 			console.log("Generando nuevo token");
 			const token = await UpdateAccessToken();
 			SetAccessToken(token);
 			const updated_contact = await UpdateContactExtended(email, contactData);
-			if (updated_contact) return res.status(200).json(updated_contact);
+			if (updated_contact) {
+				const chatwootSync = await syncRdContactToChatwoot(email, contactData);
+				return res.status(200).json({ ...updated_contact, chatwootSync });
+			}
 		}
 		if (error.message === "RD_UPDATE_ERROR") {
 			console.error("Error actualizando contacto en RD Station:", JSON.stringify(error.detail || {}), "status:", error.status);
