@@ -354,12 +354,31 @@ async function FetchCrmTimeline(email, phone) {
 			if (!a.date) continue;
 			events.push({
 				event_type: "CRM",
-				event_identifier: `Anotación: ${a.text || ""}`,
+				event_identifier: `Anotación: ${cleanAnnotationText(a.text)}`,
 				event_timestamp: a.date
 			});
 		}
 	}
 	return events;
+}
+
+// Limpia el texto de las anotaciones del CRM: repara mojibake, quita la
+// referencia a la IA y normaliza el texto del lead scoring.
+function cleanAnnotationText(text) {
+	let s = String(text || "");
+	// Reparar mojibake (UTF-8 leído como Latin-1): "anotaciÃ³n" → "anotación"
+	if (s.includes("Ã") || s.includes("Â")) {
+		try {
+			s = Buffer.from(s, "latin1").toString("utf8");
+		} catch {
+			// se deja como está si no se puede reparar
+		}
+	}
+	// Quitar la referencia a la IA
+	s = s.replace(/\.\s*Esta anotaci[oó]n se gener[oó] con la ayuda de inteligencia artificial\.?\s*$/i, "");
+	// Normalizar el texto del lead scoring
+	s = s.replace(/Oportunidad creada a partir de lead Scoring/i, "Oportunidad creada a partir del lead scoring");
+	return s.trim();
 }
 
 async function FetchEvents(email, phone) {
