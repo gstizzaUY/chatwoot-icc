@@ -230,6 +230,28 @@ class RDStationClient {
         return response.data;
     }
 
+    // ==================== EVENTOS (PLATFORM) ====================
+
+    /**
+     * Obtiene los eventos de conversión de un contacto por uuid
+     */
+    async getConversionEventsByUuid(uuid) {
+        const response = await this.client.get(
+            `/platform/contacts/${encodeURIComponent(uuid)}/events?event_type=CONVERSION`
+        );
+        return response.data || [];
+    }
+
+    /**
+     * Obtiene un contacto por uuid
+     */
+    async getContactByUuid(uuid) {
+        const response = await this.client.get(
+            `/platform/contacts/${encodeURIComponent(uuid)}`
+        );
+        return response.data;
+    }
+
     // ==================== CRM (DEALS) ====================
 
     /**

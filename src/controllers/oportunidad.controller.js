@@ -1,8 +1,11 @@
 import axios from 'axios';
 import dotenv from 'dotenv';
 import { normalizePhone } from '../utils/phone.utils.js';
+import rdStationClient from '../clients/rdstation.client.js';
 
 dotenv.config();
+
+const RDSTATION_URL = process.env.RDSTATION_URL || 'https://api.rd.services';
 
 const CHATWOOT_URL = process.env.CHATWOOT_URL || 'https://contact-center.5vsa59.easypanel.host';
 const API_ACCESS_TOKEN = process.env.API_ACCESS_TOKEN;
@@ -193,10 +196,24 @@ const ensureLabel = async (conversationId) => {
 
 /**
  * Crea una nota interna (mensaje privado) en la conversación.
+ * Si el lead es un referido del portal, amplía la nota con los datos del referente.
  */
-const createInternalNote = async (conversationId) => {
+const createInternalNote = async (conversationId, referidoInfo = null) => {
+    let content = NOTE_TEXT;
+
+    if (referidoInfo?.esReferido) {
+        content += [
+            '',
+            '',
+            'Es un referido del Portal de Recetas',
+            `Referente: ${referidoInfo.nombre || '-'}`,
+            `Teléfono referente: ${referidoInfo.telefono || '-'}`,
+            `Fecha de referencia: ${referidoInfo.fecha}`
+        ].join('\n');
+    }
+
     const resp = await chatwoot.post(`/conversations/${conversationId}/messages`, {
-        content:      NOTE_TEXT,
+        content:      content,
         message_type: 'outgoing',
         private:      true
     });
@@ -205,6 +222,63 @@ const createInternalNote = async (conversationId) => {
 
     return resp.data;
 };
+
+// ── Referido-portal ───────────────────────────────────────────────────────────
+
+/**
+ * Detecta si el lead es un referido del portal (evento "referido-portal" en RD)
+ * y obtiene los datos del referente (nombre y teléfono desde cf_referido_por)
+ * más la fecha del evento.
+ *
+ * Devuelve { esReferido: true, nombre, telefono, fecha } o { esReferido: false }.
+ */
+async function getReferidoPortalInfo(lead) {
+    try {
+        const uuid = lead.uuid;
+        if (!uuid) return { esReferido: false };
+
+        // 1. Eventos de conversión del contacto: ¿tiene "referido-portal"?
+        const events = await rdStationClient.getConversionEventsByUuid(uuid);
+        const referidoEvent = events.find(e => (e.event_identifier || '') === 'referido-portal');
+        if (!referidoEvent) return { esReferido: false };
+
+        // 2. Datos del referente: cf_referido_por del contacto en RD ("Nombre (telefono)")
+        let nombre = null;
+        let telefono = null;
+        try {
+            const contact = await rdStationClient.getContactByUuid(uuid);
+            const raw = String(contact.cf_referido_por || '');
+            const m = raw.match(/^(.*?)\s*\((\d+)\)\s*$/);
+            if (m) {
+                nombre = m[1].trim();
+                telefono = m[2];
+            } else {
+                nombre = raw.trim() || null;
+            }
+        } catch (error) {
+            console.warn(`[oportunidad] No se pudo leer cf_referido_por del contacto ${uuid}: ${error.message}`);
+        }
+
+        // 3. Fecha del evento en dd/mm/yyyy HH:mm
+        let fecha = null;
+        if (referidoEvent.event_timestamp) {
+            const d = new Date(referidoEvent.event_timestamp);
+            if (!isNaN(d.getTime())) {
+                fecha = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            }
+        }
+
+        return {
+            esReferido: true,
+            nombre,
+            telefono,
+            fecha
+        };
+    } catch (error) {
+        console.warn(`[oportunidad] Error detectando referido-portal para ${lead.email || lead.uuid}: ${error.message}`);
+        return { esReferido: false };
+    }
+}
 
 // ── Handler principal ─────────────────────────────────────────────────────────
 
@@ -286,8 +360,14 @@ const oportunidadAbierta = async (req, res) => {
                     await ensureLabel(conversation.id);
                 }
 
-                // 5. Crear nota interna
-                await createInternalNote(conversation.id);
+                // 5. Detectar si es un referido del portal (evento "referido-portal")
+                const referidoInfo = await getReferidoPortalInfo(lead);
+                if (referidoInfo.esReferido) {
+                    console.log(`[oportunidad] Lead "${lead.name}" es un referido del portal (referente: ${referidoInfo.nombre})`);
+                }
+
+                // 6. Crear nota interna
+                await createInternalNote(conversation.id, referidoInfo);
                 console.log(`[oportunidad] ✓ Nota interna creada en conversación ${conversation.id}`);
 
                 results.created += 1;
