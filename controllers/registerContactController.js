@@ -18,16 +18,6 @@ const crmStation = axios.create({
 	}
 });
 
-const DEAL_STAGES = {
-	"68d14bbd5a3017001e7e3a0e": "Iniciar Agendamiento",
-	"68d14bbd5a3017001e7e3a0f": "Agendar Demo",
-	"68d14bbd5a3017001e7e3a10": "Demo Agendada",
-	"68d14bbd5a3017001e7e3a11": "Demo Realizada",
-	"68d14bbd5a3017001e7e3a12": "Negociación Comercial",
-	"69176d13cd5edb001e64c5d9": "Cerrada Perdida",
-	"69176d0ad5402600168336b1": "Cerrada Ganada"
-};
-
 const rdstation = axios.create({
 	baseURL: RDSTATION_URL,
 	headers: {
@@ -313,8 +303,27 @@ async function GetCrmActivities(dealId) {
 	}
 }
 
-function crmStageName(stageId) {
-	return DEAL_STAGES[stageId] || stageId;
+// Resuelve el nombre de una etapa desde TODOS los embudos del CRM (con caché corta).
+let crmStagesCache = null;
+let crmStagesCacheAt = 0;
+
+async function crmStageName(stageId) {
+	if (!crmStagesCache || Date.now() - crmStagesCacheAt > 10 * 60 * 1000) {
+		try {
+			const response = await crmStation.get("/deal_pipelines", { params: { limit: 200 } });
+			crmStagesCache = {};
+			(response.data || []).forEach(p =>
+				(p.deal_stages || []).forEach(s => {
+					crmStagesCache[s.id] = s.name;
+				})
+			);
+			crmStagesCacheAt = Date.now();
+		} catch (error) {
+			console.error("Error obteniendo etapas del CRM", error.message);
+			return stageId;
+		}
+	}
+	return crmStagesCache[stageId] || stageId;
 }
 
 // Timeline del CRM: negocios (creación, etapas, cierre) + anotaciones
@@ -333,11 +342,16 @@ async function FetchCrmTimeline(email, phone) {
 		});
 
 		if (Array.isArray(deal.deal_stage_histories)) {
+			let lastStageId = null;
 			for (const h of deal.deal_stage_histories) {
 				if (!h.start_date) continue;
+				// RD a veces duplica la entrada de la etapa al crearla (7 ms de diferencia):
+				// se omite la entrada consecutiva con la misma etapa
+				if (h.deal_stage_id === lastStageId) continue;
+				lastStageId = h.deal_stage_id;
 				events.push({
 					event_type: "CRM",
-					event_identifier: `Cambió su etapa en el embudo a ${crmStageName(h.deal_stage_id)}`,
+					event_identifier: `Cambió su etapa en el embudo a ${await crmStageName(h.deal_stage_id)}`,
 					event_timestamp: h.start_date
 				});
 			}
