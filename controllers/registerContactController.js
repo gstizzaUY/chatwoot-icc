@@ -326,7 +326,11 @@ async function crmStageName(stageId) {
 	return crmStagesCache[stageId] || stageId;
 }
 
-// Timeline del CRM: negocios (creación, etapas, cierre) + anotaciones
+// Timeline del CRM: negocios (creación, etapas, cierre) + anotaciones.
+// Solo se muestran los deals del embudo de trabajo (Agendamiento demo);
+// los demás embudos (Onboarding, Post-Venta) se manejarán aparte.
+const CRM_PIPELINE_NAME = "Agendamiento demo";
+
 async function FetchCrmTimeline(email, phone) {
 	const contact = await GetCrmContactByEmail(email || GenerateContactId(phone));
 	if (!contact || !Array.isArray(contact.deals)) return [];
@@ -334,6 +338,8 @@ async function FetchCrmTimeline(email, phone) {
 	for (const dealRef of contact.deals) {
 		const deal = await GetCrmDeal(dealRef.id);
 		if (!deal) continue;
+		// Solo deals del embudo de trabajo
+		if (deal.deal_pipeline?.name !== CRM_PIPELINE_NAME) continue;
 
 		events.push({
 			event_type: "CRM",
