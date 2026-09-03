@@ -5,6 +5,7 @@ import crmSyncService from '../../services/shared/crm-sync.service.js';
 import fieldProtectionService from '../../services/shared/field-protection.service.js';
 import chatwootClient from '../../clients/chatwoot.client.js';
 import { refreshStageLabelsForConversation } from '../../utils/stage-labels.utils.js';
+import { syncConversationLabels } from '../../utils/sync-labels.utils.js';
 
 dotenv.config();
 
@@ -240,6 +241,39 @@ class BaseAgent {
             extractedInfo,
             { ...options, agentType: this.agentType }
         );
+    }
+
+    /**
+     * Re-sincroniza las etiquetas de una conversación a partir del estado ACTUAL
+     * del contacto (refresca el contacto por ID para usar la fuente de verdad).
+     * Respeta LABEL_SOURCE (cf_stage/lifecycle) y agrega `tiene_ichef` si aplica.
+     *
+     * @param {number} conversationId - ID de la conversación
+     * @param {number} contactId - ID del contacto
+     * @param {string} [source] - Override de LABEL_SOURCE (para pruebas)
+     * @returns {Promise<Object|null>} - Resultado de syncConversationLabels o null
+     */
+    async resyncConversationLabels(conversationId, contactId, source) {
+        if (!conversationId || !contactId) return null;
+        try {
+            const freshContact = await chatwootClient.getContactById(contactId);
+            if (!freshContact) {
+                console.warn(`⚠️ No se pudo obtener contacto ${contactId} para re-etiquetar conv ${conversationId}`);
+                return null;
+            }
+            const result = await syncConversationLabels({
+                conversationId,
+                contact: freshContact,
+                source
+            });
+            if (result?.changed) {
+                console.log(`🏷️ [${this.agentType}] Etiquetas sincronizadas en conv ${conversationId}: ${JSON.stringify(result.labels)}`);
+            }
+            return result;
+        } catch (error) {
+            console.warn(`⚠️ Error re-etiquetando conversación ${conversationId}:`, error.message);
+            return null;
+        }
     }
 
     /**

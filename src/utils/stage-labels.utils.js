@@ -89,7 +89,7 @@ async function rdGet(path, retry = true) {
 	}
 }
 
-async function getContactFunnel(email) {
+export async function getContactFunnel(email) {
 	if (!email) return null;
 	try {
 		return await rdGet(`/platform/contacts/email:${encodeURIComponent(email)}/funnels/default`);

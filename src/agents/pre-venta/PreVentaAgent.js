@@ -91,6 +91,11 @@ class PreVentaAgent extends BaseAgent {
             } catch (error) {
                 console.error('Error actualizando CRMs:', error.message);
             }
+
+            // Re-sincronizar etiquetas de la conversación solo si hubo datos nuevos
+            if (crmUpdate?.chatwoot?.success) {
+                await this.resyncConversationLabels(conversation.id, contact.id);
+            }
         }
 
         await this.createSuggestionNote(conversation.id, {
