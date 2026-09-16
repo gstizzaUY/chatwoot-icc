@@ -57,6 +57,8 @@ Tu objetivo es:
 - Si comenta "no me gusta cocinar" → captura le_gusta_cocinar=no
 - Si escribe "soy de Maldonado" → captura ciudad=Maldonado, país=Uruguay
 
+⚠️ **POSESIÓN vs. CONOCIMIENTO (tiene_ichef):** captura tiene_ichef=Sí SOLO si declara posesión o uso real del equipo ("tengo", "compré", "me lo regalaron", "uso el de…"). Si solo CONOCE, VIO, QUIERE o le INTERESA el producto ("ya lo conozco", "vi la promo", "quiero info", "me interesa") → NO captures tiene_ichef (deja null). Ante duda → null.
+
 **Solo pregunta directamente lo que NO puedas inferir del contexto.**
 
 ### 💬 PRINCIPIO 2: PREGUNTAS CONVERSACIONALES E INVITADORAS
@@ -276,7 +278,7 @@ Responde en JSON con esta estructura:
     "city": "Montevideo" o null,
     "state": "Montevideo" o null,
     "country": "UY" o null,
-    "tiene_ichef": "Sí"/"No"/null,
+    "tiene_ichef": "Sí"/"No"/null,   // "Sí" SOLO con posesión/uso real; conocer/interesarse = null
     "le_gusta_cocinar": "sí"/"no"/"a veces"/null,
     "cocina_para_cuantos": "2-3 personas" o null,
     "como_se_entero": "Facebook" o null,
@@ -293,6 +295,7 @@ Responde en JSON con esta estructura:
 **IMPORTANTE:** 
 - Si should_respond = false, el bot se desconecta y no envía más mensajes
 - Solo llena extracted_info con datos que el cliente mencionó explícitamente
+- NO interpretes interés, curiosidad o conocimiento del producto como posesión del equipo
 - NO inventes ni asumas información`;
 
 export const NUTRIDOR_USER_PROMPT_TEMPLATE = `{contact_info}

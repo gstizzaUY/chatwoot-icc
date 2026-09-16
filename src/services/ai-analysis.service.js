@@ -479,8 +479,11 @@ CAMPOS A EXTRAER:
 
 ## Información de iChef:
 - tiene_ichef: ¿Tiene/usa un equipo iChef? ("Sí" / "No" / null)
-  IMPORTANTE: "Sí" si menciona tener, usar o tener acceso a un iChef (propio o de otra persona)
+  IMPORTANTE: "Sí" SOLO si menciona POSESIÓN o USO real de un iChef (propio o de otra persona)
   Ejemplo: "uso el iChef de mi mamá" → tiene_ichef = Sí
+  ⚠️ CONOCER, VER o QUERER el producto NO es tenerlo:
+    - "ya lo conozco", "vi la promo", "quiero más info", "me interesa", "quiero pagar al contado" → tiene_ichef = null
+  Ante duda → null (NUNCA "Sí")
   
 - es_cliente: ¿ESTA PERSONA específicamente COMPRÓ un iChef? ("Sí" / "No" / null)
   CRÍTICO: "Sí" SOLO si esta persona fue quien compró/pagó
@@ -542,20 +545,23 @@ REGLAS IMPORTANTES:
 
 REGLAS ESPECÍFICAS PARA ICHEF:
 
-🔴 CONTEXTO POST-COMPRA (INDICA QUE YA COMPRÓ):
-Si la conversación menciona CUALQUIERA de estos temas → es_cliente = Sí, tiene_ichef = Sí, stage = customer:
-  ✓ Factura, facturación, razón social, RUT, dirección de factura
-  ✓ Encomienda, envío, entrega, recogida, correo, dirección de entrega
-  ✓ Transferencia, comprobante de pago, pago realizado/pendiente
-  ✓ Instalación, onboarding, configuración inicial
-  ✓ Serial, número de serie, manual del equipo
-  ✓ Garantía de su equipo, soporte de su producto
-  ✓ Accesorios, piezas del equipo comprado
-  ✓ "Mi iChef", "mi equipo", "el que compré"
+🔴 CONTEXTO POST-COMPRA (INDICA QUE LA COMPRA YA SE CONCRETÓ):
+Solo si el cliente habla de un equipo que YA es suyo (compra concretada o entrega en curso):
+  ✓ Serial / número de serie del equipo, "mi iChef", "mi equipo", "el que compré"
+  ✓ Garantía de SU equipo, soporte de SU producto, accesorios/piezas del equipo comprado
+  ✓ Instalación u onboarding del equipo que ya recibió
+  ✓ Factura ya emitida a su nombre, razón social, RUT, dirección de factura
+  ✓ Encomienda/entrega/recogida de un pedido YA realizado
+  ✓ "Compré", "pagué", "transferí" (pago ya efectuado) / comprobante de pago ENVIADO
+
+❌ NO es contexto post-compra (es PRE-VENTA, dejar es_cliente=null y tiene_ichef=null):
+  - Intención o consulta de pago: "quiero pagar al contado", "puedo pagar en cuotas?", "¿aceptan transferencia?"
+  - Consultar precio, financiación, envío, demo o disponibilidad
+  - Mencionar la garantía como condición de compra futura
 
 REGLAS DETALLADAS:
-- "tiene_ichef" = Sí: Si EN ESTA CONVERSACIÓN menciona usar/tener/poseer un iChef
-- "tiene_ichef" = null: Si EN ESTA CONVERSACIÓN NO menciona nada sobre tener iChef
+- "tiene_ichef" = Sí: Si EN ESTA CONVERSACIÓN menciona POSESIÓN o USO real de un iChef
+- "tiene_ichef" = null: Si NO menciona poseer/usar iChef, o si solo lo conoce/quiere/le interesa
 - "tiene_ichef" = No: SOLO si EN ESTA CONVERSACIÓN dice EXPLÍCITAMENTE que NO tiene iChef
 
 - "es_cliente" = Sí: Si EN ESTA CONVERSACIÓN indica que compró:
