@@ -4,6 +4,7 @@ import { mapContactChatwootToRD } from '../../mappers/contact.mapper.js';
 import { generateEmailFromPhone, isValidEmail } from '../../utils/email.utils.js';
 import { normalizePhone } from '../../utils/phone.utils.js';
 import fieldProtectionService, { getStageLevel } from './field-protection.service.js';
+import contactWriteGuard from './contact-write-guard.service.js';
 
 /**
  * Servicio centralizado de sincronización CRM
@@ -20,7 +21,24 @@ class CRMSyncService {
      * @returns {Promise<Object>} - Resultado de actualización
      */
     async updateChatwoot(contactId, currentContact, extractedInfo, options = {}) {
-        const { summary = null, agentType = null } = options;
+        const { summary = null, agentType = null, conversationId = null } = options;
+
+        // Guard: normaliza teléfonos, detecta duplicados, aplica fill-only y emite notas privadas.
+        let guardResult = { allowed: extractedInfo, conflicts: [], duplicates: [], removedFields: [] };
+        try {
+            guardResult = await contactWriteGuard.run({ conversationId, extractedInfo, currentContact });
+        } catch (guardError) {
+            console.warn('⚠️ Guard de contacto falló (se continúa con la lógica previa):', guardError.message);
+        }
+
+        // Campos bloqueados: ya tenían valor (conflicto) o pertenecen a un duplicado
+        const blockedFields = new Set(guardResult.conflicts.map(c => c.field));
+        for (const field of guardResult.removedFields || []) blockedFields.add(field);
+
+        // Derivados: bloquear el campo compuesto si alguno de sus componentes lo está
+        if (blockedFields.has('firstname') || blockedFields.has('lastname')) {
+            blockedFields.add('name');
+        }
 
         const updateData = {
             custom_attributes: {
@@ -33,6 +51,11 @@ class CRMSyncService {
         // Helper para actualizar campo con protecciones
         const updateField = (location, field, newValue, displayName = null) => {
             if (newValue === undefined || newValue === null) return;
+
+            if (blockedFields.has(field)) {
+                console.log(`🛡️  [Chatwoot] Campo "${field}" no escrito (conflicto/duplicado)`);
+                return;
+            }
 
             const fieldName = displayName || field;
             let oldValue;
@@ -85,8 +108,8 @@ class CRMSyncService {
             updateField('custom', 'firstname', extractedInfo.firstname, 'Nombre');
             updateField('custom', 'lastname', extractedInfo.lastname, 'Apellido');
             updateField('custom', 'company', extractedInfo.company, 'Empresa');
-            updateField('custom', 'mobile_phone', extractedInfo.mobile_phone, 'Celular');
-            updateField('custom', 'phone', extractedInfo.phone, 'Teléfono fijo');
+            updateField('custom', 'mobile_phone', normalizePhone(extractedInfo.mobile_phone, 'UY'), 'Celular');
+            updateField('custom', 'phone', normalizePhone(extractedInfo.phone, 'UY'), 'Teléfono fijo');
             updateField('custom', 'city', extractedInfo.city, 'Ciudad');
             updateField('custom', 'state', extractedInfo.state, 'Departamento');
             updateField('custom', 'country', extractedInfo.country, 'País');
@@ -134,7 +157,9 @@ class CRMSyncService {
             return {
                 success: true,
                 contact: updatedContact,
-                changes
+                changes,
+                conflicts: guardResult.conflicts,
+                duplicates: guardResult.duplicates
             };
         } catch (error) {
             console.error('❌ Error actualizando contacto en Chatwoot:', error.message);

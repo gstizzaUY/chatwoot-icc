@@ -11,11 +11,13 @@ import {
 } from '../utils/message-parser.utils.js';
 import { mapContactChatwootToRD } from '../mappers/contact.mapper.js';
 import { generateEmailFromPhone, isValidEmail } from '../utils/email.utils.js';
+import { normalizePhone } from '../utils/phone.utils.js';
 import { RD_CONVERSIONS } from '../constants/rdstation.constants.js';
 import { EXCLUDED_CONTACT_IDS } from '../constants/agent.constants.js';
 import { logResumen } from '../utils/file-logger.utils.js';
 import { refreshStageLabelsForConversation } from '../utils/stage-labels.utils.js';
 import { getStageLevel } from './shared/field-protection.service.js';
+import contactWriteGuard from './shared/contact-write-guard.service.js';
 import { getInboxChannel } from '../constants/inbox.constants.js';
 
 /**
@@ -290,7 +292,8 @@ class ConversationAnalysisService {
                     contactId,
                     currentContact,
                     extractedInfo,
-                    summary
+                    summary,
+                    conversationId
                 );
             } catch (updateError) {
                 console.error('❌ Error actualizando contacto en Chatwoot (se continúa el pipeline):', updateError.message);
@@ -497,7 +500,41 @@ class ConversationAnalysisService {
      * Actualiza el contacto en Chatwoot con la información extraída
      * @private
      */
-    async _updateContactInChatwoot(contactId, currentContact, extractedInfo, summary) {
+    async _updateContactInChatwoot(contactId, currentContact, extractedInfo, summary, conversationId = null) {
+        // Guard: normaliza teléfonos, detecta duplicados, aplica fill-only y emite notas privadas.
+        // Devuelve la info permitida (los conflictos ya se reportaron por nota).
+        let writeInfo = extractedInfo;
+        let guardResult = { allowed: extractedInfo, conflicts: [], duplicates: [] };
+        try {
+            guardResult = await contactWriteGuard.run({ conversationId, extractedInfo, currentContact });
+            writeInfo = { ...extractedInfo, ...guardResult.allowed };
+
+            // Los campos en conflicto (ya tenían valor) NO se escriben
+            for (const conflict of guardResult.conflicts) {
+                delete writeInfo[conflict.field];
+            }
+
+            // Campos derivados: si no se permite el campo base, no derivar el compuesto.
+            const firstnameAllowed = 'firstname' in guardResult.allowed;
+            const lastnameAllowed = 'lastname' in guardResult.allowed;
+            if (!firstnameAllowed && !lastnameAllowed) {
+                delete writeInfo.firstname;
+                delete writeInfo.lastname;
+            }
+            if (!('mobile_phone' in guardResult.allowed) && !('phone' in guardResult.allowed)) {
+                delete writeInfo.mobile_phone;
+                delete writeInfo.phone;
+            }
+            if (!('email' in guardResult.allowed)) {
+                delete writeInfo.email;
+            }
+        } catch (guardError) {
+            console.warn('⚠️ Guard de contacto falló (se continúa con la lógica previa):', guardError.message);
+        }
+
+        // A partir de acá se usa la información validada por el guard
+        extractedInfo = writeInfo;
+
         const updateData = {
             custom_attributes: {
                 ...currentContact.custom_attributes
@@ -587,11 +624,14 @@ class ConversationAnalysisService {
         if (extractedInfo.metadata.confidence !== 'low') {
             
             // Campos raíz del contacto
-            updateField('root', 'name', extractedInfo.firstname ? 
-                `${extractedInfo.firstname}${extractedInfo.lastname ? ' ' + extractedInfo.lastname : ''}` : 
-                null, 'Nombre completo');
+            // El nombre completo solo se escribe si sus componentes no entraron en conflicto
+            const namePartsConflict = guardResult.conflicts.some(c =>
+                ['firstname', 'lastname', 'name'].includes(c.field));
+            updateField('root', 'name', namePartsConflict ? null : (extractedInfo.firstname ?
+                `${extractedInfo.firstname}${extractedInfo.lastname ? ' ' + extractedInfo.lastname : ''}` :
+                null), 'Nombre completo');
             updateField('root', 'email', extractedInfo.email && isValidEmail(extractedInfo.email) ? extractedInfo.email : null, 'Email');
-            updateField('root', 'phone_number', extractedInfo.mobile_phone || extractedInfo.phone, 'Teléfono');
+            updateField('root', 'phone_number', normalizePhone(extractedInfo.mobile_phone || extractedInfo.phone), 'Teléfono');
             
             // Información básica
             updateField('custom', 'title', extractedInfo.title, 'Título');
@@ -684,11 +724,43 @@ class ConversationAnalysisService {
             return {
                 success: true,
                 contact: updatedContact,
-                changes: changes
+                changes: changes,
+                conflicts: guardResult.conflicts,
+                duplicates: guardResult.duplicates
             };
 
         } catch (error) {
             console.error('Error actualizando contacto en Chatwoot:', error.message);
+
+            // Red de seguridad ante 422 (valor inválido/duplicado): reintentar sin los
+            // campos volátiles de identidad para no perder el resto de la actualización
+            // (resumen, custom_attributes, etc.).
+            if (error.response?.status === 422) {
+                console.warn(`⚠️ PUT contacto ${contactId} devolvió 422 - reintentando sin teléfono/email`);
+                const retryData = {
+                    custom_attributes: { ...updateData.custom_attributes }
+                };
+                delete retryData.phone_number;
+                delete retryData.email;
+                delete retryData.custom_attributes.mobile_phone;
+                delete retryData.custom_attributes.phone;
+
+                try {
+                    const updatedContact = await chatwootClient.updateContact(contactId, retryData);
+                    console.log(`✅ Contacto ${contactId} actualizado (sin teléfono/email) tras 422`);
+                    return {
+                        success: true,
+                        contact: updatedContact,
+                        changes: changes.filter(c => !['Teléfono', 'Celular', 'Email', 'Correo Electrónico'].includes(c.field)),
+                        conflicts: guardResult.conflicts,
+                        duplicates: guardResult.duplicates
+                    };
+                } catch (retryError) {
+                    console.error('❌ Reintento sin teléfono/email también falló:', retryError.message);
+                    throw retryError;
+                }
+            }
+
             throw error;
         }
     }

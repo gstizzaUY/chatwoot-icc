@@ -113,7 +113,7 @@ class NutridorAgent extends BaseAgent {
                     contact.id,
                     contact,
                     validatedInfo,
-                    { summary: null }
+                    { summary: null, conversationId: conversation.id }
                 );
                 console.log('✅ CRMs actualizados con información capturada');
             } catch (error) {

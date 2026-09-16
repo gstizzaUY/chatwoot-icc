@@ -1,4 +1,11 @@
 import { PROTECTED_FIELDS, STAGE_HIERARCHY } from '../../constants/agent.constants.js';
+import { isFakeEmail, isValidEmail } from '../../utils/email.utils.js';
+
+/**
+ * Campos que NO aplican la regla fill-only porque tienen su propia lógica
+ * de negocio (never-downgrade / forward-only).
+ */
+export const FILL_ONLY_EXEMPT_FIELDS = ['stage', 'tiene_ichef', 'es_cliente'];
 
 /**
  * Servicio centralizado de protección de campos
@@ -79,6 +86,56 @@ class FieldProtectionService {
         }
 
         return { allowed: true, reason: 'Actualización válida' };
+    }
+
+    /**
+     * Regla fill-only: los datos recopilados de la conversación solo se escriben
+     * cuando el campo destino está VACÍO. Si ya tiene un valor y el detectado es
+     * distinto, NO se sobreescribe: se marca como conflicto para que un humano
+     * decida (se reporta por nota privada).
+     *
+     * Excepción: email ficticio (@email.com) → email real SÍ se sobreescribe.
+     * Los campos con lógica propia (stage/tiene_ichef/es_cliente) están exentos.
+     *
+     * @param {string} field - Nombre del campo
+     * @param {any} oldValue - Valor actual
+     * @param {any} newValue - Valor detectado en la conversación
+     * @returns {{ allowed: boolean, conflict: boolean, reason: string }}
+     */
+    checkFillOnly(field, oldValue, newValue) {
+        if (newValue === undefined || newValue === null || newValue === '') {
+            return { allowed: false, conflict: false, reason: 'Valor vacío' };
+        }
+
+        // Campo con lógica propia: no aplica fill-only
+        if (FILL_ONLY_EXEMPT_FIELDS.includes(field)) {
+            return { allowed: true, conflict: false, reason: 'Campo con lógica propia' };
+        }
+
+        // Campo destino vacío → se puede poblar
+        if (oldValue === undefined || oldValue === null || oldValue === '') {
+            return { allowed: true, conflict: false, reason: 'Campo vacío, se puede poblar' };
+        }
+
+        const oldStr = String(oldValue).trim();
+        const newStr = String(newValue).trim();
+
+        // Mismo valor → no hay nada que escribir
+        if (oldStr === newStr) {
+            return { allowed: false, conflict: false, reason: 'Sin cambios' };
+        }
+
+        // Excepción: reemplazar email ficticio por un email real
+        if (field === 'email' && isFakeEmail(oldStr) && isValidEmail(newStr)) {
+            return { allowed: true, conflict: false, reason: 'Reemplazo de email ficticio por real' };
+        }
+
+        // Ya tiene valor distinto → no sobreescribir, reportar conflicto
+        return {
+            allowed: false,
+            conflict: true,
+            reason: `El campo "${field}" ya tiene valor ("${oldStr}"); se conserva y se reporta el detectado ("${newStr}")`
+        };
     }
 
     /**
