@@ -1,6 +1,6 @@
 import chatwootClient from '../clients/chatwoot.client.js';
 import { normalizePhone } from '../utils/phone.utils.js';
-import { generateEmailFromPhone } from '../utils/email.utils.js';
+import { generateEmailFromPhone, isFakeEmail, isValidEmail } from '../utils/email.utils.js';
 
 /**
  * Servicio de conversación de seguimiento para demos agendadas.
@@ -61,6 +61,35 @@ const createContact = async ({ name, email, phone }) => {
             return match;
         }
         throw err;
+    }
+};
+
+/**
+ * Actualiza el email del contacto en Chatwoot cuando la demo trae un email
+ * real y el contacto tiene email vacío o ficticio (@email.com).
+ * Regla de negocio: email real > email ficticio. Nunca sobreescribe un email
+ * real distinto (fill-only).
+ *
+ * @param {Object} contact - Contacto de Chatwoot (se muta `email` si se actualiza)
+ * @param {string} email - Email real que trae la demo
+ */
+const updateContactEmail = async (contact, email) => {
+    if (!contact?.id || !email || !isValidEmail(email)) return;
+
+    const currentEmail = (contact.email || '').trim();
+    if (currentEmail.toLowerCase() === email.toLowerCase()) return;
+
+    if (currentEmail && !isFakeEmail(currentEmail)) {
+        console.log(`[demo-conversation] Contacto ${contact.id} ya tiene email real (${currentEmail}); no se sobreescribe`);
+        return;
+    }
+
+    try {
+        await chatwootClient.updateContact(contact.id, { email });
+        contact.email = email;
+        console.log(`[demo-conversation] Email del contacto ${contact.id} actualizado: ${currentEmail || '(vacío)'} → ${email}`);
+    } catch (err) {
+        console.warn(`[demo-conversation] No se pudo actualizar el email del contacto ${contact.id}:`, err.message);
     }
 };
 
@@ -181,6 +210,9 @@ export const openDemoConversation = async ({ email, phone, name, demo = {} }) =>
     } else {
         console.log(`[demo-conversation] Contacto encontrado: ID ${contact.id}`);
     }
+
+    // 2b. Si el contacto tenía email vacío o ficticio, actualizarlo con el real de la demo
+    await updateContactEmail(contact, email);
 
     // 3. Resolver la conversación del canal (reutilizar abierta / reabrir cerrada / crear)
     const { conversation, conversationAction } = await resolveConversation(contact.id);

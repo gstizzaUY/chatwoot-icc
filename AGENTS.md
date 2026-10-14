@@ -80,6 +80,7 @@ Motor configurable que detecta eventos (por `eventName` en el body de un único 
 - **Canal:** inbox 34 (iChef Center Wpp), assignee 14 (Melany Fulco), team 2 (ventas), etiqueta `demo`.
 - **Política:** reutiliza la conversación abierta; si no, reabre la cerrada más reciente; si nunca existió, crea una nueva (`reopen`).
 - **Nota privada** con detalles de la demo (nombre, email, teléfono, fecha/hora, local, dirección, origen) y conversación marcada como no leída.
+- **Email:** si el contacto existente tiene email vacío o ficticio (`@email.com`), se actualiza con el email real de la demo (nunca sobreescribe un email real distinto).
 - **Servicio:** `src/services/demo-conversation.service.js` (`openDemoConversation`).
 - Un fallo de Chatwoot no rompe el registro del demo (responde 200 con `conversationId: null`).
 
