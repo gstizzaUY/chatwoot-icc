@@ -75,6 +75,14 @@ Motor configurable que detecta eventos (por `eventName` en el body de un único 
 - **Acciones**: `src/services/triggers/trigger-actions.js` — `createConversation` (busca/crea contacto en Chatwoot + RD Station, completa `tiene_ichef`/`id_robot`/`version_del_firmware`, reutiliza/reabre/crea conversación según `reuseMode`, nota privada, marca no leída)
 - **Entrada**: `src/controllers/triggersEventos.controller.js` — adaptador HTTP (valida eventName+email → 202 → engine)
 
+## Demo Agendada (registro-demo)
+`POST /api/rd-station/registro-demo` (V1, `controllers/rdStationControllers.js`) registra contacto + evento de conversión en RD Station y, además, abre/reutiliza una conversación de seguimiento en Chatwoot:
+- **Canal:** inbox 34 (iChef Center Wpp), assignee 14 (Melany Fulco), team 2 (ventas), etiqueta `demo`.
+- **Política:** reutiliza la conversación abierta; si no, reabre la cerrada más reciente; si nunca existió, crea una nueva (`reopen`).
+- **Nota privada** con detalles de la demo (nombre, email, teléfono, fecha/hora, local, dirección, origen) y conversación marcada como no leída.
+- **Servicio:** `src/services/demo-conversation.service.js` (`openDemoConversation`).
+- Un fallo de Chatwoot no rompe el registro del demo (responde 200 con `conversationId: null`).
+
 ## Important Notes
 - Webhook auth tokens are deprecated; use rate limiting instead
 - v2 endpoints use `/api/v2/` prefix (health at `/api/v2/health`)

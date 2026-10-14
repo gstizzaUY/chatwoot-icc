@@ -149,6 +149,24 @@ class ChatwootClient {
         }
     }
 
+    /**
+     * Busca contactos por texto libre (endpoint /contacts/search de Chatwoot).
+     * Más flexible que /contacts/filter: encuentra coincidencias parciales
+     * (ej. teléfonos con distinto formato). Se usa como fallback ante
+     * duplicados de teléfono (422) al crear un contacto.
+     */
+    async searchContacts(query) {
+        try {
+            const response = await this.client.get('/contacts/search', {
+                params: { q: query, include_contacts: true, page: 1 }
+            });
+            return response.data?.payload || [];
+        } catch (error) {
+            console.error(`Error buscando contactos (q=${query}):`, error.message);
+            return [];
+        }
+    }
+
     // ==================== CONVERSACIONES ====================
 
     /**

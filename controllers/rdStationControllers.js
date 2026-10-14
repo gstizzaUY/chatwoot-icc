@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { openDemoConversation } from '../src/services/demo-conversation.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2204,6 +2205,27 @@ const registrarDemo = async (req, res) => {
 
         console.log(`📅 DEBUG: Resultado del evento de conversión: ${eventSuccess ? 'SUCCESS' : 'FAILED'}`);
 
+        // Abrir conversación de seguimiento en Chatwoot (canal WhatsApp "iChef Center Wpp")
+        // con nota privada y los detalles de la demo, para el seguimiento de un agente.
+        // Un fallo acá NO debe romper el registro del demo.
+        let demoConversation = null;
+        try {
+            demoConversation = await openDemoConversation({
+                email: emailToUse,
+                phone: contactData.phone,
+                name: `${demoData.name} ${demoData.lastname || ''}`.trim(),
+                demo: {
+                    fechaHora: demoData.Demo_Fecha_Hora, // ya formateada en español
+                    local: demoData.local_demo,
+                    direccion: demoData.direccion_demo,
+                    sourceUrl: demoData.source_url
+                }
+            });
+            console.log(`✅ Conversación de seguimiento de demo: ID ${demoConversation.conversationId} (${demoConversation.conversationAction})`);
+        } catch (conversationError) {
+            console.error(`⚠️ Demo registrada pero no se pudo abrir la conversación en Chatwoot (${emailToUse}):`, conversationError.message);
+        }
+
         const responseData = {
             success: true,
             statusCode: 200,
@@ -2212,7 +2234,9 @@ const registrarDemo = async (req, res) => {
                 email: emailToUse,
                 contactAction: contactAction,
                 eventName: eventName,
-                eventCreated: eventSuccess
+                eventCreated: eventSuccess,
+                conversationId: demoConversation?.conversationId || null,
+                conversationAction: demoConversation?.conversationAction || null
             }
         };
 
