@@ -84,6 +84,14 @@ Motor configurable que detecta eventos (por `eventName` en el body de un único 
 - **Servicio:** `src/services/demo-conversation.service.js` (`openDemoConversation`).
 - Un fallo de Chatwoot no rompe el registro del demo (responde 200 con `conversationId: null`).
 
+## Registro del Portal (register-contact)
+`POST /api/conversations/register-contact` (V1, `controllers/registerContactController.js`): cuando un usuario se registra en el Portal de Recetas:
+- **RD Station:** busca/crea/actualiza el contacto (por email o email ficticio del teléfono) + evento de conversión `registro-portal`. Protección anti-downgrade de `cf_tiene_ichef` (nunca pisa un "Sí" existente).
+- **Chatwoot:** registra el contacto (sin conversaciones) con `tiene_ichef = "Sí"` (+ `id_robot`/`nickname` si vienen). Email ficticio → real si aplica. Servicio: `src/services/portal-contact.service.js`.
+- **WordPress (Afiliado Lover):** alta idempotente vía API AffiliateWP (grupo 1 = Lovers; primero `GET ?search=<email>`, si no existe `POST /affwp/v1/affiliates`). Servicio: `src/services/affiliate.service.js` (doc: `docs/CONECTOR-PORTAL-AFILIADOS.md`).
+- Chatwoot y WordPress corren en paralelo; sus fallos no rompen el registro.
+- La respuesta se mantiene `200 "Event received"`; el estado va en headers `x-chatwoot-status` / `x-affiliate-status` y en `logs/portal.log` (fallos que requieren acción manual, ej. `existing_user_email`).
+
 ## Important Notes
 - Webhook auth tokens are deprecated; use rate limiting instead
 - v2 endpoints use `/api/v2/` prefix (health at `/api/v2/health`)

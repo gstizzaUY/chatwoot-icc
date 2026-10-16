@@ -1,5 +1,7 @@
 import axios from "axios";
 import dotenv from "dotenv";
+import { ensurePortalChatwootContact } from "../src/services/portal-contact.service.js";
+import { registerLoverAffiliate } from "../src/services/affiliate.service.js";
 
 dotenv.config();
 
@@ -194,13 +196,16 @@ async function CreateContact(contact) {
 }
 
 // Only updates from register
-async function UpdateContact(email, contact) {
+// Protección anti-downgrade: si el contacto ya tenía cf_tiene_ichef = "Sí" y este
+// registro no trae serial, se conserva "Sí" (nunca retrocede).
+async function UpdateContact(email, contact, existingContact = null) {
+	const currentTieneIchef = existingContact?.cf_tiene_ichef;
 	const contactData = {
 		name: contact.name,
 		mobile_phone: contact.phone.replace(/\D/g, ""),
 		cf_nickname: contact.username,
 		cf_id_equipo: contact.serial,
-		cf_tiene_ichef: contact.serial ? "Sí" : "No"
+		cf_tiene_ichef: contact.serial ? "Sí" : (currentTieneIchef === "Sí" ? "Sí" : "No")
 	};
 	try {
 		const response = await rdstation.patch(`/platform/contacts/email:${encodeURIComponent(email)}`, contactData);
@@ -218,7 +223,7 @@ async function CreateIfNew(contact, do_update) {
 		const existing_contact = await GetContact(email);
 		if (existing_contact) {
 			if (do_update) {
-				const updated_contact = await UpdateContact(email, contact);
+				const updated_contact = await UpdateContact(email, contact, existing_contact);
 				console.log("Contacto actualizado por email:", updated_contact);
 			}
 			return;
@@ -228,7 +233,7 @@ async function CreateIfNew(contact, do_update) {
 		const existing_contact = await GetContact(id);
 		if (existing_contact) {
 			if (do_update) {
-				const updated_contact = await UpdateContact(id, contact);
+				const updated_contact = await UpdateContact(id, contact, existing_contact);
 				console.log("Contacto actualizado por celular:", updated_contact);
 			}
 			return;
@@ -321,6 +326,32 @@ async function RegisterContact(req, res) {
 			await SendEvent(contact_id, "registro-portal");
 		}
 	}
+
+	// Registro del portal → contacto en Chatwoot + alta de Afiliado Lover (WordPress).
+	// Ambos pasos corren en paralelo y son aislados: un fallo no rompe al otro ni la respuesta.
+	const [chatwootResult, affiliateResult] = await Promise.allSettled([
+		ensurePortalChatwootContact(contact),
+		registerLoverAffiliate(contact)
+	]);
+
+	if (chatwootResult.status === "rejected") {
+		console.error("[register-contact] Error registrando contacto en Chatwoot:", chatwootResult.reason?.message);
+	}
+	if (affiliateResult.status === "rejected") {
+		console.error("[register-contact] Error dando de alta afiliado Lover:", affiliateResult.reason?.message);
+	}
+
+	const chatwoot = chatwootResult.status === "fulfilled"
+		? chatwootResult.value
+		: { ok: false, created: false };
+	const affiliate = affiliateResult.status === "fulfilled"
+		? affiliateResult.value
+		: { ok: false, created: false };
+
+	// Estado en headers no rompientes (el body se mantiene igual para el portal)
+	res.set("x-chatwoot-status", chatwoot.created ? "created" : (chatwoot.ok ? "existing" : "error"));
+	res.set("x-affiliate-status", affiliate.ok ? (affiliate.created ? "created" : "existing") : (affiliate.reason || "error"));
+
 	return res.status(200).send("Event received");
 }
 
