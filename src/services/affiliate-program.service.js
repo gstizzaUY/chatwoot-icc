@@ -30,7 +30,7 @@ function asNumber(value) {
     return Number.isFinite(number) ? number : 0;
 }
 
-function leadName(lead) {
+export function leadName(lead) {
     const full = asString(lead?.name);
     if (full) {
         return full;
@@ -45,7 +45,7 @@ function leadName(lead) {
     return composed || 'Contacto sin nombre';
 }
 
-function leadPhone(lead) {
+export function leadPhone(lead) {
     const raw = asString(lead?.phone);
     if (!raw) {
         return '';
@@ -54,7 +54,7 @@ function leadPhone(lead) {
     return normalizePhone(raw, 'UY') || raw.replace(/\D/g, '');
 }
 
-function leadEmail(lead) {
+export function leadEmail(lead) {
     const raw = asString(lead?.email);
     if (raw && isValidEmail(raw) && !isFakeEmail(raw)) {
         return raw.toLowerCase();
@@ -199,7 +199,7 @@ function extractContact(response) {
     );
 }
 
-async function ensureCenterChatwootContact({ name, email, phone }) {
+export async function ensureCenterChatwootContact({ name, email, phone }) {
     let existing = null;
 
     if (email) {

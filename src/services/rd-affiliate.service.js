@@ -57,6 +57,73 @@ export async function findMarketingContact(email) {
     return rdStationClient.getContact(email);
 }
 
+/**
+ * Busca un contacto en RD CRM por email. Devuelve el contacto con su lista
+ * resumida de deals, priorizando el que ya tiene oportunidades.
+ */
+export async function findCrmContactByEmail(email) {
+    if (!email) {
+        return null;
+    }
+
+    const response = await crmClient().get('/contacts', {
+        params: { email },
+    });
+
+    const contacts = Array.isArray(response.data?.contacts)
+        ? response.data.contacts
+        : [];
+
+    if (contacts.length === 0) {
+        return null;
+    }
+
+    return contacts.find((contact) => (contact.deals || []).length > 0) || contacts[0];
+}
+
+/**
+ * Busca un contacto en RD CRM por teléfono, usando el mismo email sintético
+ * que RD Marketing para contactos sin email.
+ */
+export async function findCrmContactByPhone(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) {
+        return null;
+    }
+
+    return findCrmContactByEmail(`${digits}@email.com`);
+}
+
+/**
+ * Busca el deal abierto del contacto en el pipeline indicado.
+ * No crea nada: es la base de la estrategia de reutilización de la Fase 4.
+ */
+export async function findOpenCrmDealForContact(contact, pipelineName = 'Agendamiento demo') {
+    const deals = Array.isArray(contact?.deals) ? contact.deals : [];
+
+    for (const dealRef of deals) {
+        const dealId = dealRef?.id || dealRef?._id;
+        if (!dealId) {
+            continue;
+        }
+
+        const response = await crmClient().get(`/deals/${encodeURIComponent(dealId)}`);
+        const deal = response.data;
+
+        if (!deal || deal.win !== null) {
+            continue;
+        }
+
+        if (pipelineName && deal.deal_pipeline?.name !== pipelineName) {
+            continue;
+        }
+
+        return deal;
+    }
+
+    return null;
+}
+
 export async function upsertMarketingContact(contactData, previousEmail = null) {
     return rdStationClient.upsertContact(contactData, previousEmail);
 }
@@ -120,6 +187,9 @@ export function mapDealCustomFields(resources, values) {
 export default {
     getAffiliateResources,
     findMarketingContact,
+    findCrmContactByEmail,
+    findCrmContactByPhone,
+    findOpenCrmDealForContact,
     upsertMarketingContact,
     sendMarketingConversionEvent,
     createCrmDeal,

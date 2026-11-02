@@ -185,6 +185,44 @@ Nombre: TEST Lead Fase 3
 No fue creado por el handler de Fase 3; el código de Fase 3 no llama a creación
 de deals. Debe incluirse en la limpieza de la prueba.
 
+### Datos del deal para revisar la automatización
+
+```text
+Creado: 2026-11-02T14:02:47.750-03:00
+from_rdsm_integration: true
+Campaña: Crea oportunidad lead scoring y conversación en chatwoot
+Campaign ID: 6a5f6ca22d31e700014fe833
+Pipeline: Agendamiento demo
+Etapa: Iniciar Agendamiento
+Deal source: Desconocido
+Responsable: Branca Ghelfgot
+Nota: Oportunidad creada a partir de lead Scoring.
+Producto: iChef Blanca
+```
+
+Cronología observada:
+
+```text
+14:01:52  Evento de conversión referido-portal
+14:02:47  Se crea el deal en RD CRM
+14:03:00  Evento conversation-opened-ichef-center-wpp
+14:03:12  Se agrega producto iChef Blanca al deal
+```
+
+La automatización que debe revisarse es la campaña de RD Marketing:
+
+```text
+Crea oportunidad lead scoring y conversación en chatwoot
+ID: 6a5f6ca22d31e700014fe833
+```
+
+Hay que revisar si se dispara por `referido-portal`, por lead scoring del
+contacto o por otra regla. Esto es importante antes de la Fase 4: si esa
+automatización sigue creando deals y además la Fase 4 crea el suyo, se podrían
+duplicar oportunidades.
+
+No se modificó la automatización ni el deal.
+
 ## Datos de una corrida fallida anterior
 
 La primera corrida falló antes de crear el contacto del Seller por el error de

@@ -11,31 +11,25 @@ import {
     syncLeadCreatedEvent,
     syncSellerEvent,
 } from './affiliate-program.service.js';
+import { syncAssignmentEvent } from './affiliate-opportunity.service.js';
 
 /**
  * Handlers de negocio del programa de afiliados.
  *
- * Fase 3: Sellers y leads ya se sincronizan con RD Marketing y Chatwoot
- * cuenta 2. Los eventos de asignación/reasignación siguen pendientes hasta la
- * Fase 4. Los eventos sin handler quedan en pending_handler para reintento.
+ * Fase 3: Sellers y leads se sincronizan con RD Marketing y Chatwoot cuenta 2.
+ * Fase 4: las asignaciones reutilizan y actualizan el deal existente.
+ * Los eventos sin handler o sin deal disponible quedan en pending_handler.
  */
 const HANDLERS = {
     [AFFILIATE_EVENT_NAMES.SELLER_CREATED]: syncSellerEvent,
     [AFFILIATE_EVENT_NAMES.SELLER_UPDATED]: syncSellerEvent,
     [AFFILIATE_EVENT_NAMES.SELLER_LOVER_LINKED]: syncSellerEvent,
     [AFFILIATE_EVENT_NAMES.LEAD_CREATED]: syncLeadCreatedEvent,
-    // Fase 4: creación/actualización de oportunidades.
-    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_ASSIGNED]: async () => pendingHandler(),
-    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_CONFIRMED]: async () => pendingHandler(),
-    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_REASSIGNED]: async () => pendingHandler(),
+    // Fase 4: reutilización/actualización de la oportunidad existente.
+    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_ASSIGNED]: syncAssignmentEvent,
+    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_CONFIRMED]: syncAssignmentEvent,
+    [AFFILIATE_EVENT_NAMES.LEAD_SELLER_REASSIGNED]: syncAssignmentEvent,
 };
-
-function pendingHandler() {
-    return {
-        ok: false,
-        reason: 'handler_not_implemented',
-    };
-}
 
 export function isAffiliateEventEnabled() {
     return process.env.AFFILIATE_EVENTS_ENABLED === 'true';
