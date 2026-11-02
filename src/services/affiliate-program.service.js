@@ -145,7 +145,7 @@ export function buildSellerContactPayload(event) {
     return {
         name: asString(seller.name) || asString(seller.username) || asString(seller.email),
         email: asString(seller.email),
-        cf_tipo_afiliado: 'seller',
+        cf_tipo_afiliado: 'Seller',
         cf_seller_affiliate_id: asString(seller.affiliate_id),
         cf_seller_username: asString(seller.username),
         cf_seller_status: asString(seller.status),

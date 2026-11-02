@@ -28,7 +28,7 @@ const sellerEvent = {
 };
 
 const sellerPayload = buildSellerContactPayload(sellerEvent);
-assert.equal(sellerPayload.cf_tipo_afiliado, 'seller');
+assert.equal(sellerPayload.cf_tipo_afiliado, 'Seller');
 assert.equal(sellerPayload.cf_seller_affiliate_id, '7');
 assert.equal(sellerPayload.cf_seller_username, 'seller-demo');
 assert.equal(sellerPayload.cf_lover_affiliate_id, '2');
