@@ -45,11 +45,12 @@ function cfStageToLabel(cfStage) {
 export function resolveStageLabels({ cfStage, lifecycle, opportunity }, source = LABEL_SOURCE) {
 	if (source === "lifecycle") {
 		if (!lifecycle) return null;
+		// Si el contacto tiene una oportunidad abierta en RD, la etapa
+		// comercial reemplaza a la etapa de ciclo de vida. No se muestran
+		// simultáneamente lead_calificado + oportunidad.
+		if (opportunity === true) return ["oportunidad"];
 		const label = lifecycleToLabel(lifecycle);
-		if (!label) return null;
-		const labels = [label];
-		if (opportunity === true) labels.push("oportunidad");
-		return labels;
+		return label ? [label] : null;
 	}
 
 	// Comportamiento actual (cf_stage)

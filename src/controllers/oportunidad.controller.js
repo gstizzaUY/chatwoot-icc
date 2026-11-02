@@ -2,6 +2,7 @@ import axios from 'axios';
 import dotenv from 'dotenv';
 import { normalizePhone } from '../utils/phone.utils.js';
 import rdStationClient from '../clients/rdstation.client.js';
+import { STAGE_LABELS } from '../utils/stage-labels.utils.js';
 
 dotenv.config();
 
@@ -182,13 +183,25 @@ const ensureLabel = async (conversationId) => {
         const convResp = await chatwoot.get(`/conversations/${conversationId}`);
         const conv = convResp.data;
         const currentLabels = conv?.labels || [];
-        if (currentLabels.includes(TAG)) {
-            console.log(`[oportunidad] Etiqueta "${TAG}" ya existe en conversación ${conversationId}`);
+
+        // Una oportunidad reemplaza a la etapa de ciclo de vida. Se eliminan
+        // las etiquetas de etapa (lead_calificado, lead, etc.) y se conservan
+        // las etiquetas operativas/manuales.
+        const withoutStageLabels = currentLabels.filter(
+            (label) => !STAGE_LABELS.includes(label) && label !== TAG
+        );
+        const newLabels = [...withoutStageLabels, TAG];
+
+        const same = currentLabels.length === newLabels.length
+            && [...currentLabels].sort().join('|') === [...newLabels].sort().join('|');
+
+        if (same) {
+            console.log(`[oportunidad] Etiqueta "${TAG}" ya está correcta en conversación ${conversationId}`);
             return;
         }
-        const newLabels = [...currentLabels, TAG];
+
         await chatwoot.post(`/conversations/${conversationId}/labels`, { labels: newLabels });
-        console.log(`[oportunidad] Etiqueta "${TAG}" agregada a conversación ${conversationId}`);
+        console.log(`[oportunidad] Etiquetas corregidas en conversación ${conversationId}: ${JSON.stringify(newLabels)}`);
     } catch (err) {
         console.warn(`[oportunidad] Error agregando etiqueta a conversación ${conversationId}: ${err.message}`);
     }
@@ -355,10 +368,12 @@ const oportunidadAbierta = async (req, res) => {
                     conversation = await createConversation(contact.id);
                     if (!conversation?.id) throw new Error(`Chatwoot no retornó conversación válida: ${JSON.stringify(conversation)}`);
                     console.log(`[oportunidad] Conversación creada: ID ${conversation.id}`);
-
-                    // 4. Agregar etiqueta "oportunidad"
-                    await ensureLabel(conversation.id);
                 }
+
+                // 4. Asegurar la etiqueta "oportunidad" también cuando se
+                // reutiliza una conversación existente. Elimina etiquetas de
+                // etapa incompatibles, como lead_calificado.
+                await ensureLabel(conversation.id);
 
                 // 5. Detectar si es un referido del portal (evento "referido-portal")
                 const referidoInfo = await getReferidoPortalInfo(lead);

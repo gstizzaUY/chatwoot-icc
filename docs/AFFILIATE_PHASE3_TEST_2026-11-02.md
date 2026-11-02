@@ -38,7 +38,9 @@ cf_referidos del Lover: OK
 C en Chatwoot cuenta 2 sin conversación: OK
 ```
 
-No se creó ningún deal.
+El handler de Fase 3 no creó ningún deal. Posteriormente apareció un deal
+asociado al contacto de prueba por una automatización existente; se detalla más
+abajo y debe incluirse en la limpieza.
 
 ## Bug encontrado y corregido
 
@@ -115,14 +117,73 @@ Si se quiere limpiar la prueba:
    - `test.lover.phase3.20261102170143243@example.com`
    - `test.lead.phase3.20261102170143243@example.com`
 
-2. Chatwoot cuenta 2:
+2. RD CRM:
+   - contacto `6ae8c2378f220e000196acf5`
+   - deal `6ae8c2378f220e000196acf6`
+
+3. Chatwoot cuenta 2:
    - contacto ID `29208`
+   - conversación ID `19082`
    - o buscar por `test.lead.phase3.20261102170143243@example.com`
 
-3. Si la plataforma lo permite, revisar/eliminar el evento de conversión
+4. Si la plataforma lo permite, revisar/eliminar el evento de conversión
    `referido-portal` asociado al contacto de prueba.
 
-No se creó ningún deal ni conversación. No hay datos de WordPress que borrar.
+No hay datos de WordPress que borrar.
+
+## Observación posterior: etiquetas de la conversación
+
+La conversación `19082` del contacto de prueba quedó inicialmente con:
+
+```text
+lead_calificado
+oportunidad
+```
+
+La regla correcta es que, si el contacto ya tiene una oportunidad en RD, la
+conversación muestre solo:
+
+```text
+oportunidad
+```
+
+Se corrigió el código en:
+
+```text
+src/utils/stage-labels.utils.js
+src/controllers/oportunidad.controller.js
+```
+
+La conversación `19082` ya fue corregida por API y quedó con la etiqueta:
+
+```text
+oportunidad
+```
+
+También se agregó la prueba:
+
+```text
+scripts/test-stage-labels-opportunity.mjs
+```
+
+Resultado:
+
+```text
+Stage labels opportunity tests: OK
+```
+
+## Deal creado por la automatización existente
+
+Al consultar RD CRM para el contacto de prueba apareció un deal:
+
+```text
+CRM contact ID: 6ae8c2378f220e000196acf5
+Deal ID: 6ae8c2378f220e000196acf6
+Nombre: TEST Lead Fase 3
+```
+
+No fue creado por el handler de Fase 3; el código de Fase 3 no llama a creación
+de deals. Debe incluirse en la limpieza de la prueba.
 
 ## Datos de una corrida fallida anterior
 
@@ -133,5 +194,9 @@ La primera corrida falló antes de crear el contacto del Seller por el error de
 
 - Volver a subir `src/services/affiliate-program.service.js` con el valor
   `Seller`.
+- Subir `src/utils/stage-labels.utils.js` y
+  `src/controllers/oportunidad.controller.js` para que la regla de etiquetas
+  quede activa en producción.
 - Reiniciar el hub.
 - Repetir la prueba desde el hub de producción con un Seller real de prueba.
+- Limpiar los contactos, deal y conversación de prueba indicados arriba.
