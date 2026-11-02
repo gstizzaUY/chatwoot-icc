@@ -16,6 +16,10 @@ import {
     leadPhone,
 } from './affiliate-program.service.js';
 import { STAGE_LABELS } from '../utils/stage-labels.utils.js';
+import {
+    notifyPreviousSellerConversation,
+    syncSellerConversation,
+} from './seller-chatwoot.service.js';
 
 /**
  * Fase 4 — Oportunidad de referidos.
@@ -264,6 +268,32 @@ async function ensureSupervisionConversation(event, deal) {
     };
 }
 
+async function syncSellerConversationSafe({ sellerId, lead, note }) {
+    try {
+        return await syncSellerConversation({ sellerId, lead, note });
+    } catch (error) {
+        console.warn(`[affiliate-opportunity] Error en Chatwoot Seller ${sellerId}: ${error.message}`);
+        return {
+            ok: false,
+            skipped: 'seller_chatwoot_error',
+            error: error.message,
+        };
+    }
+}
+
+async function notifyPreviousSellerSafe({ sellerId, lead, note }) {
+    try {
+        return await notifyPreviousSellerConversation({ sellerId, lead, note });
+    } catch (error) {
+        console.warn(`[affiliate-opportunity] Error en Chatwoot Seller anterior ${sellerId}: ${error.message}`);
+        return {
+            ok: false,
+            skipped: 'previous_seller_chatwoot_error',
+            error: error.message,
+        };
+    }
+}
+
 /**
  * Procesa lead.seller_assigned, lead.seller_confirmed y
  * lead.seller_reassigned reutilizando el deal existente.
@@ -289,6 +319,19 @@ export async function syncAssignmentEvent(event) {
     await sendAssignmentEvents(event);
     const noteCreated = await addRdNote(event, deal);
     const conversation = await ensureSupervisionConversation(event, deal);
+    const noteText = buildNoteText(event, deal);
+    const sellerConversation = await syncSellerConversationSafe({
+        sellerId: event?.seller?.affiliate_id,
+        lead: event?.lead,
+        note: noteText,
+    });
+    const previousSellerConversation = eventContext(event) === 'reassigned'
+        ? await notifyPreviousSellerSafe({
+            sellerId: event?.assignment?.previous_seller_affiliate_id,
+            lead: event?.lead,
+            note: noteText,
+        })
+        : { ok: true, skipped: 'not_reassignment' };
 
     return {
         ok: true,
@@ -298,6 +341,10 @@ export async function syncAssignmentEvent(event) {
             seller_affiliate_id: asNumber(event?.seller?.affiliate_id),
             chatwoot_center_contact_id: asNumber(conversation.contactId),
             chatwoot_center_conversation_id: asNumber(conversation.conversationId),
+            chatwoot_seller_conversation_id: asNumber(sellerConversation.conversationId),
+            chatwoot_previous_seller_conversation_id: asNumber(previousSellerConversation.conversationId),
+            seller_chatwoot_skipped: sellerConversation.skipped || '',
+            previous_seller_chatwoot_skipped: previousSellerConversation.skipped || '',
             rd_note_created: noteCreated,
             referral_status: eventContext(event),
         },

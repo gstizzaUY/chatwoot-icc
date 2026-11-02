@@ -2,7 +2,7 @@
 
 **Fecha:** 2026-11-02  
 **Estrategia:** reutilizar y actualizar el deal creado por la automatización existente de RD.  
-**Estado:** implementada y probada en local contra las APIs reales, con datos de prueba. **No desplegada a producción.**
+**Estado:** implementada y probada en local contra las APIs reales, con datos de prueba. **Desplegada en el hub el 2026-11-02; pendiente la validación final con una asignación real.**
 
 ## Regla
 
@@ -142,24 +142,35 @@ node scripts/test-affiliate-phase4-live.mjs
 
 El script no debe usarse en producción; es solo para pruebas controladas.
 
-## Pendiente antes de desplegar
+## Despliegue
 
-1. Subir `src/services/affiliate-opportunity.service.js`.
-2. Reemplazar:
-   - `src/services/affiliate-events.service.js`
-   - `src/services/affiliate-program.service.js`
-   - `src/services/rd-affiliate.service.js`
-3. Subir el fix de etiquetas:
-   - `src/utils/stage-labels.utils.js`
-   - `src/controllers/oportunidad.controller.js`
-4. Configurar `CHATWOOT_SELLER_OPPORTUNITIES_INBOX_ID=68`.
-5. Reiniciar el hub.
-6. Verificar una asignación real con un deal existente.
+Archivos desplegados:
+
+- `src/services/affiliate-opportunity.service.js`
+- `src/services/affiliate-events.service.js`
+- `src/services/affiliate-program.service.js`
+- `src/services/rd-affiliate.service.js`
+- `src/utils/stage-labels.utils.js`
+- `src/controllers/oportunidad.controller.js`
+- `.env.example` (referencia)
+
+Configuración recomendada:
+
+```env
+CHATWOOT_SELLER_OPPORTUNITIES_INBOX_ID=68
+RD_CRM_NOTE_USER_ID=6931d6bd67977600185d6382
+```
+
+Pendiente:
+
+- Verificar una asignación real con un deal existente.
+- Confirmar que la conversación `19082` se mantiene solo con `oportunidad`.
+- Limpiar los datos de prueba cuando se indique.
 
 ## Límites de esta implementación
 
 - No crea deals: reutiliza el existente.
 - Si no encuentra deal, deja el evento en `pending_handler`.
-- No implementa todavía la instancia Chatwoot separada del Seller externo; eso
-  queda para la Fase 5.
-- Las conversaciones de supervisión en inbox 68 ya se crean/reutilizan.
+- La instancia Chatwoot separada del Seller externo ya está implementada en
+  local como Fase 5; falta configurarla y probarla contra una instancia real.
+- Las conversaciones de supervisión en inbox 68 se crean/reutilizan.

@@ -154,11 +154,14 @@ src/utils/stage-labels.utils.js
 src/controllers/oportunidad.controller.js
 ```
 
-La conversación `19082` ya fue corregida por API y quedó con la etiqueta:
+La conversación `19082` quedó corregida y actualmente tiene solo:
 
 ```text
 oportunidad
 ```
+
+Verificar que el fix de etiquetas esté desplegado en el hub para que no vuelva
+a agregarse `lead_calificado`.
 
 También se agregó la prueba:
 
