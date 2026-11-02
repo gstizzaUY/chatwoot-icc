@@ -1,0 +1,157 @@
+{
+  "created_at": "2026-11-02",
+  "rd_crm": {
+    "campaign": {
+      "name": "referidos-sellers",
+      "id": "6ae890e626673f0020355d34",
+      "description": "Oportunidades de referidos generadas por Sellers"
+    },
+    "deal_custom_fields": {
+      "seller_affiliate_id": {
+        "label": "Seller Affiliate ID",
+        "id": "6ae890e6b9f9bd0020a1e4d6",
+        "type": "text",
+        "order": 0
+      },
+      "seller_username": {
+        "label": "Seller Username",
+        "id": "6ae890e762d0b80020bc3bf0",
+        "type": "text",
+        "order": 1
+      },
+      "seller_name": {
+        "label": "Seller Name",
+        "id": "6ae890e8ed90e90023c40bc6",
+        "type": "text",
+        "order": 2
+      },
+      "seller_email": {
+        "label": "Seller Email",
+        "id": "6ae890e93e465400204ca41d",
+        "type": "text",
+        "order": 3
+      },
+      "seller_status": {
+        "label": "Seller Status",
+        "id": "6ae890e9038a4300227645b9",
+        "type": "text",
+        "order": 4
+      },
+      "seller_referral_url": {
+        "label": "Seller Referral URL",
+        "id": "6ae890eacbca1b002487c59d",
+        "type": "text",
+        "order": 5
+      },
+      "lover_affiliate_id": {
+        "label": "Lover Affiliate ID",
+        "id": "6ae890eaed90e90023c40bcd",
+        "type": "text",
+        "order": 6
+      },
+      "lover_username": {
+        "label": "Lover Username",
+        "id": "6ae890eb77ec670020b88010",
+        "type": "text",
+        "order": 7
+      },
+      "lover_email": {
+        "label": "Lover Email",
+        "id": "6ae890eb5275c00021a46300",
+        "type": "text",
+        "order": 8
+      },
+      "lover_name": {
+        "label": "Lover Name",
+        "id": "6ae890eccbca1b002487c5a4",
+        "type": "text",
+        "order": 9
+      },
+      "lead_id": {
+        "label": "Lead ID",
+        "id": "6ae890edf38db3002949eb34",
+        "type": "text",
+        "order": 10
+      },
+      "referral_status": {
+        "label": "Referral Status",
+        "id": "6ae890edb9f9bd0020a1e4e1",
+        "type": "text",
+        "order": 11
+      }
+    }
+  },
+  "rd_crm_existing": {
+    "old_campaign": {
+      "name": "Demo - Creación de Negocio",
+      "id": "68cb06c75243470001ea5a30",
+      "must_remain_working": true
+    }
+  },
+  "chatwoot": {
+    "center_account_id": 2,
+    "seller_opportunities_inbox": {
+      "id": 68,
+      "name": "Sellers Oportunidades",
+      "channel_type": "Channel::Api"
+    }
+  },
+  "rd_marketing_contact_fields": {
+    "cf_tipo_afiliado": {
+      "uuid": "8de868b7-2485-47f4-85ee-3b58918215b4",
+      "label": "Tipo de afiliado",
+      "presentation_type": "COMBO_BOX",
+      "options": ["lover", "seller"]
+    },
+    "cf_seller_affiliate_id": {
+      "uuid": "6f842d69-53dc-43a4-afbe-46c9239e6f55",
+      "label": "Seller Affiliate ID",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_seller_username": {
+      "uuid": "9069cfed-1d76-4ea0-917d-f519829132fa",
+      "label": "Seller Username",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_seller_status": {
+      "uuid": "c4ed7840-bc0c-475b-9276-68db74a220f5",
+      "label": "Seller Status",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_seller_referral_url": {
+      "uuid": "129aa204-3ba6-4668-ac59-dc703b5ad08a",
+      "label": "Seller Referral URL",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_lover_affiliate_id": {
+      "uuid": "6900b389-cff1-4f83-8f77-8ea3046e3b1b",
+      "label": "Lover Affiliate ID",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_lover_username": {
+      "uuid": "a2df3c8b-c968-4632-bfd6-4d2530d72076",
+      "label": "Lover Username",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_lover_email": {
+      "uuid": "9b5e9337-2584-4f15-a314-31c660ae39a1",
+      "label": "Lover Email",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_lover_name": {
+      "uuid": "6fb78aa4-0301-4c39-8dcd-9e65c4fdf31a",
+      "label": "Lover Name",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_lead_id": {
+      "uuid": "67877bc8-d760-4964-93e7-8b08629d199e",
+      "label": "Lead ID",
+      "presentation_type": "TEXT_INPUT"
+    },
+    "cf_referral_status": {
+      "uuid": "1a3a022d-9244-41e4-b1fc-255b897c890f",
+      "label": "Referral Status",
+      "presentation_type": "TEXT_INPUT"
+    }
+  }
+}
