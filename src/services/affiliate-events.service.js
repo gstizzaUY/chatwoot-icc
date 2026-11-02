@@ -7,20 +7,24 @@ import {
     registerAffiliateEvent,
     markAffiliateEvent,
 } from './affiliate-event-store.service.js';
+import {
+    syncLeadCreatedEvent,
+    syncSellerEvent,
+} from './affiliate-program.service.js';
 
 /**
  * Handlers de negocio del programa de afiliados.
  *
- * Fase 1: la infraestructura de eventos queda lista, pero los handlers de
- * negocio se incorporan en las fases siguientes. No se marca un evento como
- * procesado si todavía no existe handler; queda en pending_handler para poder
- * reintentarlo sin perder el evento.
+ * Fase 3: Sellers y leads ya se sincronizan con RD Marketing y Chatwoot
+ * cuenta 2. Los eventos de asignación/reasignación siguen pendientes hasta la
+ * Fase 4. Los eventos sin handler quedan en pending_handler para reintento.
  */
 const HANDLERS = {
-    [AFFILIATE_EVENT_NAMES.SELLER_CREATED]: async () => pendingHandler(),
-    [AFFILIATE_EVENT_NAMES.SELLER_UPDATED]: async () => pendingHandler(),
-    [AFFILIATE_EVENT_NAMES.SELLER_LOVER_LINKED]: async () => pendingHandler(),
-    [AFFILIATE_EVENT_NAMES.LEAD_CREATED]: async () => pendingHandler(),
+    [AFFILIATE_EVENT_NAMES.SELLER_CREATED]: syncSellerEvent,
+    [AFFILIATE_EVENT_NAMES.SELLER_UPDATED]: syncSellerEvent,
+    [AFFILIATE_EVENT_NAMES.SELLER_LOVER_LINKED]: syncSellerEvent,
+    [AFFILIATE_EVENT_NAMES.LEAD_CREATED]: syncLeadCreatedEvent,
+    // Fase 4: creación/actualización de oportunidades.
     [AFFILIATE_EVENT_NAMES.LEAD_SELLER_ASSIGNED]: async () => pendingHandler(),
     [AFFILIATE_EVENT_NAMES.LEAD_SELLER_CONFIRMED]: async () => pendingHandler(),
     [AFFILIATE_EVENT_NAMES.LEAD_SELLER_REASSIGNED]: async () => pendingHandler(),
@@ -88,7 +92,12 @@ export async function processAffiliateEvent(eventId) {
             });
         }
 
+        const patch = result && result.patch && typeof result.patch === 'object'
+            ? result.patch
+            : {};
+
         return markAffiliateEvent(eventId, AFFILIATE_EVENT_STATUS.PROCESSED, {
+            ...patch,
             last_error: '',
             processed_at: new Date().toISOString(),
         });

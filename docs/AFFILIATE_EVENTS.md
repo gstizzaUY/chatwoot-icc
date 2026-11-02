@@ -1,7 +1,7 @@
 # Eventos de Afiliados — Hub
 
-**Fase:** 1 — base de ingesta, autenticación, persistencia e idempotencia.  
-**Estado:** endpoint y store implementados; los handlers de negocio se incorporan en fases posteriores.
+**Fase:** 1 (ingesta) + 3 (Sellers y leads).  
+**Estado:** endpoint, store, handlers de Seller y `lead.created` implementados en local; asignación/reasignación queda para Fase 4.
 
 ## Endpoint
 
@@ -103,6 +103,30 @@ failed
 En Fase 1 los handlers de negocio todavía no están implementados. Los eventos
 quedan en `pending_handler` para poder reintentarlos en las fases siguientes.
 
+## Handlers Fase 3
+
+```text
+seller.created
+seller.updated
+seller.lover_linked
+  → upsert del Seller en RD Marketing
+  → guarda datos del Lover asociado
+  → NO modifica el contacto del Lover
+  → NO crea deal
+
+lead.created
+  → upsert de C en RD Marketing
+  → upsert de C en Chatwoot cuenta 2, sin conversación
+  → actualiza cf_referido_por en C
+  → actualiza cf_referidos en el Lover
+  → envía el evento de conversión referido-portal
+  → NO crea deal
+  → NO abre conversación
+```
+
+`lead.seller_assigned`, `lead.seller_confirmed` y `lead.seller_reassigned`
+siguen en `pending_handler` hasta la Fase 4.
+
 ## Archivos
 
 ```text
@@ -110,6 +134,7 @@ src/routes/v2/affiliate.routes.js
 src/controllers/affiliateEvents.controller.js
 src/services/affiliate-events.service.js
 src/services/affiliate-event-store.service.js
-src/constants/affiliate.constants.js
+src/services/affiliate-program.service.js
 src/services/rd-affiliate.service.js
+src/constants/affiliate.constants.js
 ```
