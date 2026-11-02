@@ -44,6 +44,16 @@ export async function acceptAffiliateEvent(event) {
 }
 
 /**
+ * Normaliza el registro persistido al evento de dominio que esperan los
+ * handlers (el store lo guarda dentro de `payload`).
+ */
+export function getAffiliateEventPayload(event) {
+    return event?.payload && typeof event.payload === 'object'
+        ? event.payload
+        : event;
+}
+
+/**
  * Procesa un evento ya aceptado.
  *
  * Es idempotente a nivel de estado: si ya está processed no lo vuelve a
@@ -78,7 +88,9 @@ export async function processAffiliateEvent(eventId) {
     }
 
     try {
-        const result = await handler(event);
+        // El store guarda el payload dentro de `payload`; los handlers de
+        // negocio reciben el evento de dominio, no el registro de persistencia.
+        const result = await handler(getAffiliateEventPayload(event));
 
         if (result && result.ok === false) {
             return markAffiliateEvent(eventId, AFFILIATE_EVENT_STATUS.PENDING_HANDLER, {

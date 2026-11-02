@@ -5,6 +5,74 @@
 **Estado:** implementación local terminada; pruebas de integración finales pendientes.  
 **Datos de prueba:** no borrar hasta terminar esta matriz.
 
+## Estado de ejecución actual
+
+- WP REST API autenticada: OK.
+- `ichef/v1/partners`: OK.
+- Plugin `ichef-lovers-leads`: 1.13.0 activo.
+- Lead de prueba creado por API: `id 34`, email
+  `test.phase45.20261102181109@example.com`, teléfono `59899123456`.
+  Quedó autoasignado a `ichefcenter` (fallback).
+- Seller de prueba creado por API: `affiliate_id 1813`, username
+  `test-seller-phase5-20261102181411`.
+- **Bloqueo detectado:** después de crear el lead y el Seller de prueba, no
+  aparecieron sus contactos en RD Marketing ni el contacto C en Chatwoot.
+  Se revisó el evento `lead.created:34` en el hub y estaba en
+  `pending_handler` con `lead_without_email_or_phone`, aunque el payload sí
+  tenía email y teléfono.
+
+### Bug encontrado y corregido
+
+El event store guarda el evento dentro de `payload`, pero el procesador
+llamaba al handler con el registro completo. Los handlers leían `event.lead`,
+`event.seller`, etc. y recibían `undefined`.
+
+Se corrigió:
+
+```text
+src/services/affiliate-events.service.js
+```
+
+Ahora el handler recibe `getAffiliateEventPayload(event)`.
+
+Prueba agregada:
+
+```text
+scripts/test-affiliate-event-payload.mjs
+```
+
+Resultado:
+
+```text
+Affiliate event payload tests: OK
+```
+
+**Importante:** el evento `lead.created:34` quedó como `pending_handler` y no
+se reprocesa automáticamente. Después de desplegar el fix hay que crear un lead
+nuevo para validar el flujo corregido.
+- El outbox de WordPress tiene:
+
+```text
+lead.created:34 | lead.created | sent | attempts 1 | last_error vacío
+```
+
+- No hay `seller.created` para `1813` porque el Seller se creó por la API REST
+  de AffiliateWP, no por el formulario admin de “Alta simplificada”. El evento
+  de Seller se emite solo desde el flujo admin.
+- La URL y el secreto reales del hub ya fueron confirmados; `/api/v2/health`
+  responde `200`.
+- El estado real de `lead.created:34` en el hub es:
+
+```text
+status: pending_handler
+attempts: 1
+last_error: lead_without_email_or_phone
+```
+
+El payload sí tenía email y teléfono. El bug era el desempaquetado del store,
+ya corregido localmente.
+
+
 ## Pruebas automáticas locales
 
 Ejecutar desde el backend:
