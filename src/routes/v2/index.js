@@ -7,6 +7,7 @@ import exportContactsRoutes from './exportContacts.routes.js';
 import firmwareRoutes from './firmware.routes.js';
 import oportunidadRoutes from './oportunidad.routes.js';
 import triggersRoutes from './triggers.routes.js';
+import affiliateRoutes from './affiliate.routes.js';
 // import contactRoutes from './contact.routes.js';
 // import conversationRoutes from './conversation.routes.js';
 // import dealRoutes from './deal.routes.js';
@@ -50,6 +51,9 @@ router.use('/oportunidad', oportunidadRoutes);
 
 // Triggers - Eventos de actividad del portal de recetas / robot iChef
 router.use('/triggers', triggersRoutes);
+
+// Afiliados - Eventos de Sellers, leads y asignaciones desde WordPress
+router.use('/affiliates', affiliateRoutes);
 
 // Rutas de recursos (requieren autenticación de API Key)
 // TODO: Descomentar cuando estén implementados
