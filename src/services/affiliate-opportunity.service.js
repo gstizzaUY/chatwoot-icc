@@ -114,6 +114,7 @@ export function buildDealFieldValues(event) {
         seller_name: asString(seller.name),
         seller_email: asString(seller.email),
         seller_status: asString(seller.status),
+        seller_phone: asString(seller.phone),
         seller_referral_url: asString(seller.referral_url),
         lover_affiliate_id: asString(lover.affiliate_id),
         lover_username: asString(lover.username),

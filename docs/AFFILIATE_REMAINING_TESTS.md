@@ -15,6 +15,11 @@
   Quedó autoasignado a `ichefcenter` (fallback).
 - Seller de prueba creado por API: `affiliate_id 1813`, username
   `test-seller-phase5-20261102181411`.
+- Segundo lead de prueba: `id 35`, email
+  `test.phase45.retry.20261102182736@example.com`, teléfono `59899765432`.
+  `lead.created:35` fue procesado correctamente; RD Marketing UUID
+  `b7074a91-7fc8-411e-9a00-e491c70ee6d2`; Chatwoot contacto `29213`, sin
+  conversación.
 - **Bloqueo detectado:** después de crear el lead y el Seller de prueba, no
   aparecieron sus contactos en RD Marketing ni el contacto C en Chatwoot.
   Se revisó el evento `lead.created:34` en el hub y estaba en
@@ -50,6 +55,101 @@ Affiliate event payload tests: OK
 **Importante:** el evento `lead.created:34` quedó como `pending_handler` y no
 se reprocesa automáticamente. Después de desplegar el fix hay que crear un lead
 nuevo para validar el flujo corregido.
+
+### Segundo bloqueo: falta archivo de recursos RD
+
+La prueba del hub con el evento manual:
+
+```text
+manual.phase4.confirmed.1793644280605
+```
+
+falló con:
+
+```text
+ENOENT: no such file or directory, open './data/rd-affiliate-resources.json'
+```
+
+Se verificó en EasyPanel:
+
+```text
+cwd = /app
+RD_AFFILIATE_RESOURCES_PATH = ./data/rd-affiliate-resources.json
+```
+
+El archivo faltaba en `/app/data/`. Se subió y se validó:
+
+```text
+JSON OK referidos-sellers 6ae890e626673f0020355d34
+```
+
+Con el archivo presente, la Fase 4 quedó validada.
+
+### Resultado de Fase 4
+
+Evento manual:
+
+```text
+manual.phase4.confirmed.1793645213122
+```
+
+Resultado:
+
+```text
+status: processed
+rd_deal_id: 6ae8c2378f220e000196acf6
+chatwoot_center_conversation_id: 19086
+seller_chatwoot_skipped: seller_chatwoot_not_configured
+rd_note_created: true
+```
+
+Se verificó:
+
+- mismo deal, sin duplicado;
+- custom fields actualizados;
+- contacto C en Chatwoot;
+- conversación de supervisión 19086 en inbox 68;
+- etiqueta `oportunidad`;
+- eventos `seller-asignado` y `referido-asignado`.
+
+### Resultado de Fase 5 — reasignación
+
+Evento manual:
+
+```text
+manual.phase5.reassigned.1793645258351
+```
+
+Resultado:
+
+```text
+status: processed
+rd_deal_id: 6ae8c2378f220e000196acf6
+chatwoot_center_conversation_id: 19086
+seller_chatwoot_skipped: seller_chatwoot_not_configured
+previous_seller_chatwoot_skipped: previous_seller_chatwoot_not_configured
+rd_note_created: true
+```
+
+Se verificó:
+
+- mismo deal;
+- campos actualizados al nuevo Seller;
+- `referral_status = reassigned`;
+- evento `referido-asignado` al nuevo Seller;
+- conversación de supervisión sin duplicar;
+- etiqueta solo `oportunidad`.
+
+### Idempotencia
+
+Se reenvió exactamente el mismo evento de reasignación. El hub respondió:
+
+```text
+duplicate: true
+status: processed
+```
+
+No se creó un segundo deal, nota ni conversación.
 - El outbox de WordPress tiene:
 
 ```text
@@ -72,6 +172,134 @@ last_error: lead_without_email_or_phone
 El payload sí tenía email y teléfono. El bug era el desempaquetado del store,
 ya corregido localmente.
 
+
+## Prueba manual desde WordPress
+
+Lead preparado por API para probar el flujo admin:
+
+```text
+Lead ID: 36
+Nombre: TEST Reassign Fase 5
+Email: test.lead.phase3.20261102170143243@example.com
+Lover: 1
+Seller actual: ichefcenter (1786)
+```
+
+Este lead tiene el mismo email que el contacto de prueba de RD que ya posee
+el deal `6ae8c2378f220e000196acf6`.
+
+### Resultado — Seller
+
+Evento manual de validación:
+
+```text
+manual.seller.created.1793646158697
+```
+
+Hub:
+
+```text
+status: processed
+rd_contact_uuid: 52a67344-8425-4b47-a579-75eb052c3ab6
+```
+
+Verificado en RD Marketing:
+
+```text
+cf_tipo_afiliado = Seller
+cf_seller_affiliate_id = 1813
+cf_seller_username = test-seller-phase5-20261102181411
+cf_lover_affiliate_id = 1
+cf_lover_username = GuillermoPrueba StizzaAPI
+cf_lover_email = gstizza1@gmail.com
+```
+
+### Resultado — ejecutado desde el admin real
+
+Evento generado:
+
+```text
+lead.seller_reassigned:lead:36:seller:1813:from:1786
+```
+
+Outbox WordPress:
+
+```text
+status: sent
+attempts: 1
+last_error: vacío
+```
+
+Hub:
+
+```text
+status: processed
+rd_deal_id: 6ae8c2378f220e000196acf6
+chatwoot_center_conversation_id: 19086
+rd_note_created: true
+seller_chatwoot_skipped: seller_chatwoot_not_configured
+previous_seller_chatwoot_skipped: previous_seller_chatwoot_not_configured
+referral_status: reassigned
+```
+
+Verificación:
+
+- mismo deal, sin duplicado;
+- `Seller Affiliate ID`: `1813`;
+- `Lead ID`: `36`;
+- `Referral Status`: `reassigned`;
+- Lover actualizado a `1`;
+- evento `seller-asignado` enviado;
+- `referido-asignado` enviado al Seller 1813;
+- nota RD creada;
+- conversación de supervisión `19086`, inbox 68;
+- etiqueta `oportunidad` solamente;
+- conversación previa `19082`, inbox 34, también solo `oportunidad`.
+
+La prueba con el admin real de WordPress quedó validada.
+
+### Pendiente de esta prueba
+
+- Probar una instancia Chatwoot externa real para el Seller.
+- El camino sin instancia quedó validado (`seller_chatwoot_not_configured`).
+
+## Vínculo Lover ↔ Seller
+
+Se corrigió el formulario de vínculos en `ichef-lovers-leads` 1.13.1:
+faltaba el campo `ichef_ll_seller_links`.
+
+Verificación en producción:
+
+```text
+Plugin: ichef-lovers-leads 1.13.1 activo
+GET /ichef/v1/partners?lover=1
+Seller 1813: default = true
+default_source = own_seller
+```
+
+Lead de prueba creado con Lover 1:
+
+```text
+Lead ID: 37
+email: test.link.20261102192459@example.com
+teléfono: 099 555 777
+partner: 1813
+partner_source: own_seller
+```
+
+Evento de asociación en el hub:
+
+```text
+seller.lover_linked:seller:1813:lover:1
+status: processed
+```
+
+Y el lead nuevo:
+
+```text
+lead.created:37
+status: processed
+```
 
 ## Pruebas automáticas locales
 

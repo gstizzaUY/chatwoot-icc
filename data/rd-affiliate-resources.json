@@ -43,6 +43,12 @@
         "type": "text",
         "order": 5
       },
+      "seller_phone": {
+        "label": "Seller Phone",
+        "id": "6aea1ab23ee68900240105dd",
+        "type": "text",
+        "order": 12
+      },
       "lover_affiliate_id": {
         "label": "Lover Affiliate ID",
         "id": "6ae890eaed90e90023c40bcd",
