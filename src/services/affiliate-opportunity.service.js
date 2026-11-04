@@ -252,6 +252,14 @@ async function ensureSupervisionConversation(event, deal) {
         throw new Error('No se pudo crear/reutilizar la conversación de supervisión');
     }
 
+    // La supervisión debe permanecer visible en la bandeja: si la conversación
+    // estaba resuelta, se reabre antes de agregar la nota.
+    let reopened = false;
+    if (conversation?.status && conversation.status !== 'open') {
+        await chatwootClient.changeConversationStatus(conversationId, 'open');
+        reopened = true;
+    }
+
     await chatwootClient.sendMessage(conversationId, {
         content: buildNoteText(event, deal),
         message_type: 'outgoing',
@@ -266,6 +274,7 @@ async function ensureSupervisionConversation(event, deal) {
     return {
         contactId: contact.id,
         conversationId,
+        reopened,
     };
 }
 
@@ -342,6 +351,7 @@ export async function syncAssignmentEvent(event) {
             seller_affiliate_id: asNumber(event?.seller?.affiliate_id),
             chatwoot_center_contact_id: asNumber(conversation.contactId),
             chatwoot_center_conversation_id: asNumber(conversation.conversationId),
+            chatwoot_center_reopened: Boolean(conversation.reopened),
             chatwoot_seller_conversation_id: asNumber(sellerConversation.conversationId),
             chatwoot_previous_seller_conversation_id: asNumber(previousSellerConversation.conversationId),
             seller_chatwoot_skipped: sellerConversation.skipped || '',

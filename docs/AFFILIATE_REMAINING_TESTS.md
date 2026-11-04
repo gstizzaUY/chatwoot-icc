@@ -301,6 +301,20 @@ lead.created:37
 status: processed
 ```
 
+## Supervisión resuelta
+
+Se corrigió `ensureSupervisionConversation()` para reabrir la conversación de
+supervisión si está `resolved`, `pending` o `snoozed`, antes de agregar la nota.
+Debe permanecer abierta.
+
+Prueba local sobre conversación `19086`:
+
+```text
+Antes: resolved
+Después: open
+chatwoot_center_reopened: true
+```
+
 ## Pruebas automáticas locales
 
 Ejecutar desde el backend:
