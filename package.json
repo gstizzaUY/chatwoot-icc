@@ -22,7 +22,8 @@
     "baseline:seller-chatwoot": "node scripts/seller-chatwoot-baseline.mjs",
     "provision:seller-chatwoot": "node scripts/provision-seller-chatwoot.mjs",
     "provision:seller-dashboard-app": "node scripts/provision-seller-dashboard-app.mjs",
-    "provision:seller-inbound-webhook": "node scripts/provision-seller-inbound-webhook.mjs"
+    "provision:seller-inbound-webhook": "node scripts/provision-seller-inbound-webhook.mjs",
+    "provision:seller-full": "node scripts/provision-seller-full.mjs"
   },
   "author": "gstizza",
   "license": "ISC",
