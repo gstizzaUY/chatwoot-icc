@@ -8,6 +8,7 @@ import firmwareRoutes from './firmware.routes.js';
 import oportunidadRoutes from './oportunidad.routes.js';
 import triggersRoutes from './triggers.routes.js';
 import affiliateRoutes from './affiliate.routes.js';
+import sellerChatwootRoutes from './seller-chatwoot.routes.js';
 // import contactRoutes from './contact.routes.js';
 // import conversationRoutes from './conversation.routes.js';
 // import dealRoutes from './deal.routes.js';
@@ -54,6 +55,9 @@ router.use('/triggers', triggersRoutes);
 
 // Afiliados - Eventos de Sellers, leads y asignaciones desde WordPress
 router.use('/affiliates', affiliateRoutes);
+
+// Contacto aislado de Sellers (fase 3; deshabilitado por flags por defecto)
+router.use('/seller-chatwoot', sellerChatwootRoutes);
 
 // Rutas de recursos (requieren autenticación de API Key)
 // TODO: Descomentar cuando estén implementados

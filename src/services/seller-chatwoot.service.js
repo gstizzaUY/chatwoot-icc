@@ -15,9 +15,19 @@ import { STAGE_LABELS } from '../utils/stage-labels.utils.js';
  *   CHATWOOT_SELLER_<AFFILIATE_ID>_TEAM_ID
  *   CHATWOOT_SELLER_<AFFILIATE_ID>_ASSIGNEE_ID
  *
- * Si faltan URL, ACCOUNT_ID, TOKEN o INBOX_ID, la instancia queda sin
- * configurar y el flujo continúa sin error: solo se usa la supervisión de la
- * cuenta 2.
+ * Opcionales para provisión y metadatos:
+ *
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_ADMIN_TOKEN
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_PROVISIONING_TOKEN
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_SELLER_NAME
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_SELLER_EMAIL
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_SELLER_PHONE
+ *   CHATWOOT_SELLER_<AFFILIATE_ID>_SELLER_REFERRAL_URL
+ *
+ * Si faltan URL, ACCOUNT_ID o TOKEN, la instancia queda sin configurar y el
+ * flujo continúa sin error. El INBOX_ID sigue siendo obligatorio para el flujo
+ * histórico de conversaciones; para provisión se usa
+ * `getSellerChatwootAccountConfig()`, que no lo exige.
  */
 
 const REQUEST_TIMEOUT = 30000;
@@ -31,7 +41,7 @@ function asNumber(value) {
     return Number.isFinite(number) ? number : 0;
 }
 
-export function getSellerChatwootConfig(affiliateId) {
+function readSellerConfig(affiliateId, { requireInbox = false } = {}) {
     const id = asNumber(affiliateId);
     if (!id) {
         return null;
@@ -43,7 +53,7 @@ export function getSellerChatwootConfig(affiliateId) {
     const token = asString(process.env[`${prefix}TOKEN`]);
     const inboxId = asString(process.env[`${prefix}INBOX_ID`]);
 
-    if (!url || !accountId || !token || !inboxId) {
+    if (!url || !accountId || !token || (requireInbox && !inboxId)) {
         return null;
     }
 
@@ -52,10 +62,36 @@ export function getSellerChatwootConfig(affiliateId) {
         url,
         accountId,
         token,
-        inboxId: Number(inboxId),
+        inboxId: inboxId ? Number(inboxId) : null,
         teamId: asNumber(process.env[`${prefix}TEAM_ID`]) || null,
         assigneeId: asNumber(process.env[`${prefix}ASSIGNEE_ID`]) || null,
+        adminToken: asString(process.env[`${prefix}ADMIN_TOKEN`])
+            || asString(process.env[`${prefix}PROVISIONING_TOKEN`])
+            || null,
+        seller: {
+            name: asString(process.env[`${prefix}SELLER_NAME`]),
+            email: asString(process.env[`${prefix}SELLER_EMAIL`]),
+            phone: asString(process.env[`${prefix}SELLER_PHONE`]),
+            referralUrl: asString(process.env[`${prefix}SELLER_REFERRAL_URL`]),
+        },
     };
+}
+
+/**
+ * Configuración histórica para conversaciones de Seller.
+ * Requiere INBOX_ID para evitar que un flujo incompleto intente crear
+ * conversaciones sin canal.
+ */
+export function getSellerChatwootConfig(affiliateId) {
+    return readSellerConfig(affiliateId, { requireInbox: true });
+}
+
+/**
+ * Configuración para tareas de cuenta (campos, dashboard apps, webhooks).
+ * No exige INBOX_ID; solo URL, ACCOUNT_ID y TOKEN.
+ */
+export function getSellerChatwootAccountConfig(affiliateId) {
+    return readSellerConfig(affiliateId, { requireInbox: false });
 }
 
 function clientFor(config) {
