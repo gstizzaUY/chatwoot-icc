@@ -13,6 +13,9 @@ import {
     buildSellerInboundWebhookUrl,
     provisionSellerInboundWebhook,
 } from './seller-chatwoot-webhook.service.js';
+import {
+    provisionLsAttributes,
+} from './ls-attributes-provisioning.service.js';
 
 /**
  * Orquestador de provisión completa de un Seller.
@@ -57,6 +60,7 @@ export async function provisionSellerFull({
     webhookSecret,
     dryRun = true,
     skipFields = false,
+    skipLsAttributes = false,
     skipDashboard = false,
     skipWebhook = false,
 } = {}) {
@@ -104,6 +108,23 @@ export async function provisionSellerFull({
             dryRun,
         });
         report.steps.fields = summarizeFields(fields);
+    }
+
+    if (!skipLsAttributes) {
+        const lsAttributes = await provisionLsAttributes({
+            target,
+            dryRun,
+        });
+        report.steps.lsAttributes = {
+            dryRun: lsAttributes.dryRun,
+            sourceCount: lsAttributes.sourceCount,
+            existingCount: lsAttributes.existingCount,
+            missing: lsAttributes.missing.length,
+            created: lsAttributes.created.length,
+            failed: lsAttributes.failed,
+            missingAfter: lsAttributes.missingAfter,
+            verified: lsAttributes.verified,
+        };
     }
 
     if (!skipDashboard) {

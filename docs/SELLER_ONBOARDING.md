@@ -42,9 +42,10 @@ cd /app
 node scripts/provision-seller-full.mjs --affiliate-id=<AFFILIATE_ID>
 ```
 
-Revisar que los tres pasos sean correctos:
+Revisar que los pasos sean correctos:
 
 - `fields`: faltantes/creados sin fallos;
+- `lsAttributes`: las 7 preguntas LS creadas;
 - `dashboard`: `action=create` o `update`;
 - `webhook`: `action=create` o `update`.
 

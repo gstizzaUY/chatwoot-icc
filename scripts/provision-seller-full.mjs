@@ -64,7 +64,7 @@ async function main() {
         console.log(
             'Uso: node scripts/provision-seller-full.mjs --affiliate-id=... [--apply] '
             + '[--frontend-url=...] [--backend-url=...] [--title="DATOS CONTACTO"] '
-            + '[--skip-fields] [--skip-dashboard] [--skip-webhook]',
+            + '[--skip-fields] [--skip-ls-attributes] [--skip-dashboard] [--skip-webhook]',
         );
         return;
     }
@@ -90,6 +90,7 @@ async function main() {
         webhookSecret: process.env.SELLER_WEBHOOK_SECRET,
         dryRun: !hasFlag('apply'),
         skipFields: hasFlag('skip-fields'),
+        skipLsAttributes: hasFlag('skip-ls-attributes'),
         skipDashboard: hasFlag('skip-dashboard'),
         skipWebhook: hasFlag('skip-webhook'),
     });
