@@ -753,4 +753,16 @@ async function UpdateContactRD(req, res) {
 	return res.status(400).send("Error updating contact");
 }
 
-export { OnNewContact, GetContactRD, UpdateContactRD, RegisterContact, GetFunnelRD, GetEventsRD };
+export {
+	OnNewContact,
+	GetContactRD,
+	UpdateContactRD,
+	RegisterContact,
+	GetFunnelRD,
+	GetEventsRD,
+	// Helpers reutilizados por el flujo aislado de Sellers. Se exportan sin
+	// cambiar el comportamiento del endpoint histórico /update-contact.
+	UpdateContactExtended,
+	sanitizeContactPayload,
+	buildChatwootUpdatePayload,
+};

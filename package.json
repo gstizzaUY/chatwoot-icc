@@ -8,7 +8,16 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon app.js",
     "start": "node app.js",
-    "sync:dashboards": "node scripts/sync-dashboards.mjs"
+    "sync:dashboards": "node scripts/sync-dashboards.mjs",
+    "test:seller-registry": "node scripts/test-seller-registry.mjs",
+    "test:seller-provisioning": "node scripts/test-seller-provisioning.mjs",
+    "test:seller-context": "node scripts/test-seller-context.mjs",
+    "test:seller-contact": "node scripts/test-seller-contact.mjs",
+    "test:seller-controller": "node scripts/test-seller-controller.mjs",
+    "test:seller-dashboard": "node scripts/test-seller-dashboard.mjs",
+    "baseline:seller-chatwoot": "node scripts/seller-chatwoot-baseline.mjs",
+    "provision:seller-chatwoot": "node scripts/provision-seller-chatwoot.mjs",
+    "provision:seller-dashboard-app": "node scripts/provision-seller-dashboard-app.mjs"
   },
   "author": "gstizza",
   "license": "ISC",
