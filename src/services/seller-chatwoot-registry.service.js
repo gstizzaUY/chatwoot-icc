@@ -208,8 +208,10 @@ export function redactSellerConfig(config) {
         hasAdminToken: Boolean(config.adminToken),
         seller: {
             name: config.seller?.name || '',
+            username: config.seller?.username || '',
             email: config.seller?.email || '',
             phone: config.seller?.phone || '',
+            status: config.seller?.status || '',
             referralUrl: config.seller?.referralUrl || '',
         },
     };

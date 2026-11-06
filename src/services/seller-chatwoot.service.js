@@ -70,8 +70,10 @@ function readSellerConfig(affiliateId, { requireInbox = false } = {}) {
             || null,
         seller: {
             name: asString(process.env[`${prefix}SELLER_NAME`]),
+            username: asString(process.env[`${prefix}SELLER_USERNAME`]),
             email: asString(process.env[`${prefix}SELLER_EMAIL`]),
             phone: asString(process.env[`${prefix}SELLER_PHONE`]),
+            status: asString(process.env[`${prefix}SELLER_STATUS`]),
             referralUrl: asString(process.env[`${prefix}SELLER_REFERRAL_URL`]),
         },
     };

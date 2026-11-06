@@ -8,6 +8,9 @@ import {
 import {
     messageCreated
 } from '../../controllers/message.controller.js';
+import {
+    sellerInbound
+} from '../../controllers/seller-inbound.controller.js';
 import { authenticateWebhook } from '../../middleware/auth.middleware.js';
 import { webhookLimiter } from '../../middleware/ratelimit.middleware.js';
 
@@ -73,6 +76,18 @@ router.post(
 router.post(
     '/chatwoot/bulk-analyze',
     bulkAnalyzeConversations
+);
+
+/**
+ * POST /api/v2/webhooks/chatwoot/seller-inbound?token=...
+ *
+ * Webhook de conversaciones entrantes de la cuenta Chatwoot de un Seller.
+ * Solo procesa cuentas en SELLER_CONTACT_ALLOWLIST y con
+ * SELLER_INBOUND_ENABLED=true.
+ */
+router.post(
+    '/chatwoot/seller-inbound',
+    sellerInbound
 );
 
 // ==================== WEBHOOKS DE RD STATION ====================
