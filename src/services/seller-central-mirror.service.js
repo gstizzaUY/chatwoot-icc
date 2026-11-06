@@ -1,10 +1,14 @@
 import chatwootClient from '../clients/chatwoot.client.js';
 import {
     getSellerContactFlags,
+    isCentralWriteAllowedForContact,
 } from './seller-contact-flags.service.js';
 import {
+    generateEmailFromPhone,
+    isValidEmail,
     normalizeEmail,
 } from '../utils/email.utils.js';
+import { normalizePhone } from '../utils/phone.utils.js';
 
 /**
  * Fase 7 — Espejo central en modo shadow.
@@ -23,10 +27,6 @@ function digits(value) {
 
 function normalizeName(value) {
     return asString(value).toLowerCase().replace(/\s+/g, ' ');
-}
-
-function normalizePhone(value) {
-    return digits(value);
 }
 
 function sameValue(left, right) {
@@ -118,6 +118,189 @@ export async function findCentralContact({
     };
 }
 
+function normalizeChatwootPhone(value) {
+    const raw = asString(value);
+    if (!raw) {
+        return '';
+    }
+
+    if (/^\+\d{8,15}$/.test(raw)) {
+        return raw;
+    }
+
+    return normalizePhone(raw, 'UY') || '';
+}
+
+function buildCentralCreatePayload({ name, email, phone }) {
+    const payload = {};
+    const cleanName = asString(name);
+    const cleanEmail = normalizeEmail(email);
+    const cleanPhone = normalizeChatwootPhone(phone);
+
+    if (cleanName) {
+        payload.name = cleanName;
+    }
+    if (cleanEmail && isValidEmail(cleanEmail)) {
+        payload.email = cleanEmail;
+    }
+    if (cleanPhone) {
+        payload.phone_number = cleanPhone;
+    }
+
+    return payload;
+}
+
+function buildCentralFillMissingPayload(central, { name, email, phone }) {
+    const updates = {};
+    const cleanName = asString(name);
+    const cleanEmail = normalizeEmail(email);
+    const cleanPhone = normalizeChatwootPhone(phone);
+
+    if (!asString(central?.name) && cleanName) {
+        updates.name = cleanName;
+    }
+    if (!asString(central?.email) && cleanEmail && isValidEmail(cleanEmail)) {
+        updates.email = cleanEmail;
+    }
+    if (!asString(central?.phone_number) && cleanPhone) {
+        updates.phone_number = cleanPhone;
+    }
+
+    return updates;
+}
+
+/**
+ * Escritura controlada en la cuenta central.
+ *
+ * Política conservadora:
+ *   - crea el contacto si no existe;
+ *   - si existe, solo completa campos vacíos de identidad;
+ *   - nunca modifica nombre/email/teléfono ya existentes;
+ *   - nunca toca custom_attributes, etiquetas, conversaciones ni mensajes.
+ */
+export async function writeCentralMirror({
+    accountId,
+    affiliateId,
+    source,
+    contact = {},
+    contactData = {},
+    deps = {},
+} = {}) {
+    const flags = deps.getFlags ? deps.getFlags() : getSellerContactFlags();
+
+    if (flags.centralMirror !== 'write') {
+        return {
+            ok: true,
+            skipped: 'central_mirror_not_write',
+            mode: flags.centralMirror,
+        };
+    }
+
+    const email = normalizeEmail(contact.email || contactData.email)
+        || generateEmailFromPhone(asString(contact.phone_number || contactData.mobile_phone || contactData.phone))
+        || '';
+    const phone = normalizeChatwootPhone(
+        contact.phone_number || contactData.mobile_phone || contactData.phone,
+    );
+    const name = asString(contact.name || contactData.name);
+
+    if (!isCentralWriteAllowedForContact({ email, phone }, flags)) {
+        return {
+            ok: true,
+            skipped: 'central_write_not_allowlisted',
+            mode: 'write',
+        };
+    }
+
+    if (!email && !phone) {
+        return {
+            ok: true,
+            skipped: 'contact_without_identity',
+            mode: 'write',
+        };
+    }
+
+    try {
+        const found = await findCentralContact({ email, phone, deps });
+
+        if (!found.contact?.id) {
+            const payload = buildCentralCreatePayload({ name, email, phone });
+            if (!payload.email && !payload.phone_number) {
+                return {
+                    ok: true,
+                    skipped: 'contact_without_valid_identity',
+                    mode: 'write',
+                };
+            }
+
+            const create = deps.createContact || chatwootClient.createContact.bind(chatwootClient);
+            const created = await create(payload);
+            const central = created?.payload || created?.contact || created;
+
+            const report = {
+                ok: true,
+                mode: 'write',
+                source,
+                sellerAccountId: Number(accountId) || null,
+                sellerAffiliateId: Number(affiliateId) || null,
+                action: 'created',
+                centralContactId: central?.id || null,
+                fields: Object.keys(payload),
+                skippedExistingFields: [],
+            };
+            console.log('[seller-mirror-write]', JSON.stringify(report));
+            return report;
+        }
+
+        const updates = buildCentralFillMissingPayload(found.contact, { name, email, phone });
+        if (Object.keys(updates).length === 0) {
+            const report = {
+                ok: true,
+                mode: 'write',
+                source,
+                action: 'none',
+                centralContactId: found.contact.id,
+                fields: [],
+                skippedExistingFields: ['name', 'email', 'phone_number'].filter((field) => (
+                    found.contact[field]
+                )),
+            };
+            console.log('[seller-mirror-write]', JSON.stringify(report));
+            return report;
+        }
+
+        const update = deps.updateContact || chatwootClient.updateContact.bind(chatwootClient);
+        await update(found.contact.id, updates);
+
+        const report = {
+            ok: true,
+            mode: 'write',
+            source,
+            sellerAccountId: Number(accountId) || null,
+            sellerAffiliateId: Number(affiliateId) || null,
+            action: 'updated',
+            centralContactId: found.contact.id,
+            fields: Object.keys(updates),
+            skippedExistingFields: ['name', 'email', 'phone_number'].filter((field) => (
+                found.contact[field] && !updates[field]
+            )),
+        };
+        console.log('[seller-mirror-write]', JSON.stringify(report));
+        return report;
+    } catch (error) {
+        const report = {
+            ok: false,
+            mode: 'write',
+            source,
+            sellerAccountId: Number(accountId) || null,
+            sellerAffiliateId: Number(affiliateId) || null,
+            error: error.message,
+        };
+        console.warn('[seller-mirror-write] Error:', error.message);
+        return report;
+    }
+}
+
 export async function observeCentralMirror({
     accountId,
     affiliateId,
@@ -198,4 +381,5 @@ export async function observeCentralMirror({
 export default {
     findCentralContact,
     observeCentralMirror,
+    writeCentralMirror,
 };

@@ -18,6 +18,7 @@ import {
 } from '../utils/email.utils.js';
 import {
     observeCentralMirror,
+    writeCentralMirror,
 } from './seller-central-mirror.service.js';
 
 /**
@@ -291,10 +292,11 @@ export async function updateSellerContact({
         }
     }
 
+    let centralMirror = null;
     if (flags.centralMirror === 'shadow') {
         const observeMirror = deps.observeCentralMirror || observeCentralMirror;
         try {
-            await observeMirror({
+            centralMirror = await observeMirror({
                 accountId: sellerAccountId,
                 affiliateId: config.affiliateId,
                 source: 'seller_edit',
@@ -309,6 +311,24 @@ export async function updateSellerContact({
         } catch (error) {
             console.warn('[seller-contact] No se pudo observar el espejo central:', error.message);
         }
+    } else if (flags.centralMirror === 'write') {
+        const writeMirror = deps.writeCentralMirror || writeCentralMirror;
+        try {
+            centralMirror = await writeMirror({
+                accountId: sellerAccountId,
+                affiliateId: config.affiliateId,
+                source: 'seller_edit',
+                contact: {
+                    name: contactData.name,
+                    email,
+                    phone_number: phone,
+                },
+                contactData,
+                deps: deps.mirrorDeps || {},
+            });
+        } catch (error) {
+            console.warn('[seller-contact] No se pudo escribir el espejo central:', error.message);
+        }
     }
 
     return {
@@ -319,6 +339,7 @@ export async function updateSellerContact({
         rdUpdated: Boolean(rdUpdated),
         chatwootUpdated: Object.keys(chatwootPayload).length > 0,
         updatedFields: Object.keys(chatwootPayload),
+        centralMirror,
     };
 }
 

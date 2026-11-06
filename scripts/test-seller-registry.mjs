@@ -16,6 +16,7 @@ process.env.CHATWOOT_SELLER_990011_TOKEN = 'seller-b-token';
 process.env.SELLER_CONTACT_ALLOWLIST = '7';
 process.env.SELLER_CONTACT_SYNC_MODE = 'seller_only';
 process.env.SELLER_CONTACT_CENTRAL_MIRROR = 'shadow';
+process.env.SELLER_CONTACT_CENTRAL_WRITE_ALLOWLIST = 'test@example.test, +59899123456';
 process.env.SELLER_INBOUND_ENABLED = 'true';
 
 const {
@@ -35,6 +36,7 @@ const {
     getSellerContactFlags,
     isAccountAllowed,
     isCentralMirrorShadow,
+    isCentralWriteAllowedForContact,
     isSellerContactShadow,
     isSellerInboundEnabled,
 } = await import('../src/services/seller-contact-flags.service.js');
@@ -48,6 +50,7 @@ const flags = getSellerContactFlags();
 assert.deepEqual(flags.allowlist, [7]);
 assert.equal(flags.syncMode, 'seller_only');
 assert.equal(flags.centralMirror, 'shadow');
+assert.deepEqual(flags.centralWriteAllowlist, ['test@example.test', '+59899123456']);
 assert.equal(flags.inboundEnabled, true);
 assert.equal(flags.contextSecretConfigured, false);
 assert.equal(isAccountAllowed(7, flags), true);
@@ -58,6 +61,10 @@ assert.equal(canWriteSellerContact(7, { ...flags, syncMode: 'shadow' }), false);
 assert.equal(isSellerContactShadow(7, { ...flags, syncMode: 'shadow' }), true);
 assert.equal(canWriteCentralMirror(7, flags), false);
 assert.equal(isCentralMirrorShadow(7, flags), true);
+const writeFlags = { ...flags, centralMirror: 'write' };
+assert.equal(isCentralWriteAllowedForContact({ email: 'test@example.test' }, writeFlags), true);
+assert.equal(isCentralWriteAllowedForContact({ phone: '+598 99 123 456' }, writeFlags), true);
+assert.equal(isCentralWriteAllowedForContact({ email: 'other@example.test' }, writeFlags), false);
 assert.equal(isSellerInboundEnabled(7, flags), true);
 assert.equal(isSellerInboundEnabled(8, flags), false);
 

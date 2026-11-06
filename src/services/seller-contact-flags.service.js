@@ -56,12 +56,28 @@ function parseAllowlist(value) {
     return { accountIds, invalid };
 }
 
+function parseWriteAllowlist(value) {
+    return [...new Set(
+        asString(value)
+            .split(/[,\s;]+/)
+            .map((entry) => entry.trim())
+            .filter(Boolean),
+    )];
+}
+
+function digits(value) {
+    return asString(value).replace(/\D/g, '');
+}
+
 /**
  * Devuelve el estado efectivo de los flags. No lanza: un valor inválido cae al
  * valor seguro (off / false / allowlist vacía).
  */
 export function getSellerContactFlags() {
     const allowlist = parseAllowlist(process.env.SELLER_CONTACT_ALLOWLIST);
+    const centralWriteAllowlist = parseWriteAllowlist(
+        process.env.SELLER_CONTACT_CENTRAL_WRITE_ALLOWLIST,
+    );
 
     return Object.freeze({
         syncMode: parseEnum(process.env.SELLER_CONTACT_SYNC_MODE, SYNC_MODES, 'off'),
@@ -69,6 +85,7 @@ export function getSellerContactFlags() {
         inboundEnabled: parseBoolean(process.env.SELLER_INBOUND_ENABLED, false),
         allowlist: Object.freeze(allowlist.accountIds),
         invalidAllowlistEntries: Object.freeze(allowlist.invalid),
+        centralWriteAllowlist: Object.freeze(centralWriteAllowlist),
         contextSecretConfigured: Boolean(asString(process.env.SELLER_CONTEXT_SECRET)),
         webhookSecretConfigured: Boolean(asString(process.env.SELLER_WEBHOOK_SECRET)),
     });
@@ -103,6 +120,40 @@ export function isCentralMirrorShadow(accountId, flags = getSellerContactFlags()
     return isAccountAllowed(accountId, flags) && flags.centralMirror === 'shadow';
 }
 
+/**
+ * En modo write, la allowlist de contactos es obligatoria. Sin entradas (o sin
+ * `*`) no se escribe nada en la cuenta principal. Esto permite probar Fase 8
+ * con un único contacto antes de ampliar el alcance.
+ */
+export function isCentralWriteAllowedForContact({
+    email,
+    phone,
+}, flags = getSellerContactFlags()) {
+    if (flags.centralMirror !== 'write') {
+        return false;
+    }
+
+    const allowlist = flags.centralWriteAllowlist || [];
+    if (allowlist.length === 0) {
+        return false;
+    }
+
+    if (allowlist.includes('*')) {
+        return true;
+    }
+
+    const normalizedEmail = asString(email).toLowerCase();
+    const normalizedPhone = digits(phone);
+
+    return allowlist.some((entry) => {
+        const normalizedEntry = asString(entry).toLowerCase();
+        if (normalizedEntry.includes('@')) {
+            return normalizedEntry === normalizedEmail;
+        }
+        return digits(normalizedEntry) === normalizedPhone;
+    });
+}
+
 export function isSellerInboundEnabled(accountId, flags = getSellerContactFlags()) {
     return isAccountAllowed(accountId, flags) && flags.inboundEnabled === true;
 }
@@ -117,6 +168,7 @@ export function describeSellerContactFlags(flags = getSellerContactFlags()) {
         inboundEnabled: flags.inboundEnabled,
         allowlist: [...flags.allowlist],
         invalidAllowlistEntries: [...flags.invalidAllowlistEntries],
+        centralWriteAllowlist: [...(flags.centralWriteAllowlist || [])],
         contextSecretConfigured: flags.contextSecretConfigured,
         webhookSecretConfigured: flags.webhookSecretConfigured,
     };
@@ -129,6 +181,7 @@ export default {
     isSellerContactShadow,
     canWriteCentralMirror,
     isCentralMirrorShadow,
+    isCentralWriteAllowedForContact,
     isSellerInboundEnabled,
     describeSellerContactFlags,
 };

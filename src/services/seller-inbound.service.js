@@ -9,7 +9,10 @@ import {
 } from '../utils/email.utils.js';
 import { normalizePhone } from '../utils/phone.utils.js';
 import { getSellerContactFlags } from './seller-contact-flags.service.js';
-import { observeCentralMirror } from './seller-central-mirror.service.js';
+import {
+    observeCentralMirror,
+    writeCentralMirror,
+} from './seller-central-mirror.service.js';
 
 /**
  * Fase 6 — Inbound de Contactos de Sellers.
@@ -162,23 +165,39 @@ export async function processSellerInbound({
     const registered = extractUpsertedContact(result);
 
     const flags = deps.getFlags ? deps.getFlags() : getSellerContactFlags();
+    const mirrorContact = {
+        name: contactPayload.name,
+        email: contactPayload.email,
+        phone_number: contactPayload.personal_phone || contactPayload.mobile_phone,
+    };
+    let centralMirror = null;
     if (flags.centralMirror === 'shadow') {
         const observeMirror = deps.observeCentralMirror || observeCentralMirror;
         try {
-            await observeMirror({
+            centralMirror = await observeMirror({
                 accountId: config?.accountId,
                 affiliateId: config?.affiliateId,
                 source: 'seller_inbound',
-                contact: {
-                    name: contactPayload.name,
-                    email: contactPayload.email,
-                    phone_number: contactPayload.personal_phone || contactPayload.mobile_phone,
-                },
+                contact: mirrorContact,
                 contactData: contactPayload,
                 deps: deps.mirrorDeps || {},
             });
         } catch (error) {
             console.warn('[seller-inbound] No se pudo observar el espejo central:', error.message);
+        }
+    } else if (flags.centralMirror === 'write') {
+        const writeMirror = deps.writeCentralMirror || writeCentralMirror;
+        try {
+            centralMirror = await writeMirror({
+                accountId: config?.accountId,
+                affiliateId: config?.affiliateId,
+                source: 'seller_inbound',
+                contact: mirrorContact,
+                contactData: contactPayload,
+                deps: deps.mirrorDeps || {},
+            });
+        } catch (error) {
+            console.warn('[seller-inbound] No se pudo escribir el espejo central:', error.message);
         }
     }
 
@@ -189,6 +208,7 @@ export async function processSellerInbound({
         contactUuid: asString(registered?.uuid) || null,
         sellerAffiliateId: asNumber(config?.affiliateId),
         sellerAccountId: asNumber(config?.accountId),
+        centralMirror,
     };
 }
 
