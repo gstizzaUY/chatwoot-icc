@@ -61,7 +61,11 @@ function targetFromArgs() {
     const tokenEnv = argValue('target-token-env');
     const affiliateId = argValue('target-affiliate-id');
 
-    if (!accountId && !url && !tokenEnv && !affiliateId) {
+    // --target-affiliate-id solo no implica target directo: permite resolver
+    // el Seller desde el registro/allowlist. El target directo se activa
+    // únicamente si se pasó URL, account-id o token-env.
+    const hasDirectTarget = Boolean(accountId || url || tokenEnv);
+    if (!hasDirectTarget) {
         return null;
     }
     if (!accountId || !url || !tokenEnv || !affiliateId) {
