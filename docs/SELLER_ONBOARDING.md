@@ -82,6 +82,33 @@ Probar con un contacto de prueba. Después ampliar la allowlist o usar:
 SELLER_CONTACT_CENTRAL_WRITE_ALLOWLIST=*
 ```
 
+## Provisión masiva de Sellers conectados
+
+Para aplicar la provisión a todos los Sellers **configurados y permitidos**:
+
+```bash
+cd /app
+node scripts/provision-seller-all.mjs
+```
+
+Aplicar:
+
+```bash
+node scripts/provision-seller-all.mjs --apply
+```
+
+Importante:
+
+- el script **no enumera cuentas de Chatwoot**;
+- solo procesa `CHATWOOT_SELLER_<id>_*` ∩ `SELLER_CONTACT_ALLOWLIST`;
+- las cuentas no conectadas no se tocan;
+- si un Seller falla, por defecto se detiene;
+- para continuar con los demás:
+
+```bash
+node scripts/provision-seller-all.mjs --apply --continue-on-error
+```
+
 ## Verificación mínima
 
 - La app del Seller se llama `DATOS CONTACTO`.
