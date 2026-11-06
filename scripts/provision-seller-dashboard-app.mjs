@@ -126,7 +126,8 @@ async function main() {
             'Uso: node scripts/provision-seller-dashboard-app.mjs '
             + '(--target-url=... --target-account-id=... --target-affiliate-id=... '
             + '--target-token-env=... | --target-affiliate-id=...) '
-            + '[--frontend-url=...] [--title="RD STATION"] [--apply]',
+            + '[--frontend-url=...] [--title="DATOS CONTACTO"] '
+            + '[--rename-from="RD STATION"] [--apply]',
         );
         return;
     }
@@ -136,6 +137,10 @@ async function main() {
         argValue('frontend-url') || 'https://inchat-app.5vsa59.easypanel.host',
     );
     const title = argValue('title') || 'RD STATION';
+    const legacyTitles = (argValue('rename-from') || '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
     const secret = process.env.SELLER_CONTEXT_SECRET;
 
     if (!secret) {
@@ -153,6 +158,7 @@ async function main() {
         target,
         title,
         url,
+        legacyTitles,
         dryRun: !hasFlag('apply'),
     });
 

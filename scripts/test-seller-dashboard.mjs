@@ -42,6 +42,15 @@ assert.equal(
     }).action,
     'update',
 );
+assert.equal(
+    planDashboardApp({
+        apps: [{ id: 5, title: 'RD STATION', content: [{ type: 'frame', url: 'https://old' }] }],
+        title: 'DATOS CONTACTO',
+        url,
+        legacyTitles: ['RD STATION'],
+    }).action,
+    'update',
+);
 
 const calls = [];
 let applied = false;

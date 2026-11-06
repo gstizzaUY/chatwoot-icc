@@ -182,8 +182,14 @@ export async function fetchDashboardIntegrationStatus({ baseUrl, token, accountI
     };
 }
 
-export function planDashboardApp({ apps, title = DEFAULT_TITLE, url }) {
-    const existing = apps.find((app) => app.title === title) || null;
+export function planDashboardApp({
+    apps,
+    title = DEFAULT_TITLE,
+    url,
+    legacyTitles = [],
+} = {}) {
+    const aliases = [title, ...legacyTitles].filter(Boolean);
+    const existing = apps.find((app) => aliases.includes(app.title)) || null;
 
     if (!existing) {
         return {
@@ -216,6 +222,7 @@ export async function provisionDashboardApp({
     target,
     title = DEFAULT_TITLE,
     url,
+    legacyTitles = [],
     dryRun = true,
     requireIntegrationEnabled = true,
     fetcher = apiRequest,
@@ -243,7 +250,7 @@ export async function provisionDashboardApp({
         }),
     ]);
 
-    const plan = planDashboardApp({ apps, title, url });
+    const plan = planDashboardApp({ apps, title, url, legacyTitles });
     // En Chatwoot, `dashboard_apps.enabled` se deriva de que exista al menos
     // una dashboard app. Es false antes de crear la primera, así que no debe
     // bloquear el create. Solo bloquea una actualización sobre una integración
@@ -296,7 +303,7 @@ export async function provisionDashboardApp({
             fetcher,
         });
 
-    const afterPlan = planDashboardApp({ apps: after, title, url });
+    const afterPlan = planDashboardApp({ apps: after, title, url, legacyTitles });
 
     return {
         dryRun,
