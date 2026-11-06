@@ -114,6 +114,11 @@ const writeFlags = {
     centralMirror: 'write',
     centralWriteAllowlist: ['nuevo@example.test'],
 };
+const definitions = [
+    { attribute_key: 'tiene_ichef', attribute_model: 'contact_attribute' },
+    { attribute_key: 'cedula', attribute_model: 'contact_attribute' },
+    { attribute_key: 'stage', attribute_model: 'contact_attribute' },
+];
 const createdPayloads = [];
 const created = await writeCentralMirror({
     accountId: 3,
@@ -124,8 +129,17 @@ const created = await writeCentralMirror({
         email: 'nuevo@example.test',
         phone_number: '+598 99 000 000',
     },
+    contactData: {
+        name: 'Contacto Nuevo',
+        email: 'nuevo@example.test',
+        mobile_phone: '+598 99 000 000',
+        cf_cedula: '12345678',
+        cf_tiene_ichef: 'Sí',
+        cf_ls_seguis_algun_tipo_de_alimentacion: 'No',
+    },
     deps: {
         getFlags: () => writeFlags,
+        definitions,
         searchContacts: async () => [],
         createContact: async (payload) => {
             createdPayloads.push(payload);
@@ -143,6 +157,13 @@ assert.equal(createdPayloads.length, 1);
 assert.equal(createdPayloads[0].name, 'Contacto Nuevo');
 assert.equal(createdPayloads[0].email, 'nuevo@example.test');
 assert.equal(createdPayloads[0].phone_number, '+59899000000');
+assert.equal(createdPayloads[0].custom_attributes.cedula, '12345678');
+assert.equal(createdPayloads[0].custom_attributes.tiene_ichef, 'Sí');
+assert.equal(
+    createdPayloads[0].custom_attributes.ls_seguis_algun_tipo_de_alimentacion,
+    'No',
+);
+assert.equal(created.omittedFields.includes('cf_ls_seguis_algun_tipo_de_alimentacion'), false);
 
 // Write: existente sin teléfono. Solo completa el campo faltante.
 const updatedPayloads = [];
@@ -155,16 +176,24 @@ const updated = await writeCentralMirror({
         email: 'cliente@example.test',
         phone_number: '+59899123456',
     },
+    contactData: {
+        name: 'Nombre existente',
+        email: 'cliente@example.test',
+        mobile_phone: '+59899123456',
+        cf_cedula: '87654321',
+    },
     deps: {
         getFlags: () => ({
             centralMirror: 'write',
             centralWriteAllowlist: ['cliente@example.test'],
         }),
+        definitions,
         searchContacts: async () => [{
             id: 123,
             name: 'Nombre existente',
             email: 'cliente@example.test',
             phone_number: '',
+            custom_attributes: { stage: 'lead' },
         }],
         createContact: async () => {
             throw new Error('no debería crear');
@@ -177,7 +206,9 @@ const updated = await writeCentralMirror({
 });
 assert.equal(updated.action, 'updated');
 assert.equal(updated.centralContactId, 123);
-assert.deepEqual(updatedPayloads[0].payload, { phone_number: '+59899123456' });
+assert.equal(updatedPayloads[0].payload.phone_number, '+59899123456');
+assert.equal(updatedPayloads[0].payload.custom_attributes.cedula, '87654321');
+assert.equal(updatedPayloads[0].payload.custom_attributes.stage, 'lead');
 
 // Write: contacto fuera de la allowlist.
 const skipped = await writeCentralMirror({

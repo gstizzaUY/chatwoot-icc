@@ -37,6 +37,7 @@ function makeDeps(overrides = {}) {
         deps: {
             getFlags: () => flags,
             resolveSeller: () => sellerConfig,
+            definitions: [],
             createClient: (config) => {
                 calls.clients.push(config);
                 return client;
@@ -116,6 +117,25 @@ await updateSellerContact({
 assert.equal(mirrorArgs.source, 'seller_edit');
 assert.equal(mirrorArgs.accountId, 3);
 assert.equal(mirrorArgs.affiliateId, 34);
+
+const mapped = makeDeps({
+    definitions: [
+        { attribute_key: 'bio', attribute_model: 'contact_attribute' },
+    ],
+});
+const mappedResult = await updateSellerContact({
+    accountId: 3,
+    affiliateId: 34,
+    contactId: 55,
+    contactData: {
+        email: 'cliente@example.test',
+        mobile_phone: '59899123456',
+        cf_bio: 'Texto de biografía',
+    },
+    deps: mapped.deps,
+});
+assert.equal(mappedResult.fieldSync.mappedFields.includes('bio'), true);
+assert.equal(mapped.calls.puts[0].body.custom_attributes.bio, 'Texto de biografía');
 
 await assert.rejects(
     updateSellerContact({

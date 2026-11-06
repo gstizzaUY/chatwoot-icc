@@ -20,6 +20,10 @@ import {
     observeCentralMirror,
     writeCentralMirror,
 } from './seller-central-mirror.service.js';
+import {
+    fetchContactDefinitions,
+    mapRdFieldsToChatwoot,
+} from './contact-field-mapping.service.js';
 
 /**
  * Fase 3 — Actualización aislada de un contacto de Seller.
@@ -265,12 +269,48 @@ export async function updateSellerContact({
     }
 
     let chatwootPayload = {};
+    let fieldSync = null;
     try {
         chatwootPayload = buildPayload({
             ...contactData,
             email: email || contactData.email,
             mobile_phone: phone || contactData.mobile_phone,
         }, contact);
+
+        // Completar el payload con todos los campos RD que tengan atributo
+        // equivalente en la cuenta del Seller, además del mapeo histórico.
+        try {
+            const definitions = deps.definitions || await (
+                deps.fetchContactDefinitions || fetchContactDefinitions
+            )({
+                baseUrl: config.url,
+                token: config.token,
+                accountId: config.accountId,
+                fetcher: deps.definitionsFetcher,
+            });
+            const mapped = mapRdFieldsToChatwoot({
+                rdData: contactData,
+                definitions,
+                currentAttributes: contact.custom_attributes || {},
+            });
+            if (Object.keys(mapped.attributes).length > 0) {
+                chatwootPayload.custom_attributes = {
+                    ...(chatwootPayload.custom_attributes || {}),
+                    ...mapped.attributes,
+                };
+            }
+            fieldSync = {
+                mappedFields: Object.keys(mapped.attributes),
+                omittedFields: mapped.omitted,
+                protectedFields: mapped.protectedFields,
+            };
+        } catch (mappingError) {
+            console.warn(
+                '[seller-contact] No se pudieron mapear todos los campos:',
+                mappingError.message,
+            );
+            fieldSync = { error: mappingError.message };
+        }
     } catch (error) {
         throw new SellerContactError(
             'SELLER_CONTACT_PAYLOAD_FAILED',
@@ -339,6 +379,7 @@ export async function updateSellerContact({
         rdUpdated: Boolean(rdUpdated),
         chatwootUpdated: Object.keys(chatwootPayload).length > 0,
         updatedFields: Object.keys(chatwootPayload),
+        fieldSync,
         centralMirror,
     };
 }

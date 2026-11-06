@@ -9,6 +9,10 @@ import {
     normalizeEmail,
 } from '../utils/email.utils.js';
 import { normalizePhone } from '../utils/phone.utils.js';
+import {
+    fetchContactDefinitions,
+    mapRdFieldsToChatwoot,
+} from './contact-field-mapping.service.js';
 
 /**
  * Fase 7 — Espejo central en modo shadow.
@@ -131,38 +135,19 @@ function normalizeChatwootPhone(value) {
     return normalizePhone(raw, 'UY') || '';
 }
 
-function buildCentralCreatePayload({ name, email, phone }) {
-    const payload = {};
-    const cleanName = asString(name);
-    const cleanEmail = normalizeEmail(email);
-    const cleanPhone = normalizeChatwootPhone(phone);
-
-    if (cleanName) {
-        payload.name = cleanName;
-    }
-    if (cleanEmail && isValidEmail(cleanEmail)) {
-        payload.email = cleanEmail;
-    }
-    if (cleanPhone) {
-        payload.phone_number = cleanPhone;
-    }
-
-    return payload;
-}
-
-function buildCentralFillMissingPayload(central, { name, email, phone }) {
+function buildCentralIdentityPatch(central, { name, email, phone }) {
     const updates = {};
     const cleanName = asString(name);
     const cleanEmail = normalizeEmail(email);
     const cleanPhone = normalizeChatwootPhone(phone);
 
-    if (!asString(central?.name) && cleanName) {
+    if (cleanName && cleanName !== asString(central?.name)) {
         updates.name = cleanName;
     }
-    if (!asString(central?.email) && cleanEmail && isValidEmail(cleanEmail)) {
+    if (cleanEmail && isValidEmail(cleanEmail) && cleanEmail !== normalizeEmail(central?.email)) {
         updates.email = cleanEmail;
     }
-    if (!asString(central?.phone_number) && cleanPhone) {
+    if (cleanPhone && cleanPhone !== asString(central?.phone_number)) {
         updates.phone_number = cleanPhone;
     }
 
@@ -172,11 +157,10 @@ function buildCentralFillMissingPayload(central, { name, email, phone }) {
 /**
  * Escritura controlada en la cuenta central.
  *
- * Política conservadora:
- *   - crea el contacto si no existe;
- *   - si existe, solo completa campos vacíos de identidad;
- *   - nunca modifica nombre/email/teléfono ya existentes;
- *   - nunca toca custom_attributes, etiquetas, conversaciones ni mensajes.
+ * Sincroniza todos los campos RD que tengan un atributo equivalente en
+ * Chatwoot. Conserva las protecciones de stage/tiene_ichef/es_cliente.
+ *
+ * No toca etiquetas, conversaciones ni mensajes.
  */
 export async function writeCentralMirror({
     accountId,
@@ -222,9 +206,26 @@ export async function writeCentralMirror({
 
     try {
         const found = await findCentralContact({ email, phone, deps });
+        const definitions = deps.definitions || await (
+            deps.fetchContactDefinitions || fetchContactDefinitions
+        )({
+            baseUrl: process.env.CHATWOOT_URL,
+            token: process.env.API_ACCESS_TOKEN,
+            accountId: process.env.CHATWOOT_ACCOUNT_ID || 2,
+            fetcher: deps.definitionsFetcher,
+        });
+
+        const mapped = mapRdFieldsToChatwoot({
+            rdData: contactData,
+            definitions,
+            currentAttributes: found.contact?.custom_attributes || {},
+        });
 
         if (!found.contact?.id) {
-            const payload = buildCentralCreatePayload({ name, email, phone });
+            const payload = buildCentralIdentityPatch(null, { name, email, phone });
+            if (Object.keys(mapped.attributes).length > 0) {
+                payload.custom_attributes = mapped.attributes;
+            }
             if (!payload.email && !payload.phone_number) {
                 return {
                     ok: true,
@@ -245,14 +246,29 @@ export async function writeCentralMirror({
                 sellerAffiliateId: Number(affiliateId) || null,
                 action: 'created',
                 centralContactId: central?.id || null,
-                fields: Object.keys(payload),
-                skippedExistingFields: [],
+                fields: [
+                    ...Object.keys(payload).filter((key) => key !== 'custom_attributes'),
+                    ...Object.keys(mapped.attributes),
+                ],
+                omittedFields: mapped.omitted,
+                protectedFields: mapped.protectedFields,
             };
-            console.log('[seller-mirror-write]', JSON.stringify(report));
+            console.log('[seller-mirror-write]', JSON.stringify({
+                ...report,
+                omittedFields: report.omittedFields.length,
+            }));
             return report;
         }
 
-        const updates = buildCentralFillMissingPayload(found.contact, { name, email, phone });
+        const identityUpdates = buildCentralIdentityPatch(found.contact, { name, email, phone });
+        const updates = { ...identityUpdates };
+        if (Object.keys(mapped.attributes).length > 0) {
+            updates.custom_attributes = {
+                ...(found.contact.custom_attributes || {}),
+                ...mapped.attributes,
+            };
+        }
+
         if (Object.keys(updates).length === 0) {
             const report = {
                 ok: true,
@@ -261,11 +277,13 @@ export async function writeCentralMirror({
                 action: 'none',
                 centralContactId: found.contact.id,
                 fields: [],
-                skippedExistingFields: ['name', 'email', 'phone_number'].filter((field) => (
-                    found.contact[field]
-                )),
+                omittedFields: mapped.omitted,
+                protectedFields: mapped.protectedFields,
             };
-            console.log('[seller-mirror-write]', JSON.stringify(report));
+            console.log('[seller-mirror-write]', JSON.stringify({
+                ...report,
+                omittedFields: report.omittedFields.length,
+            }));
             return report;
         }
 
@@ -280,12 +298,17 @@ export async function writeCentralMirror({
             sellerAffiliateId: Number(affiliateId) || null,
             action: 'updated',
             centralContactId: found.contact.id,
-            fields: Object.keys(updates),
-            skippedExistingFields: ['name', 'email', 'phone_number'].filter((field) => (
-                found.contact[field] && !updates[field]
-            )),
+            fields: [
+                ...Object.keys(identityUpdates),
+                ...Object.keys(mapped.attributes),
+            ],
+            omittedFields: mapped.omitted,
+            protectedFields: mapped.protectedFields,
         };
-        console.log('[seller-mirror-write]', JSON.stringify(report));
+        console.log('[seller-mirror-write]', JSON.stringify({
+            ...report,
+            omittedFields: report.omittedFields.length,
+        }));
         return report;
     } catch (error) {
         const report = {
