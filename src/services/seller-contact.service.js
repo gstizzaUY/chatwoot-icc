@@ -16,6 +16,9 @@ import {
     generateEmailFromPhone,
     normalizeEmail,
 } from '../utils/email.utils.js';
+import {
+    observeCentralMirror,
+} from './seller-central-mirror.service.js';
 
 /**
  * Fase 3 — Actualización aislada de un contacto de Seller.
@@ -285,6 +288,26 @@ export async function updateSellerContact({
                 502,
                 { rdUpdated: true, contactId: contact.id },
             );
+        }
+    }
+
+    if (flags.centralMirror === 'shadow') {
+        const observeMirror = deps.observeCentralMirror || observeCentralMirror;
+        try {
+            await observeMirror({
+                accountId: sellerAccountId,
+                affiliateId: config.affiliateId,
+                source: 'seller_edit',
+                contact: {
+                    name: contactData.name,
+                    email,
+                    phone_number: phone,
+                },
+                contactData,
+                deps: deps.mirrorDeps || {},
+            });
+        } catch (error) {
+            console.warn('[seller-contact] No se pudo observar el espejo central:', error.message);
         }
     }
 

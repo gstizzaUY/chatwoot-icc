@@ -8,6 +8,8 @@ import {
     normalizeEmail,
 } from '../utils/email.utils.js';
 import { normalizePhone } from '../utils/phone.utils.js';
+import { getSellerContactFlags } from './seller-contact-flags.service.js';
+import { observeCentralMirror } from './seller-central-mirror.service.js';
 
 /**
  * Fase 6 — Inbound de Contactos de Sellers.
@@ -158,6 +160,27 @@ export async function processSellerInbound({
     const upsert = deps.upsertContact || rdStationClient.upsertContact.bind(rdStationClient);
     const result = await upsert(contactPayload);
     const registered = extractUpsertedContact(result);
+
+    const flags = deps.getFlags ? deps.getFlags() : getSellerContactFlags();
+    if (flags.centralMirror === 'shadow') {
+        const observeMirror = deps.observeCentralMirror || observeCentralMirror;
+        try {
+            await observeMirror({
+                accountId: config?.accountId,
+                affiliateId: config?.affiliateId,
+                source: 'seller_inbound',
+                contact: {
+                    name: contactPayload.name,
+                    email: contactPayload.email,
+                    phone_number: contactPayload.personal_phone || contactPayload.mobile_phone,
+                },
+                contactData: contactPayload,
+                deps: deps.mirrorDeps || {},
+            });
+        } catch (error) {
+            console.warn('[seller-inbound] No se pudo observar el espejo central:', error.message);
+        }
+    }
 
     return {
         ok: true,

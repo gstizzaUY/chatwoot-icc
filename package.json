@@ -18,6 +18,7 @@
     "test:seller-inbound": "node scripts/test-seller-inbound.mjs",
     "test:seller-inbound-controller": "node scripts/test-seller-inbound-controller.mjs",
     "test:seller-webhook": "node scripts/test-seller-webhook.mjs",
+    "test:seller-central-mirror": "node scripts/test-seller-central-mirror.mjs",
     "baseline:seller-chatwoot": "node scripts/seller-chatwoot-baseline.mjs",
     "provision:seller-chatwoot": "node scripts/provision-seller-chatwoot.mjs",
     "provision:seller-dashboard-app": "node scripts/provision-seller-dashboard-app.mjs",

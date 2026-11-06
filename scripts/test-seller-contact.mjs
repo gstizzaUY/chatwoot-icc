@@ -95,6 +95,28 @@ assert.equal(calls.rd[0].data.cf_tiene_ichef, 'Sí');
 assert.equal(calls.puts[0].path, '/contacts/55');
 assert.equal(calls.puts[0].body.custom_attributes.tiene_ichef, 'Sí');
 
+const mirror = makeDeps();
+let mirrorArgs = null;
+mirror.deps.getFlags = () => ({ ...flags, centralMirror: 'shadow' });
+mirror.deps.observeCentralMirror = async (args) => {
+    mirrorArgs = args;
+    return { ok: true };
+};
+await updateSellerContact({
+    accountId: 3,
+    affiliateId: 34,
+    contactId: 55,
+    contactData: {
+        email: 'cliente@example.test',
+        mobile_phone: '59899123456',
+        cf_tiene_ichef: 'Sí',
+    },
+    deps: mirror.deps,
+});
+assert.equal(mirrorArgs.source, 'seller_edit');
+assert.equal(mirrorArgs.accountId, 3);
+assert.equal(mirrorArgs.affiliateId, 34);
+
 await assert.rejects(
     updateSellerContact({
         accountId: 3,
