@@ -99,16 +99,18 @@ async function getRdEditableFields(retry = true) {
  * @param {Object} contactData - Body del request a limpiar
  * @returns {Promise<Object>} Payload limpio
  */
-async function sanitizeContactPayload(contactData) {
+async function sanitizeContactPayload(contactData, { keepNullKeys = [] } = {}) {
 	const entries = Object.entries(contactData).filter(([key]) => !RD_READONLY_FIELDS.includes(key));
+	const keepNull = new Set(keepNullKeys);
 
 	const fields = await getRdEditableFields();
 	if (!fields) {
 		// Fallback: sin whitelist, descartamos readonly y vacíos en los campos LS/encuesta de opción.
 		return Object.fromEntries(
 			entries.filter(([key, value]) => {
-				if (value === undefined || value === null) return false;
-				if (String(value).trim() === "" && /^cf_(ls_|enc_)/.test(key)) return false;
+				if (value === undefined) return false;
+				if (value === null) return keepNull.has(key);
+				if (String(value).trim() === "" && /^cf_(ls_|enc_)/.test(key) && !keepNull.has(key)) return false;
 				return true;
 			})
 		);
@@ -117,9 +119,10 @@ async function sanitizeContactPayload(contactData) {
 	return Object.fromEntries(
 		entries.filter(([key, value]) => {
 			if (!fields.has(key)) return false;
-			if (value === undefined || value === null) return false;
+			if (value === undefined) return false;
+			if (value === null) return keepNull.has(key);
 			const type = fields.get(key) || "";
-			if (RD_OPTION_TYPES.has(type) && String(value).trim() === "") return false;
+			if (RD_OPTION_TYPES.has(type) && String(value).trim() === "" && !keepNull.has(key)) return false;
 			return true;
 		})
 	);

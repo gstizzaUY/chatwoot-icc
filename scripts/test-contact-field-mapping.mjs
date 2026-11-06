@@ -59,4 +59,27 @@ assert.equal(protectedMapping.attributes.stage, undefined);
 assert.equal(protectedMapping.attributes.tiene_ichef, undefined);
 assert.deepEqual(protectedMapping.protectedFields.sort(), ['stage', 'tiene_ichef']);
 
+const cleared = mapRdFieldsToChatwoot({
+    rdData: {
+        cf_ls_seguis_algun_tipo_de_alimentacion: '',
+        cf_cedula: '',
+    },
+    definitions,
+    clearFields: [
+        'cf_ls_seguis_algun_tipo_de_alimentacion',
+        'cf_cedula',
+    ],
+});
+assert.equal(cleared.attributes.ls_seguis_algun_tipo_de_alimentacion, null);
+assert.equal(cleared.attributes.cedula, null);
+
+const protectedClear = mapRdFieldsToChatwoot({
+    rdData: {},
+    definitions,
+    currentAttributes: { stage: 'customer' },
+    clearFields: ['cf_stage'],
+});
+assert.equal(protectedClear.attributes.stage, undefined);
+assert.equal(protectedClear.protectedFields.includes('stage'), true);
+
 console.log('Contact field mapping tests: OK');

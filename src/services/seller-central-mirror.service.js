@@ -219,6 +219,7 @@ export async function writeCentralMirror({
             rdData: contactData,
             definitions,
             currentAttributes: found.contact?.custom_attributes || {},
+            clearFields: contactData.clearFields || [],
         });
 
         if (!found.contact?.id) {

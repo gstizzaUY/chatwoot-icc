@@ -20,12 +20,14 @@
     "test:seller-webhook": "node scripts/test-seller-webhook.mjs",
     "test:seller-central-mirror": "node scripts/test-seller-central-mirror.mjs",
     "test:contact-field-mapping": "node scripts/test-contact-field-mapping.mjs",
+    "test:ls-attributes-provisioning": "node scripts/test-ls-attributes-provisioning.mjs",
     "baseline:seller-chatwoot": "node scripts/seller-chatwoot-baseline.mjs",
     "provision:seller-chatwoot": "node scripts/provision-seller-chatwoot.mjs",
     "provision:seller-dashboard-app": "node scripts/provision-seller-dashboard-app.mjs",
     "provision:seller-inbound-webhook": "node scripts/provision-seller-inbound-webhook.mjs",
     "provision:seller-full": "node scripts/provision-seller-full.mjs",
-    "provision:seller-all": "node scripts/provision-seller-all.mjs"
+    "provision:seller-all": "node scripts/provision-seller-all.mjs",
+    "provision:ls-attributes": "node scripts/provision-ls-attributes.mjs"
   },
   "author": "gstizza",
   "license": "ISC",

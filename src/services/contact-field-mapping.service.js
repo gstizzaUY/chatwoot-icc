@@ -196,14 +196,27 @@ export function mapRdFieldsToChatwoot({
     rdData = {},
     definitions = [],
     currentAttributes = {},
+    clearFields = [],
 } = {}) {
     const keys = definitionKeys(definitions);
     const attributes = {};
     const omitted = [];
     const protectedFields = [];
+    const clearSet = new Set(
+        (Array.isArray(clearFields) ? clearFields : [])
+            .map(asString)
+            .filter(Boolean),
+    );
+    const allKeys = new Set([...Object.keys(rdData), ...clearSet]);
 
-    for (const [rdKey, value] of Object.entries(rdData)) {
-        if (IGNORED_RD_KEYS.has(rdKey) || !isUsableValue(value)) {
+    for (const rdKey of allKeys) {
+        if (IGNORED_RD_KEYS.has(rdKey)) {
+            continue;
+        }
+
+        const shouldClear = clearSet.has(rdKey);
+        const value = rdData[rdKey];
+        if (!shouldClear && !isUsableValue(value)) {
             continue;
         }
 
@@ -214,7 +227,7 @@ export function mapRdFieldsToChatwoot({
         }
 
         if (PROTECTED_KEYS.has(targetKey)) {
-            if (isProtectedDowngrade({
+            if (shouldClear || isProtectedDowngrade({
                 key: targetKey,
                 value,
                 currentAttributes,
@@ -224,7 +237,7 @@ export function mapRdFieldsToChatwoot({
             }
         }
 
-        attributes[targetKey] = value;
+        attributes[targetKey] = shouldClear ? null : value;
     }
 
     return {

@@ -182,8 +182,20 @@ function resolveMobilePhone(contactData) {
 function buildRdPayload(contactData) {
     // Mismo criterio del endpoint histórico: email/phone se usan como
     // identificadores y no se envían dentro del PATCH de campos.
-    const { email, phone, ...fields } = contactData;
-    return fields;
+    const { email, phone, clearFields, ...fields } = contactData;
+    const clears = Array.isArray(clearFields)
+        ? [...new Set(clearFields.map((key) => String(key).trim()).filter(Boolean))]
+        : [];
+
+    // RD acepta null para limpiar un COMBO_BOX; "" devuelve
+    // MUST_BE_VALID_OPTION. El sanitizer conserva estos null explícitos.
+    for (const key of clears) {
+        if (Object.hasOwn(fields, key)) {
+            fields[key] = null;
+        }
+    }
+
+    return { fields, clearFields: clears };
 }
 
 /**
@@ -256,8 +268,11 @@ export async function updateSellerContact({
     const buildPayload = deps.buildChatwootUpdatePayload || buildChatwootUpdatePayload;
 
     let rdUpdated = null;
+    const rdInput = buildRdPayload(contactData);
     try {
-        const rdPayload = await sanitize(buildRdPayload(contactData));
+        const rdPayload = await sanitize(rdInput.fields, {
+            keepNullKeys: rdInput.clearFields,
+        });
         rdUpdated = await updateRd(email, rdPayload);
     } catch (error) {
         throw new SellerContactError(
@@ -292,6 +307,7 @@ export async function updateSellerContact({
                 rdData: contactData,
                 definitions,
                 currentAttributes: contact.custom_attributes || {},
+                clearFields: contactData.clearFields || [],
             });
             if (Object.keys(mapped.attributes).length > 0) {
                 chatwootPayload.custom_attributes = {
